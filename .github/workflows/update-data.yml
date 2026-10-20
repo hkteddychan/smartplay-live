@@ -1,0 +1,61 @@
+name: SmartPLAY Live Data Mirror
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # 每 15 分鐘
+  workflow_dispatch:          # 手動觸發
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch SmartPLAY open-data
+        run: python3 fetch_data.py
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git status --porcelain | grep -q .; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit data update
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git commit -m "🔄 SmartPLAY data mirror $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
+
+      - name: Setup Pages
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to Pages
+        if: steps.changes.outputs.changed == 'true'
+        id: deployment
+        uses: actions/deploy-pages@v4

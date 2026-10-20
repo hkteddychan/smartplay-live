@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartPLAY Live — 康文署場地即時餘額</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root {
+  --green: #1db954; --dark: #0e1117; --card: #161b22; --line: #30363d;
+  --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff; --yellow: #f0b429;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang HK", "Microsoft JhengHei", sans-serif; background: var(--dark); color: var(--text); }
+.container { max-width: 1200px; margin: 0 auto; padding: 16px; }
+header { display: flex; align-items: center; gap: 10px; padding: 14px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.logo { font-size: 24px; }
+h1 { font-size: 20px; font-weight: 700; }
+h1 span { color: var(--green); }
+.meta { margin-left: auto; font-size: 12px; color: var(--muted); }
+.tabs { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+.tab { background: var(--card); border: 1px solid var(--line); color: var(--text); padding: 8px 18px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
+.tab.active { background: var(--green); border-color: var(--green); color: #000; }
+.panel { display: none; }
+.panel.active { display: block; }
+.filters { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 14px; }
+.f-group { display: flex; flex-direction: column; gap: 4px; }
+.f-group label { font-size: 12px; color: var(--muted); }
+select, input[type=text], input[type=date], input[type=time] { background: var(--dark); border: 1px solid var(--line); color: var(--text); padding: 8px 10px; border-radius: 6px; font-size: 14px; min-width: 130px; }
+button { background: var(--accent); color: #000; border: none; padding: 9px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; }
+button.secondary { background: var(--card); border: 1px solid var(--line); color: var(--text); }
+button.export { background: #2ea043; color: #fff; }
+.stats { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; }
+.stat b { font-size: 20px; display: block; }
+.stat span { font-size: 12px; color: var(--muted); }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; max-height: 65vh; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead { position: sticky; top: 0; background: var(--card); z-index: 2; }
+th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--muted); font-weight: 600; font-size: 12px; }
+tr:hover td { background: rgba(88,166,255,.08); }
+.courts { font-weight: 700; }
+.c0 { color: #f85149; } .c1 { color: var(--yellow); } .c2 { color: #a5d6ff; } .c3 { color: var(--green); }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.tag.sport { background: rgba(88,166,255,.15); color: var(--accent); }
+#map { height: 62vh; border-radius: 10px; border: 1px solid var(--line); }
+.hint { color: var(--muted); font-size: 12px; margin-top: 8px; }
+.sport-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill { background: var(--card); border: 1px solid var(--line); padding: 6px 12px; border-radius: 20px; font-size: 13px; cursor: pointer; }
+.pill.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; font-size: 12px; color: var(--muted); }
+.loading { text-align: center; padding: 40px; color: var(--muted); }
+.spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--line); border-top-color: var(--green); border-radius: 50%; animation: spin 1s linear infinite; vertical-align: middle; margin-right: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <span class="logo">🎯</span>
+    <h1>SmartPLAY <span>Live</span></h1>
+    <div class="meta">康文署場地即時餘額 · <span id="upd-time">—</span></div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="facility">🏸 設施餘額</button>
+    <button class="tab" data-tab="activity">🏊 活動搜尋</button>
+    <button class="tab" data-tab="map">🗺️ 地圖</button>
+  </div>
+
+  <!-- ============ FACILITY TAB ============ -->
+  <div class="panel active" id="panel-facility">
+    <div class="filters">
+      <div class="f-group">
+        <label>運動類型</label>
+        <div class="sport-pills" id="sport-pills"></div>
+      </div>
+      <div class="f-group">
+        <label>地區</label>
+        <select id="f-district"><option value="">全部地區</option></select>
+      </div>
+      <div class="f-group">
+        <label>關鍵字</label>
+        <input type="text" id="f-search" placeholder="場地名 / 地址...">
+      </div>
+      <div class="f-group">
+        <label>日期</label>
+        <input type="date" id="f-date">
+      </div>
+      <div class="f-group">
+        <label>開始時間 ≥</label>
+        <input type="time" id="f-time" value="06:00">
+      </div>
+      <div class="f-group">
+        <label>&nbsp;</label>
+        <label><input type="checkbox" id="f-only" checked> 淨係顯示有餘額</label>
+      </div>
+      <button id="f-export">⬇️ 保存 CSV</button>
+    </div>
+    <div class="stats" id="f-stats"></div>
+    <div class="table-wrap">
+      <table id="f-table">
+        <thead><tr><th>運動</th><th>地區</th><th>場地</th><th>設施</th><th>日期</th><th>時段</th><th>餘額</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="hint">💡 點「⬇️ 保存 CSV」即可下載當前過濾結果（Excel 可直接開）。數據每 15 分鐘自動更新。</div>
+  </div>
+
+  <!-- ============ ACTIVITY TAB ============ -->
+  <div class="panel" id="panel-activity">
+    <div class="filters">
+      <div class="f-group">
+        <label>關鍵字</label>
+        <input type="text" id="a-search" placeholder="活動名 / 場地...">
+      </div>
+      <div class="f-group">
+        <label>地區</label>
+        <select id="a-district"><option value="">全部地區</option></select>
+      </div>
+      <div class="f-group">
+        <label>活動類型</label>
+        <select id="a-type"><option value="">全部類型</option></select>
+      </div>
+      <div class="f-group">
+        <label>開始日期 ≥</label>
+        <input type="date" id="a-date">
+      </div>
+      <button id="a-export">⬇️ 保存 CSV</button>
+    </div>
+    <div class="stats" id="a-stats"></div>
+    <div class="table-wrap">
+      <table id="a-table">
+        <thead><tr><th>編號</th><th>活動名稱</th><th>類型</th><th>地區</th><th>開始</th><th>結束</th><th>時間</th><th>場地</th><th>費用</th><th>對象</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="hint">💡 全港康體活動搜尋（名額/報名以官方為準）。</div>
+  </div>
+
+  <!-- ============ MAP TAB ============ -->
+  <div class="panel" id="panel-map">
+    <div class="filters">
+      <div class="f-group">
+        <label>運動類型</label>
+        <div class="sport-pills" id="map-sport-pills"></div>
+      </div>
+      <div class="f-group">
+        <label>日期</label>
+        <input type="date" id="m-date">
+      </div>
+      <div class="f-group">
+        <label>&nbsp;</label>
+        <label><input type="checkbox" id="m-only" checked> 淨係顯示有餘額</label>
+      </div>
+      <div class="f-group">
+        <label>&nbsp;</label>
+        <button class="secondary" id="m-refresh">🔄 重繪地圖</button>
+      </div>
+    </div>
+    <div id="map"></div>
+    <div class="hint">💡 每個圓點 = 一個場地；顏色 = 當日可訂場次數量。點入去睇時段詳情。</div>
+  </div>
+
+  <footer>
+    📊 數據來源：<a href="https://data.smartplay.lcsd.gov.hk" style="color:var(--accent)">LCSD SmartPLAY 開放數據</a>（每 15 分鐘鏡像）· 由 Teddy Sir 製作 · <span id="foot-time"></span>
+    <br>⚠️ 餘額以官方 App 最終確認作準，本網站僅供參考。
+  </footer>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const SPORTS = {
+  badminton: { icon: '🏸', name: '羽毛球', color: '#58a6ff' },
+  basketball: { icon: '🏀', name: '籃球', color: '#f0883e' },
+  volleyball: { icon: '🏐', name: '排球', color: '#f0b429' },
+  tennis: { icon: '🎾', name: '網球', color: '#a5d6ff' },
+  'turf-soccer-pitch': { icon: '⚽', name: '足球場', color: '#2ea043' },
+};
+const all = {}; // sport -> array
+let mapObj = null;
+let currentSport = 'badminton';
+
+const $ = s => document.querySelector(s);
+
+// ---------- LOAD DATA ----------
+async function loadAll() {
+  const promos = Object.keys(SPORTS).map(async k => {
+    const r = await fetch(`data/${k}.json`);
+    all[k] = await r.json();
+    // strip trailing spaces
+    all[k].forEach(x => {
+      for (const key of ['District_Name_TC','Venue_Name_TC','Facility_Type_Name_TC','Facility_Location_Name_TC','Venue_Address_TC']) {
+        if (typeof x[key] === 'string') x[key] = x[key].trim();
+      }
+      x._sport = k;
+    });
+  });
+  await Promise.all(promos);
+  const metaR = await fetch('data/meta.json').catch(() => null);
+  if (metaR) {
+    const meta = await metaR.json();
+    const t = new Date(meta.generated_utc);
+    $('#upd-time').textContent = '更新於 ' + t.toLocaleString('zh-HK', { hour12: false });
+    $('#foot-time').textContent = '數據更新：' + t.toLocaleString('zh-HK', { hour12: false });
+  }
+  initSports();
+  initDistricts();
+  $('#f-date').value = new Date().toISOString().slice(0,10);
+  renderFacility();
+}
+
+// ---------- SPORT PILLS ----------
+function initSports() {
+  const mk = (wrapId, active) => {
+    const wrap = $(wrapId);
+    wrap.innerHTML = '';
+    Object.keys(SPORTS).forEach(k => {
+      const b = document.createElement('span');
+      b.className = 'pill' + (k === currentSport ? ' active' : '');
+      b.textContent = SPORTS[k].icon + ' ' + SPORTS[k].name;
+      b.onclick = () => {
+        document.querySelectorAll(wrapId + ' .pill').forEach(p => p.classList.remove('active'));
+        b.classList.add('active');
+        currentSport = k;
+        if (wrapId === '#sport-pills') {
+          $('#map-sport-pills .pill').forEach ? 0 : 0;
+          document.querySelectorAll('#map-sport-pills .pill').forEach(p => p.classList.toggle('active', p.getAttribute('data-k') === k));
+        } else {
+          document.querySelectorAll('#sport-pills .pill').forEach(p => p.classList.toggle('active', p.getAttribute('data-k') === k));
+        }
+        renderFacility();
+      };
+      b.setAttribute('data-k', k);
+      wrap.appendChild(b);
+    });
+  };
+  mk('#sport-pills');
+  mk('#map-sport-pills');
+}
+
+// ---------- FILTERS ----------
+function initDistricts() {
+  const dists = new Set();
+  Object.values(all).forEach(arr => arr.forEach(x => dists.add(x.District_Name_TC)));
+  const sorted = [...dists].sort();
+  const fSel = $('#f-district'), aSel = $('#a-district');
+  sorted.forEach(d => {
+    fSel.add(new Option(d, d));
+    aSel.add(new Option(d, d));
+  });
+}
+
+function facilityFilter() {
+  const q = $('#f-search').value.trim().toLowerCase();
+  const dist = $('#f-district').value;
+  const date = $('#f-date').value;
+  const time = $('#f-time').value || '00:00';
+  const only = $('#f-only').checked;
+  const rows = [];
+  const arr = all[currentSport] || [];
+  for (const x of arr) {
+    if (dist && x.District_Name_TC !== dist) continue;
+    if (date && x.Available_Date !== date) continue;
+    if (x.Session_Start_Time < time) continue;
+    if (only && parseInt(x.Available_Courts || '0') <= 0) continue;
+    if (q) {
+      const hay = (x.Venue_Name_TC + ' ' + (x.Venue_Address_TC||'') + ' ' + (x.Facility_Location_Name_TC||'')).toLowerCase();
+      if (!hay.includes(q)) continue;
+    }
+    rows.push(x);
+  }
+  rows.sort((a,b) => a.Venue_Name_TC.localeCompare(b.Venue_Name_TC) || a.Available_Date.localeCompare(b.Available_Date) || a.Session_Start_Time.localeCompare(b.Session_Start_Time));
+  return rows;
+}
+
+function renderFacility() {
+  const rows = facilityFilter();
+  const tbody = $('#f-table tbody');
+  tbody.innerHTML = '';
+  const s = SPORTS[currentSport];
+  const distinctVenues = new Set(rows.map(r => r.Venue_Name_TC)).size;
+  const totalSlots = rows.length;
+  rows.slice(0, 500).forEach(x => {
+    const c = parseInt(x.Available_Courts || '0');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><span class="tag sport">${s.icon} ${s.name}</span></td>
+      <td>${x.District_Name_TC||''}</td>
+      <td>${x.Venue_Name_TC||''}</td>
+      <td>${x.Facility_Type_Name_TC||''}</td>
+      <td>${x.Available_Date||''}</td>
+      <td>${x.Session_Start_Time}-${x.Session_End_Time}</td>
+      <td class="courts c${Math.min(c,3)}">${c} 場</td>`;
+    tbody.appendChild(tr);
+  });
+  $('#f-stats').innerHTML = `
+    <div class="stat"><b>${rows.length}</b><span>符合時段${rows.length > 500 ? '（顯示首 500）' : ''}</span></div>
+    <div class="stat"><b>${distinctVenues}</b><span>場地數</span></div>
+    <div class="stat"><b>${totalSlots}</b><span>總時段</span></div>`;
+}
+
+// ---------- ACTIVITY ----------
+let activityData = [];
+async function loadActivity() {
+  const r = await fetch('data/activity-prog.json');
+  activityData = await r.json();
+  const types = new Set();
+  activityData.forEach(x => {
+    for (const k of ['TC_PGM_NAME','TC_ACT_TYPE_NAME','TC_DISTRICT','TC_VENUE']) {
+      if (typeof x[k] === 'string') x[k] = x[k].trim();
+    }
+    if (x.TC_ACT_TYPE_NAME) types.add(x.TC_ACT_TYPE_NAME);
+  });
+  const tSel = $('#a-type');
+  [...types].sort().forEach(t => tSel.add(new Option(t, t)));
+  renderActivity();
+}
+
+function activityFilter() {
+  const q = $('#a-search').value.trim().toLowerCase();
+  const dist = $('#a-district').value;
+  const type = $('#a-type').value;
+  const date = $('#a-date').value;
+  return activityData.filter(x => {
+    if (dist && x.TC_DISTRICT !== dist) return false;
+    if (type && x.TC_ACT_TYPE_NAME !== type) return false;
+    if (date && (!x.PGM_START_DATE || x.PGM_START_DATE < date)) return false;
+    if (q) {
+      const hay = ((x.TC_PGM_NAME||'') + ' ' + (x.TC_VENUE||'') + ' ' + (x.EN_PGM_NAME||'')).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderActivity() {
+  const rows = activityFilter();
+  const tbody = $('#a-table tbody');
+  tbody.innerHTML = '';
+  rows.slice(0, 500).forEach(x => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${x.ACTIVITY_NO||''}</td>
+      <td>${x.TC_PGM_NAME||''}</td>
+      <td>${x.TC_ACT_TYPE_NAME||''}</td>
+      <td>${x.TC_DISTRICT||''}</td>
+      <td>${x.PGM_START_DATE||''}</td>
+      <td>${x.PGM_END_DATE||''}</td>
+      <td>${x.TC_DAY||''}<br>${x.PGM_START_TIME||''}-${x.PGM_END_TIME||''}</td>
+      <td>${x.TC_VENUE||''}</td>
+      <td>$${x.FEE !== undefined && x.FEE !== null ? x.FEE : '—'}</td>
+      <td>${x.TC_TARGET_GRP||''}</td>`;
+    tbody.appendChild(tr);
+  });
+  $('#a-stats').innerHTML = `<div class="stat"><b>${rows.length}</b><span>符合活動${rows.length > 500 ? '（顯示首 500）' : ''}</span></div>`;
+}
+
+// ---------- MAP ----------
+function courtColor(n) {
+  if (n <= 0) return '#f85149';
+  if (n <= 2) return '#f0b429';
+  if (n <= 5) return '#a5d6ff';
+  return '#2ea043';
+}
+
+function renderMap() {
+  const date = $('#m-date').value;
+  const only = $('#m-only').checked;
+  const arr = all[currentSport] || [];
+  const byVenue = {};
+  arr.forEach(x => {
+    if (date && x.Available_Date !== date) return;
+    const c = parseInt(x.Available_Courts || '0');
+    if (only && c <= 0) return;
+    const lat = parseFloat(x.Venue_Latitude), lng = parseFloat(x.Venue_Longitude);
+    if (!lat || !lng) return;
+    const key = x.Venue_Name_TC + '|' + lat + '|' + lng;
+    if (!byVenue[key]) {
+      byVenue[key] = { name: x.Venue_Name_TC, dist: x.District_Name_TC, lat, lng, total: 0, count: 0, sessions: [] };
+    }
+    byVenue[key].total += c;
+    byVenue[key].count += 1;
+    if (byVenue[key].sessions.length < 8) {
+      byVenue[key].sessions.push(`${x.Session_Start_Time}-${x.Session_End_Time} (${c}場)`);
+    }
+  });
+
+  if (!mapObj) {
+    mapObj = L.map('map').setView([22.35, 114.15], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap', maxZoom: 19
+    }).addTo(mapObj);
+  }
+  mapObj.eachLayer(l => { if (l instanceof L.CircleMarker) mapObj.removeLayer(l); });
+
+  const s = SPORTS[currentSport];
+  Object.values(byVenue).forEach(v => {
+    L.circleMarker([v.lat, v.lng], {
+      radius: 8 + Math.min(v.total * 2, 22),
+      color: '#0e1117', weight: 1,
+      fillColor: courtColor(v.total), fillOpacity: 0.8
+    }).bindPopup(`<b>${s.icon} ${v.name}</b><br>${v.dist}<br>可訂時段 ${v.count} 個 / 共 ${v.total} 場<br><small>${v.sessions.join('<br>')}</small>`).addTo(mapObj);
+  });
+  $('#m-only-label').textContent = '';
+}
+
+// ---------- EXPORT CSV ----------
+function toCSV(rows, headers) {
+  const esc = v => { const s = (v === null || v === undefined) ? '' : String(v); return '"' + s.replaceAll('"','""') + '"'; };
+  const lines = [headers.map(esc).join(',')];
+  rows.forEach(r => lines.push(r.map(esc).join(',')));
+  return lines.join('\n');
+}
+function download(name, content, type='text/csv;charset=utf-8') {
+  const blob = new Blob(['\ufeff' + content], { type });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function exportFacility() {
+  const rows = facilityFilter();
+  const hdrs = ['Sport','District','Venue','FacilityType','Date','Start','End','Courts','Address','Phone'];
+  const out = rows.map(x => [SPORTS[x._sport]?.name||x._sport, x.District_Name_TC, x.Venue_Name_TC, x.Facility_Type_Name_TC, x.Available_Date, x.Session_Start_Time, x.Session_End_Time, x.Available_Courts, x.Venue_Address_TC, x.Venue_Phone_No]);
+  download(`smartplay-${currentSport}-${new Date().toISOString().slice(0,10)}.csv`, toCSV(out, hdrs));
+}
+function exportActivity() {
+  const rows = activityFilter();
+  const hdrs = ['ActivityNo','Name','Type','District','Start','End','Day','Time','Venue','Fee','Target'];
+  const out = rows.map(x => [x.ACTIVITY_NO, x.TC_PGM_NAME, x.TC_ACT_TYPE_NAME, x.TC_DISTRICT, x.PGM_START_DATE, x.PGM_END_DATE, x.TC_DAY, x.PGM_START_TIME+'-'+x.PGM_END_TIME, x.TC_VENUE, x.FEE, x.TC_TARGET_GRP]);
+  download(`smartplay-activities-${new Date().toISOString().slice(0,10)}.csv`, toCSV(out, hdrs));
+}
+
+// ---------- EVENTS ----------
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  document.getElementById('panel-' + b.dataset.tab).classList.add('active');
+  if (b.dataset.tab === 'map') setTimeout(renderMap, 50);
+  if (b.dataset.tab === 'activity' && activityData.length === 0) loadActivity();
+});
+['#f-search','#f-district','#f-date','#f-time'].forEach(s => $(s).addEventListener('input', renderFacility));
+$('#f-only').addEventListener('change', renderFacility);
+$('#f-export').addEventListener('click', exportFacility);
+['#a-search','#a-district','#a-type','#a-date'].forEach(s => $(s).addEventListener('input', renderActivity));
+$('#a-export').addEventListener('click', exportActivity);
+$('#m-only').addEventListener('change', renderMap);
+$('#m-refresh').addEventListener('click', renderMap);
+$('#m-date').addEventListener('change', renderMap);
+
+loadAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+ "generated_utc": "2026-10-20T18:48:45.492445+00:00",
+ "source": "https://data.smartplay.lcsd.gov.hk/rest/cms/api/v1/publ/contents/open-data",
+ "datasets": [
+  "badminton",
+  "basketball",
+  "volleyball",
+  "tennis",
+  "turf-soccer-pitch",
+  "activity-prog"
+ ],
+ "total_records": 61036
+}
