@@ -1,13 +1,1 @@
-{
- "generated_utc": "2026-10-21T15:30:03.233465+00:00",
- "source": "https://data.smartplay.lcsd.gov.hk/rest/cms/api/v1/publ/contents/open-data",
- "datasets": [
-  "badminton",
-  "basketball",
-  "volleyball",
-  "tennis",
-  "turf-soccer-pitch",
-  "activity-prog"
- ],
- "total_records": 61029
-}
+{"generated_utc":"2026-10-21T19:17:16.934Z","source":"https://data.smartplay.lcsd.gov.hk/rest/cms/api/v1/publ/contents/open-data","datasets":["badminton","basketball","volleyball","tennis","turf-soccer-pitch","activity-prog"],"total_records":61030,"mirror":"cloudflare-worker"}
