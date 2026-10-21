@@ -1,18 +1,15 @@
-name: SmartPLAY Live Data Mirror
+name: SmartPLAY Live Data Mirror (manual fallback)
+
+# ⚠️ Cron 已遷移去 Cloudflare Worker（smartplay-live-mirror，*/15 準時）
+# 呢個 workflow 只保留做手動 fallback：
+#   - 由 GitHub -> Actions -> Workflows -> 揀呢個 -> Run workflow
+# Pages 用 branch-based deploy：push 去 main 會自動 rebuild，唔需要 deploy-pages steps。
 
 on:
-  schedule:
-    - cron: '*/15 * * * *'   # 每 15 分鐘
   workflow_dispatch:          # 手動觸發
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
 
 jobs:
   mirror:
@@ -42,20 +39,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/
-          git commit -m "🔄 SmartPLAY data mirror $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git commit -m "🔄 SmartPLAY data mirror (manual) $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push
-
-      - name: Setup Pages
-        if: steps.changes.outputs.changed == 'true'
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
-        if: steps.changes.outputs.changed == 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: '.'
-
-      - name: Deploy to Pages
-        if: steps.changes.outputs.changed == 'true'
-        id: deployment
-        uses: actions/deploy-pages@v4
