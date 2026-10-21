@@ -1,43 +1,38 @@
-name: SmartPLAY Live Data Mirror (manual fallback)
+name: Deploy Pages
 
-# ⚠️ Cron 已遷移去 Cloudflare Worker（smartplay-live-mirror，*/15 準時）
-# 呢個 workflow 只保留做手動 fallback：
-#   - 由 GitHub -> Actions -> Workflows -> 揀呢個 -> Run workflow
-# Pages 用 branch-based deploy：push 去 main 會自動 rebuild，唔需要 deploy-pages steps。
+# ⚠️ 數據 mirror 已遷移去 Cloudflare Worker（smartplay-live-mirror，*/15 準時 commit 去 main）
+# 呢個 workflow 只負責 Pages deploy：
+#   - Worker commit 用 PAT → 會觸發 push event → 呢個 workflow 跑
+#   - 淨係 build + deploy Pages artifact，唔 fetch / 唔 commit
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:          # 手動觸發
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
-  mirror:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          python-version: '3.12'
+          path: '.'
 
-      - name: Fetch SmartPLAY open-data
-        run: python3 fetch_data.py
-
-      - name: Check for changes
-        id: changes
-        run: |
-          if git status --porcelain | grep -q .; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Commit data update
-        if: steps.changes.outputs.changed == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/
-          git commit -m "🔄 SmartPLAY data mirror (manual) $(date -u +'%Y-%m-%d %H:%M UTC')"
-          git push
+      - name: Deploy to Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
