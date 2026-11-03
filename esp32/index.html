@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head><meta charset="UTF-8"><title>SmartPLAY ESP32 Feed</title></head>
+<body>
+<h1>SmartPLAY Live — ESP32 Feed</h1>
+<p>Compact JSON feeds for ESP32 devices. See <a href="https://github.com/hkteddychan/smartplay-live/tree/main/esp32">README</a>.</p>
+<ul id="files"></ul>
+<script>
+fetch('index.json').then(r=>r.json()).then(idx=>{
+  const ul=document.getElementById('files');
+  const li=document.createElement('li');
+  li.textContent=`generated: ${idx.g} HKT`;
+  ul.appendChild(li);
+  for(const f of idx.files||[]){
+    const li=document.createElement('li');
+    const a=document.createElement('a');
+    a.href=f; a.textContent=f;
+    li.appendChild(a); ul.appendChild(li);
+  }
+});
+</script>
+</body>
+</html>
