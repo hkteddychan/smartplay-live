@@ -64,6 +64,23 @@ tr:hover td { background: rgba(88,166,255,.08); }
 /* 時段 + 開始時間合併一行 */
 .f-inline-row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
 .f-inline-row .f-group { margin: 0; }
+/* 新數據 update banner */
+#update-banner {
+  position: fixed; right: 20px; bottom: 20px; z-index: 9999;
+  background: var(--card); border: 1px solid var(--green); border-radius: 10px;
+  padding: 12px 16px; display: none; align-items: center; gap: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.5); max-width: 92vw;
+  animation: banner-in .3s ease;
+}
+#update-banner.show { display: flex; }
+@keyframes banner-in { from { transform: translateY(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+#update-banner .msg { font-size: 13px; }
+#update-banner .msg b { color: var(--green); }
+#update-banner button { padding: 7px 14px; font-size: 13px; }
+#update-banner .dismiss { background: var(--card); border: 1px solid var(--line); color: var(--muted); font-weight: 400; }
+@media (max-width: 700px) {
+  #update-banner { right: 10px; bottom: 10px; left: 10px; flex-wrap: wrap; }
+}
 footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; font-size: 12px; color: var(--muted); }
 .loading { text-align: center; padding: 40px; color: var(--muted); }
 .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--line); border-top-color: var(--green); border-radius: 50%; animation: spin 1s linear infinite; vertical-align: middle; margin-right: 8px; }
@@ -226,6 +243,12 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
     📊 數據來源：<a href="https://data.smartplay.lcsd.gov.hk" style="color:var(--accent)">LCSD SmartPLAY 開放數據</a>（每 15 分鐘鏡像）· 由 Teddy Sir 製作 · <span id="foot-time"></span>
     <br>⚠️ 餘額以官方 App 最終確認作準，本網站僅供參考。
   </footer>
+</div>
+
+<div id="update-banner">
+  <span class="msg">🔄 有新數據（<b id="ub-time">—</b> 鏡像更新）</span>
+  <button id="ub-refresh">立即更新</button>
+  <button class="dismiss" id="ub-dismiss">✕</button>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -718,6 +741,35 @@ $('#a-export').addEventListener('click', exportActivity);
 $('#m-only').addEventListener('change', renderMap);
 $('#m-refresh').addEventListener('click', renderMap);
 $('#m-date').addEventListener('change', renderMap);
+
+// ---------- NEW-DATA POLL（meta.json version check + update banner） ----------
+let myMetaUtc = null;          // page load 時嘅版本
+let dismissedUtc = null;       // 用戶閂咗 banner 時嘅版本 — 同版本唔再彈
+const POLL_MS = 2 * 60 * 1000; // 2 分鐘
+
+async function pollMeta() {
+  if (document.hidden) return;                       // 背景 tab 慳資源
+  try {
+    const r = await fetch('data/meta.json', { cache: 'no-store' });
+    if (!r.ok) return;
+    const meta = await r.json();
+    if (!meta.generated_utc) return;
+    if (myMetaUtc === null) { myMetaUtc = meta.generated_utc; return; }  // first read = baseline
+    if (meta.generated_utc !== myMetaUtc && meta.generated_utc !== dismissedUtc) {
+      const t = new Date(meta.generated_utc);
+      $('#ub-time').textContent = t.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit', hour12: false });
+      $('#update-banner').classList.add('show');
+    }
+  } catch (e) { /* 靜默 — poll 失敗唔好嘈 */ }
+}
+setInterval(pollMeta, POLL_MS);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pollMeta(); });
+$('#ub-refresh').onclick = () => location.reload();
+$('#ub-dismiss').onclick = () => {
+  // 記低目前最新版本，同一版本唔再煩
+  fetch('data/meta.json', { cache: 'no-store' }).then(r => r.json()).then(m => { dismissedUtc = m.generated_utc; }).catch(() => {});
+  $('#update-banner').classList.remove('show');
+};
 
 loadAll();
 </script>
