@@ -49,6 +49,11 @@ tr:hover td { background: rgba(88,166,255,.08); }
 .sport-pills { display: flex; gap: 6px; flex-wrap: wrap; }
 .pill { background: var(--card); border: 1px solid var(--line); padding: 6px 12px; border-radius: 20px; font-size: 13px; cursor: pointer; }
 .pill.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+.date-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { background: var(--card); border: 1px solid var(--line); padding: 6px 12px; border-radius: 16px; font-size: 13px; cursor: pointer; user-select: none; white-space: nowrap; }
+.chip.active { background: var(--green); border-color: var(--green); color: #000; font-weight: 600; }
+.chip .sm { color: var(--muted); font-size: 11px; }
+.chip.active .sm { color: rgba(0,0,0,.6); }
 footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; font-size: 12px; color: var(--muted); }
 .loading { text-align: center; padding: 40px; color: var(--muted); }
 .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--line); border-top-color: var(--green); border-radius: 50%; animation: spin 1s linear infinite; vertical-align: middle; margin-right: 8px; }
@@ -86,12 +91,20 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
         <input type="text" id="f-search" placeholder="場地名 / 地址...">
       </div>
       <div class="f-group">
-        <label>日期</label>
-        <input type="date" id="f-date">
+        <label>日期 <span id="f-date-mode-toggle" style="cursor:pointer;color:var(--accent);font-size:12px">（切換範圍模式）</span></label>
+        <div class="date-chips" id="f-date-chips"></div>
+        <div id="f-date-range" style="display:none;gap:6px;align-items:center">
+          <input type="date" id="f-range-from" style="min-width:135px"> <span style="color:var(--muted)">至</span>
+          <input type="date" id="f-range-to" style="min-width:135px">
+        </div>
+      </div>
+      <div class="f-group">
+        <label>時段</label>
+        <div class="date-chips" id="f-period-pills"></div>
       </div>
       <div class="f-group">
         <label>開始時間 ≥</label>
-        <input type="time" id="f-time" value="06:00">
+        <input type="time" id="f-time" value="00:00">
       </div>
       <div class="f-group">
         <label>&nbsp;</label>
@@ -218,30 +231,121 @@ let currentSport = 'badminton';
 
 const $ = s => document.querySelector(s);
 
+// ---------- HKT date helper（今日以香港時間計，唔用 UTC） ----------
+function hkToday() {
+  // toLocaleDateString with en-CA gives YYYY-MM-DD in the target tz
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Hong_Kong' });
+}
+function hkAddDays(iso, n) {
+  const d = new Date(iso + 'T12:00:00+08:00');  // noon HKT avoids DST/edge issues
+  d.setDate(d.getDate() + n);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Hong_Kong' });
+}
+const DAY_CN = ['日', '一', '二', '三', '四', '五', '六'];
+function weekdayCN(iso) {
+  const d = new Date(iso + 'T12:00:00+08:00');
+  return '週' + DAY_CN[d.getDay()];  // getDay is UTC-based for the noon instant = same calendar day
+}
+
+// ---------- DATE CHIPS + PERIOD PILLS state ----------
+const DATES = (() => {          // 7 days starting today (HKT)
+  const t = hkToday();
+  return Array.from({length: 7}, (_, i) => hkAddDays(t, i));
+})();
+let dateMode = 'chips';                          // 'chips' | 'range'
+let selDates = new Set(DATES);                   // chips mode: default ALL 7 selected
+let selPeriods = new Set(['am', 'pm', 'eve']);   // default all selected
+const PERIODS = [
+  { k: 'am',  label: '🌅 早上', range: '07:00-11:59', from: 7*60,  to: 12*60-1 },
+  { k: 'pm',  label: '☀️ 下午', range: '12:00-17:59', from: 12*60, to: 18*60-1 },
+  { k: 'eve', label: '🌙 晚上', range: '18:00+',     from: 18*60, to: 24*60   },
+];
+
+function initDateChips() {
+  const wrap = $('#f-date-chips');
+  wrap.innerHTML = '';
+  DATES.forEach((iso, i) => {
+    const c = document.createElement('span');
+    c.className = 'chip' + (selDates.has(iso) ? ' active' : '');
+    const label = i === 0 ? '今日' : (i === 1 ? '聽日' : iso.slice(5).replace('-', '/'));
+    c.innerHTML = `${label} <span class="sm">${iso.slice(5)} ${weekdayCN(iso).slice(1)}</span>`;
+    c.dataset.date = iso;
+    c.onclick = () => {
+      if (selDates.has(iso)) selDates.delete(iso); else selDates.add(iso);
+      c.classList.toggle('active');
+      renderFacility();
+    };
+    wrap.appendChild(c);
+  });
+  // range inputs: min = today, defaults = window edges
+  const from = $('#f-range-from'), to = $('#f-range-to');
+  [from, to].forEach(inp => inp.min = DATES[0]);
+  to.max = DATES[6];
+  if (!from.value) from.value = DATES[0];
+  if (!to.value) to.value = DATES[6];
+}
+function initPeriodPills() {
+  const wrap = $('#f-period-pills');
+  wrap.innerHTML = '';
+  PERIODS.forEach(p => {
+    const c = document.createElement('span');
+    c.className = 'chip' + (selPeriods.has(p.k) ? ' active' : '');
+    c.innerHTML = `${p.label} <span class="sm">${p.range}</span>`;
+    c.dataset.p = p.k;
+    c.onclick = () => {
+      if (selPeriods.has(p.k)) selPeriods.delete(p.k); else selPeriods.add(p.k);
+      c.classList.toggle('active');
+      renderFacility();
+    };
+    wrap.appendChild(c);
+  });
+}
+// date mode toggle
+function setupDateModeToggle() {
+  $('#f-date-mode-toggle').onclick = () => {
+    dateMode = dateMode === 'chips' ? 'range' : 'chips';
+    $('#f-date-chips').style.display = dateMode === 'chips' ? 'flex' : 'none';
+    $('#f-date-range').style.display = dateMode === 'range' ? 'flex' : 'none';
+    $('#f-date-mode-toggle').textContent = dateMode === 'chips' ? '（切換範圍模式）' : '（切換多選模式）';
+    renderFacility();
+  };
+  ['f-range-from', 'f-range-to'].forEach(id => $('#' + id).addEventListener('input', renderFacility));
+}
+
 // ---------- LOAD DATA ----------
 async function loadAll() {
   const promos = Object.keys(SPORTS).map(async k => {
-    const r = await fetch(`data/${k}.json`);
-    all[k] = await r.json();
-    // strip trailing spaces
-    all[k].forEach(x => {
-      for (const key of ['District_Name_TC','Venue_Name_TC','Facility_Type_Name_TC','Facility_Location_Name_TC','Venue_Address_TC']) {
-        if (typeof x[key] === 'string') x[key] = x[key].trim();
-      }
-      x._sport = k;
-    });
+    try {
+      const r = await fetch(`data/${k}.json`);
+      if (!r.ok) throw new Error(r.status);
+      all[k] = await r.json();
+      // strip trailing spaces
+      all[k].forEach(x => {
+        for (const key of ['District_Name_TC','Venue_Name_TC','Facility_Type_Name_TC','Facility_Location_Name_TC','Venue_Address_TC']) {
+          if (typeof x[key] === 'string') x[key] = x[key].trim();
+        }
+        x._sport = k;
+      });
+    } catch (e) {
+      console.warn(`⚠️ ${k}.json 載入失敗: ${e.message}`);
+      all[k] = [];
+    }
   });
   await Promise.all(promos);
-  const metaR = await fetch('data/meta.json').catch(() => null);
-  if (metaR) {
-    const meta = await metaR.json();
-    const t = new Date(meta.generated_utc);
-    $('#upd-time').textContent = '更新於 ' + t.toLocaleString('zh-HK', { hour12: false });
-    $('#foot-time').textContent = '數據更新：' + t.toLocaleString('zh-HK', { hour12: false });
-  }
+  try {
+    const metaR = await fetch('data/meta.json');
+    if (metaR.ok) {
+      const meta = await metaR.json();
+      const t = new Date(meta.generated_utc);
+      $('#upd-time').textContent = '更新於 ' + t.toLocaleString('zh-HK', { hour12: false });
+      $('#foot-time').textContent = '數據更新：' + t.toLocaleString('zh-HK', { hour12: false });
+    }
+  } catch (e) { console.warn('⚠️ meta.json 載入失敗: ' + e.message); }
   initSports();
   initDistricts();
-  $('#f-date').value = new Date().toISOString().slice(0,10);
+  initDateChips();
+  initPeriodPills();
+  setupDateModeToggle();
   renderFacility();
 }
 
@@ -289,14 +393,30 @@ function initDistricts() {
 function facilityFilter() {
   const q = $('#f-search').value.trim().toLowerCase();
   const dist = $('#f-district').value;
-  const date = $('#f-date').value;
   const time = $('#f-time').value || '00:00';
   const only = $('#f-only').checked;
+  // active dates: chips mode = selected set; range mode = [from, to]
+  let activeDates;
+  if (dateMode === 'range') {
+    const from = $('#f-range-from').value || DATES[0];
+    const to = $('#f-range-to').value || DATES[6];
+    activeDates = DATES.filter(d => d >= from && d <= to);
+  } else {
+    activeDates = DATES.filter(d => selDates.has(d));
+  }
+  const dateSet = new Set(activeDates);
+  const activePeriods = PERIODS.filter(p => selPeriods.has(p.k));
   const rows = [];
   const arr = all[currentSport] || [];
   for (const x of arr) {
     if (dist && x.District_Name_TC !== dist) continue;
-    if (date && x.Available_Date !== date) continue;
+    if (!dateSet.has(x.Available_Date)) continue;
+    // period filter: session START time decides the period
+    if (activePeriods.length < PERIODS.length) {
+      const [hh, mm] = x.Session_Start_Time.split(':').map(Number);
+      const sm = hh * 60 + mm;
+      if (!activePeriods.some(p => sm >= p.from && sm < p.to)) continue;
+    }
     if (x.Session_Start_Time < time) continue;
     if (only && parseInt(x.Available_Courts || '0') <= 0) continue;
     if (q) {
@@ -306,6 +426,7 @@ function facilityFilter() {
     rows.push(x);
   }
   rows.sort((a,b) => a.Venue_Name_TC.localeCompare(b.Venue_Name_TC) || a.Available_Date.localeCompare(b.Available_Date) || a.Session_Start_Time.localeCompare(b.Session_Start_Time));
+  rows._activeDates = activeDates;
   return rows;
 }
 
@@ -316,6 +437,7 @@ function renderFacility() {
   const s = SPORTS[currentSport];
   const distinctVenues = new Set(rows.map(r => r.Venue_Name_TC)).size;
   const totalSlots = rows.length;
+  const nDates = (rows._activeDates || []).length;
   rows.slice(0, 500).forEach(x => {
     const c = parseInt(x.Available_Courts || '0');
     const tr = document.createElement('tr');
@@ -329,6 +451,7 @@ function renderFacility() {
     tbody.appendChild(tr);
   });
   $('#f-stats').innerHTML = `
+    <div class="stat"><b>${nDates}</b><span>揀咗幾多日</span></div>
     <div class="stat"><b>${rows.length}</b><span>符合時段${rows.length > 500 ? '（顯示首 500）' : ''}</span></div>
     <div class="stat"><b>${distinctVenues}</b><span>場地數</span></div>
     <div class="stat"><b>${totalSlots}</b><span>總時段</span></div>`;
@@ -419,8 +542,14 @@ function exportChanges() {
 // ---------- ACTIVITY ----------
 let activityData = [];
 async function loadActivity() {
-  const r = await fetch('data/activity-prog.json');
-  activityData = await r.json();
+  try {
+    const r = await fetch('data/activity-prog.json');
+    if (!r.ok) throw new Error(r.status);
+    activityData = await r.json();
+  } catch (e) {
+    console.warn('⚠️ activity-prog.json 載入失敗: ' + e.message);
+    activityData = [];
+  }
   const types = new Set();
   activityData.forEach(x => {
     for (const k of ['TC_PGM_NAME','TC_ACT_TYPE_NAME','TC_DISTRICT','TC_VENUE']) {
@@ -430,6 +559,9 @@ async function loadActivity() {
   });
   const tSel = $('#a-type');
   [...types].sort().forEach(t => tSel.add(new Option(t, t)));
+  const aDate = $('#a-date');
+  aDate.min = hkToday();
+  if (!aDate.value) aDate.value = hkToday();
   renderActivity();
 }
 
@@ -506,6 +638,9 @@ function renderMap() {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap', maxZoom: 19
     }).addTo(mapObj);
+    const mDate = $('#m-date');
+    mDate.min = hkToday();
+    if (!mDate.value) mDate.value = hkToday();
   }
   mapObj.eachLayer(l => { if (l instanceof L.CircleMarker) mapObj.removeLayer(l); });
 
@@ -559,7 +694,7 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
   if (b.dataset.tab === 'activity' && activityData.length === 0) loadActivity();
   if (b.dataset.tab === 'changes' && changesData === null) loadChanges();
 });
-['#f-search','#f-district','#f-date','#f-time'].forEach(s => $(s).addEventListener('input', renderFacility));
+['#f-search','#f-district','#f-time'].forEach(s => $(s).addEventListener('input', renderFacility));
 $('#f-only').addEventListener('change', renderFacility);
 $('#f-export').addEventListener('click', exportFacility);
 ['#c-sport','#c-kind','#c-search'].forEach(s => $(s).addEventListener('input', renderChanges));
