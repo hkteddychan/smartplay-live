@@ -98,6 +98,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
   <div class="tabs">
     <button class="tab active" data-tab="facility">🏸 設施餘額</button>
     <button class="tab" data-tab="changes">🔔 最新改變</button>
+    <button class="tab" data-tab="esp">🤖 ESP32 視角</button>
     <button class="tab" data-tab="activity">🏊 活動搜尋</button>
     <button class="tab" data-tab="map">🗺️ 地圖</button>
   </div>
@@ -182,6 +183,28 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
       </table>
     </div>
     <div class="hint">💡 對比今次 vs 上一次數據鏡像（約 15 分鐘前）。<b style="color:#f85149">📉 畿人訂咗</b> · <b style="color:#2ea043">📈 放咗場</b> · <b style="color:#58a6ff">🆕 新時段</b> · ❌ 成個時段消失。</div>
+  </div>
+
+  <!-- ============ ESP32 TAB（裝置視角驗證） ============ -->
+  <div class="panel" id="panel-esp">
+    <div class="filters">
+      <div class="f-group">
+        <label>&nbsp;</label>
+        <button class="secondary" id="e-refresh">🔄 重新拉 ESP32 feed</button>
+      </div>
+      <div class="f-group">
+        <label>&nbsp;</label>
+        <span class="hint" style="margin:0">模擬 ESP32 v2.0 響 device 睇到嘅嘢（九龍城/黃大仙/觀塘 + 18:00後 + ≥1場）</span>
+      </div>
+    </div>
+    <div class="stats" id="e-stats"></div>
+    <div class="table-wrap">
+      <table id="e-table">
+        <thead><tr><th>來源</th><th>運動</th><th>日期</th><th>場地</th><th>設施</th><th>時段</th><th>餘額/變化</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="hint">💡 上半部 = <b>today.json</b>（ESP32 每 15 分鐘拉嘅今晚+聽晚明細，已套用 device filter）；下半部 = <b>changes-eve.json</b>（每 3 分鐘 poll 嘅放場偵測 — 📈會 beep，📉❌唔會）。ESP32 Serial 應該顯示一樣嘅內容。</div>
   </div>
 
   <!-- ============ ACTIVITY TAB ============ -->
@@ -279,7 +302,11 @@ function hkAddDays(iso, n) {
 const DAY_CN = ['日', '一', '二', '三', '四', '五', '六'];
 function weekdayCN(iso) {
   const d = new Date(iso + 'T12:00:00+08:00');
-  return '週' + DAY_CN[d.getDay()];  // getDay is UTC-based for the noon instant = same calendar day
+  return '星期' + DAY_CN[d.getDay()];
+}
+function weekdayShortCN(iso) {   // 短版：三 四 五（date chips 用）
+  const d = new Date(iso + 'T12:00:00+08:00');
+  return DAY_CN[d.getDay()];
 }
 
 // ---------- DATE CHIPS + PERIOD PILLS state ----------
@@ -302,7 +329,7 @@ function initDateChips() {
   DATES.forEach((iso, i) => {
     const c = document.createElement('span');
     c.className = 'chip' + (selDates.has(iso) ? ' active' : '');
-    const wd = weekdayCN(iso).slice(1);   // 三 四 五...
+    const wd = weekdayShortCN(iso);   // 三 四 五...（chips 短版）
     const label = i === 0 ? '今日' : (i === 1 ? '聽日' : `${wd} ${iso.slice(5).replace('-', '/')}`);
     c.innerHTML = `${label} <span class="sm">${i < 2 ? iso.slice(5) + ' ' + wd : ''}</span>`;
     c.dataset.date = iso;
@@ -478,7 +505,7 @@ function renderFacility() {
   rows.slice(0, 500).forEach(x => {
     const c = parseInt(x.Available_Courts || '0');
     const dISO = x.Available_Date || '';
-    const dWd = dISO ? weekdayCN(dISO).slice(1) : '';   // 週幾（一 二 三...）
+    const dWd = dISO ? weekdayCN(dISO) : '';   // 星期幾
     const dateLabel = dISO ? dISO.slice(5) + ' ' + dWd : '';
     const tr = document.createElement('tr');
     tr.innerHTML = `<td><span class="tag sport">${s.icon} ${s.name}</span></td>
@@ -546,7 +573,7 @@ function renderChanges() {
   rows.slice(0, 500).forEach(x => {
     const s = SPORTS[x.sp] || { icon: '•', name: x.sp };
     const d = new Date(x.date + 'T00:00:00');
-    const wd = '週' + '日一二三四五六'[d.getDay()];
+    const wd = '星期' + '日一二三四五六'[d.getDay()];
     const dateLabel = x.date.slice(5).replace('-', '-') + ' ' + wd;
     let changeHtml, cls;
     if (x.kd === 'new')      { changeHtml = `🆕 新增 <b>${x.newC} 場</b>`;  cls = 'c3'; nNew++; }
@@ -578,6 +605,89 @@ function exportChanges() {
   const out = rows.map(x => [SPORTS[x.sp]?.name||x.sp, x.date, x.venue, x.loc, fmtMin(x.sm), fmtMin(x.em), kn[x.kd]||x.kd, x.oldC, x.newC]);
   download(`smartplay-changes-${new Date().toISOString().slice(0,10)}.csv`, toCSV(out, hdrs));
 }
+
+// ---------- ESP32 視角（device feed 模擬，對照 Serial output） ----------
+const ESP_DISTRICTS = ["九龍城區", "黃大仙區", "觀塘區"];   // 同 sketch MY_DISTRICTS 一致
+let espToday = null, espEve = null;
+
+async function loadEspFeeds() {
+  $('#e-refresh').textContent = '⏳ 拉緊...';
+  const tR = fetch('esp32/today.json', { cache: 'no-store' }).then(r => r.json()).catch(() => null);
+  const cR = fetch('esp32/changes-eve.json', { cache: 'no-store' }).then(r => r.json()).catch(() => null);
+  espToday = await tR; espEve = await cR;
+  $('#e-refresh').textContent = '🔄 重新拉 ESP32 feed';
+  renderEsp();
+}
+
+function renderEsp() {
+  const tbody = $('#e-table tbody');
+  tbody.innerHTML = '';
+  let nToday = 0, nRelease = 0, nLost = 0;
+  const dateWd = iso => iso ? iso.slice(5) + ' ' + weekdayCN(iso) : '?';
+
+  // ---- Part 1: today.json with device filter（九龍城/黃大仙/觀塘 + ≥18:00 + ≥1場）----
+  if (espToday && espToday.sports) {
+    for (const [sp, data] of Object.entries(espToday.sports)) {
+      const s = SPORTS[sp] || { icon: '•', name: sp };
+      const venues = data.v || [], districts = data.s || [], rows = data.r || [];
+      for (const r of rows) {
+        const [vIdx, dIdx, dateIdx, sm, em, courts] = r;
+        if (courts < 1) continue;
+        if (sm < 18 * 60) continue;                       // MIN_START_MIN = 18:00
+        const dist = districts[dIdx] || '';
+        if (!ESP_DISTRICTS.includes(dist)) continue;       // MY_DISTRICTS
+        const dateISO = (espToday.d || [])[dateIdx];
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><span class="tag sport">📟 today</span></td>
+          <td><span class="tag sport">${s.icon} ${s.name}</span></td>
+          <td>${dateWd(dateISO)}</td>
+          <td>${venues[vIdx] || '?'}</td>
+          <td>—</td>
+          <td>${fmtMin(sm)}-${fmtMin(em)}</td>
+          <td class="courts c${Math.min(courts,3)}">${courts} 場</td>`;
+        tbody.appendChild(tr);
+        nToday++;
+      }
+    }
+  }
+
+  // ---- Part 2: changes-eve.json（📈=beep 🔔 / 📉❌=唔 beep）----
+  if (espEve && espEve.sports) {
+    for (const [sp, changes] of Object.entries(espEve.sports)) {
+      const s = SPORTS[sp] || { icon: '•', name: sp };
+      for (const c of (changes || [])) {
+        const [date, venue, loc, sm, em, kind, oldC, newC] = c;
+        const isRelease = (kind === 'chg' && newC > oldC) || kind === 'new';
+        if (isRelease) nRelease++; else nLost++;
+        let chHtml;
+        if (isRelease)        chHtml = `📈 ${oldC}→${newC} 場 🔔 beep`;
+        else if (kind === 'gone') chHtml = `❌ 消失（原本 ${oldC}）`;
+        else                  chHtml = `📉 ${oldC}→${newC} 場`;
+        const cls = isRelease ? 'c3' : 'c0';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><span class="tag sport">🌙 eve-chg</span></td>
+          <td><span class="tag sport">${s.icon} ${s.name}</span></td>
+          <td>${dateWd(date)}</td>
+          <td>${venue}</td>
+          <td>${loc || '—'}</td>
+          <td>${fmtMin(sm)}-${fmtMin(em)}</td>
+          <td class="courts ${cls}">${chHtml}</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+  }
+
+  const tGen = espToday ? espToday.g : '❌ 載入失敗';
+  const cGen = espEve ? espEve.g : '❌ 載入失敗';
+  $('#e-stats').innerHTML = `
+    <div class="stat"><b>${nToday}</b><span>📟 today 符合 device filter</span></div>
+    <div class="stat"><b style="color:#2ea043">${nRelease}</b><span>📈 會 beep 🔔</span></div>
+    <div class="stat"><b style="color:#f85149">${nLost}</b><span>📉 唔會 beep</span></div>
+    <div class="stat"><b style="font-size:13px">${tGen}</b><span>today.json 生成 (HKT)</span></div>
+    <div class="stat"><b style="font-size:13px">${cGen}</b><span>changes-eve 生成 (HKT)</span></div>`;
+}
+
+$('#e-refresh').addEventListener('click', loadEspFeeds);
 
 // ---------- ACTIVITY ----------
 let activityData = [];
@@ -733,6 +843,7 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
   if (b.dataset.tab === 'map') setTimeout(renderMap, 50);
   if (b.dataset.tab === 'activity' && activityData.length === 0) loadActivity();
   if (b.dataset.tab === 'changes' && changesData === null) loadChanges();
+  if (b.dataset.tab === 'esp' && espToday === null) loadEspFeeds();
 });
 ['#f-search','#f-district','#f-time'].forEach(s => $(s).addEventListener('input', renderFacility));
 $('#f-only').addEventListener('change', renderFacility);
