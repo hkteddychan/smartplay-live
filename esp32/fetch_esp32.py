@@ -12,7 +12,7 @@ Schema (positional arrays, short):
   {sport}-7d.json   -> {"g": ..., "v": venues, "s": districts, "d": dates, "r": rows}
 Only rows with Available_Courts > 0 are emitted.
 """
-import json, os, sys
+import json, os, sys, subprocess
 from datetime import datetime, timedelta, timezone
 
 HK = timezone(timedelta(hours=8))
@@ -99,4 +99,94 @@ index['files'] = ['today.json'] + [f'{s}-7d.json' for s in index['s']]
 with open(os.path.join(OUT, 'index.json'), 'w', encoding='utf-8') as f:
     json.dump(index, f, ensure_ascii=False, separators=(',', ':'))
 print(f'📦 index.json: {os.path.getsize(os.path.join(OUT, "index.json"))/1024:.1f} KB')
+
+# ============================================================
+# 「最新改變」diff — compare current data/*.json vs previous mirror version
+# Uses git history: previous mirror commit = last commit touching data/{sport}.json
+# Output: esp32/changes.json (also served as ESP32 live-change feed)
+# ============================================================
+def prev_version(sport):
+    """Return (prev_ts, dict) of the previous committed version of data/{sport}.json, or None."""
+    try:
+        # last 2 commits that touched this file: [0]=current, [1]=previous
+        log = subprocess.run(
+            ['git', 'log', '--format=%H %cI', '-n', '2', '--', f'data/{sport}.json'],
+            cwd=ROOT, capture_output=True, text=True, timeout=30).stdout.strip().splitlines()
+        if len(log) < 2:
+            return None
+        sha, ts = log[1].split(' ', 1)
+        blob = subprocess.run(['git', 'show', f'{sha}:data/{sport}.json'],
+                              cwd=ROOT, capture_output=True, timeout=60)
+        if blob.returncode != 0:
+            return None
+        return ts, json.loads(blob.stdout.decode('utf-8'))
+    except Exception as e:
+        print(f'⚠️  prev_version({sport}): {e}')
+        return None
+
+def diff_sport(records, prev):
+    """records/prev -> list of change tuples:
+       [sport, date, venue, location, startMin, endMin, kind, old, new]
+       kind: 'new' (new available slot), 'gone' (slot disappeared), 'chg' (courts changed)"""
+    def kmap(rows):
+        out = {}
+        for r in rows:
+            v = (r.get('Venue_Name_TC') or '').strip()
+            loc = (r.get('Facility_Location_Name_TC') or '').strip()
+            d = (r.get('Available_Date') or '').strip()
+            st = (r.get('Session_Start_Time') or '')[:5]
+            en = (r.get('Session_End_Time') or '')[:5]
+            if not v or len(st) != 5:
+                continue
+            try:
+                c = int(r.get('Available_Courts') or 0)
+            except ValueError:
+                continue
+            out[(d, v, loc, st, en)] = c
+        return out
+    cur_m, prev_m = kmap(records), kmap(prev)
+    changes = []
+    for k, c in cur_m.items():
+        d, v, loc, st, en = k
+        if k not in prev_m:
+            if c > 0:
+                changes.append([d, v, loc, to_min(st), to_min(en), 'new', 0, c])
+        elif prev_m[k] != c:
+            changes.append([d, v, loc, to_min(st), to_min(en), 'chg', prev_m[k], c])
+    for k, c in prev_m.items():
+        if k not in cur_m:
+            d, v, loc, st, en = k
+            changes.append([d, v, loc, to_min(st), to_min(en), 'gone', c, 0])
+    changes.sort(key=lambda x: (x[0], x[3]))
+    return changes
+
+changes_payload = {'g': gen_hk, 'prev': {}, 'sports': {}}
+total_changes = 0
+for sport in SPORTS:
+    if sport not in index['s']:
+        continue
+    src = os.path.join(DATA, f'{sport}.json')
+    with open(src, encoding='utf-8') as f:
+        records = json.load(f)
+    pv = prev_version(sport)
+    if pv is None:
+        print(f'ℹ️  {sport}: no previous version to diff')
+        changes_payload['sports'][sport] = []
+        continue
+    prev_ts, prev_records = pv
+    prev_hk = datetime.fromisoformat(prev_ts).astimezone(HK).strftime('%Y-%m-%d %H:%M')
+    changes_payload['prev'][sport] = prev_hk
+    ch = diff_sport(records, prev_records)
+    changes_payload['sports'][sport] = ch
+    total_changes += len(ch)
+    kinds = {}
+    for x in ch:
+        kinds[x[5]] = kinds.get(x[5], 0) + 1
+    print(f'✅ {sport}: diff vs {prev_hk} -> {len(ch)} changes {kinds}')
+
+with open(os.path.join(OUT, 'changes.json'), 'w', encoding='utf-8') as f:
+    json.dump(changes_payload, f, ensure_ascii=False, separators=(',', ':'))
+kb = os.path.getsize(os.path.join(OUT, 'changes.json')) / 1024
+print(f'📦 changes.json: {kb:.0f} KB, {total_changes} changes')
+
 print(f'🕐 generated: {gen_hk} HKT')
