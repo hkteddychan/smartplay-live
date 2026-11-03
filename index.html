@@ -194,17 +194,17 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
       </div>
       <div class="f-group">
         <label>&nbsp;</label>
-        <span class="hint" style="margin:0">模擬 ESP32 v2.0 響 device 睇到嘅嘢（九龍城/黃大仙/觀塘 + 18:00後 + ≥1場）</span>
+        <span class="hint" style="margin:0">ESP32 v2.1 = 純放場通知器：淨係呢度顯示嘅 📈 先會 beep</span>
       </div>
     </div>
     <div class="stats" id="e-stats"></div>
     <div class="table-wrap">
       <table id="e-table">
-        <thead><tr><th>來源</th><th>運動</th><th>日期</th><th>場地</th><th>設施</th><th>時段</th><th>餘額/變化</th></tr></thead>
+        <thead><tr><th>運動</th><th>日期</th><th>場地</th><th>設施</th><th>時段</th><th>變化</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
-    <div class="hint">💡 上半部 = <b>today.json</b>（ESP32 每 15 分鐘拉嘅今晚+聽晚明細，已套用 device filter）；下半部 = <b>changes-eve.json</b>（每 3 分鐘 poll 嘅放場偵測 — 📈會 beep，📉❌唔會）。ESP32 Serial 應該顯示一樣嘅內容。</div>
+    <div class="hint">💡 呢個 tab = <b>changes-eve.json</b>（ESP32 每 3 分鐘 poll 嘅放場偵測 feed）。📈 放場/新增 → ESP32 <b>beep</b> 🔔；📉 被訂走/❌ 消失 → 靜默。ESP32 唔再顯示一般場次清單 — 想睇今晚有咩場用「設施餘額」tab。</div>
   </div>
 
   <!-- ============ ACTIVITY TAB ============ -->
@@ -606,15 +606,15 @@ function exportChanges() {
   download(`smartplay-changes-${new Date().toISOString().slice(0,10)}.csv`, toCSV(out, hdrs));
 }
 
-// ---------- ESP32 視角（device feed 模擬，對照 Serial output） ----------
-const ESP_DISTRICTS = ["九龍城區", "黃大仙區", "觀塘區"];   // 同 sketch MY_DISTRICTS 一致
-let espToday = null, espEve = null;
+// ---------- ESP32 視角（放場通知器 — 純 changes-eve.json 對照） ----------
+// ESP32 v2.1 唔再看 today.json 場次清單 — 純粹 beep-on-release。
+// 呢個 tab 顯示 changes-eve.json 內容 = ESP32 會 beep 嘅嘢。
+let espEve = null;
 
 async function loadEspFeeds() {
   $('#e-refresh').textContent = '⏳ 拉緊...';
-  const tR = fetch('esp32/today.json', { cache: 'no-store' }).then(r => r.json()).catch(() => null);
-  const cR = fetch('esp32/changes-eve.json', { cache: 'no-store' }).then(r => r.json()).catch(() => null);
-  espToday = await tR; espEve = await cR;
+  espEve = await fetch('esp32/changes-eve.json', { cache: 'no-store' })
+    .then(r => r.json()).catch(() => null);
   $('#e-refresh').textContent = '🔄 重新拉 ESP32 feed';
   renderEsp();
 }
@@ -622,36 +622,9 @@ async function loadEspFeeds() {
 function renderEsp() {
   const tbody = $('#e-table tbody');
   tbody.innerHTML = '';
-  let nToday = 0, nRelease = 0, nLost = 0;
+  let nRelease = 0, nLost = 0;
   const dateWd = iso => iso ? iso.slice(5) + ' ' + weekdayCN(iso) : '?';
 
-  // ---- Part 1: today.json with device filter（九龍城/黃大仙/觀塘 + ≥18:00 + ≥1場）----
-  if (espToday && espToday.sports) {
-    for (const [sp, data] of Object.entries(espToday.sports)) {
-      const s = SPORTS[sp] || { icon: '•', name: sp };
-      const venues = data.v || [], districts = data.s || [], rows = data.r || [];
-      for (const r of rows) {
-        const [vIdx, dIdx, dateIdx, sm, em, courts] = r;
-        if (courts < 1) continue;
-        if (sm < 18 * 60) continue;                       // MIN_START_MIN = 18:00
-        const dist = districts[dIdx] || '';
-        if (!ESP_DISTRICTS.includes(dist)) continue;       // MY_DISTRICTS
-        const dateISO = (espToday.d || [])[dateIdx];
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td><span class="tag sport">📟 today</span></td>
-          <td><span class="tag sport">${s.icon} ${s.name}</span></td>
-          <td>${dateWd(dateISO)}</td>
-          <td>${venues[vIdx] || '?'}</td>
-          <td>—</td>
-          <td>${fmtMin(sm)}-${fmtMin(em)}</td>
-          <td class="courts c${Math.min(courts,3)}">${courts} 場</td>`;
-        tbody.appendChild(tr);
-        nToday++;
-      }
-    }
-  }
-
-  // ---- Part 2: changes-eve.json（📈=beep 🔔 / 📉❌=唔 beep）----
   if (espEve && espEve.sports) {
     for (const [sp, changes] of Object.entries(espEve.sports)) {
       const s = SPORTS[sp] || { icon: '•', name: sp };
@@ -660,13 +633,12 @@ function renderEsp() {
         const isRelease = (kind === 'chg' && newC > oldC) || kind === 'new';
         if (isRelease) nRelease++; else nLost++;
         let chHtml;
-        if (isRelease)        chHtml = `📈 ${oldC}→${newC} 場 🔔 beep`;
+        if (isRelease)            chHtml = `📈 ${oldC}→${newC} 場 🔔 beep`;
         else if (kind === 'gone') chHtml = `❌ 消失（原本 ${oldC}）`;
-        else                  chHtml = `📉 ${oldC}→${newC} 場`;
+        else                      chHtml = `📉 ${oldC}→${newC} 場`;
         const cls = isRelease ? 'c3' : 'c0';
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td><span class="tag sport">🌙 eve-chg</span></td>
-          <td><span class="tag sport">${s.icon} ${s.name}</span></td>
+        tr.innerHTML = `<td><span class="tag sport">${s.icon} ${s.name}</span></td>
           <td>${dateWd(date)}</td>
           <td>${venue}</td>
           <td>${loc || '—'}</td>
@@ -676,14 +648,20 @@ function renderEsp() {
       }
     }
   }
+  if (tbody.children.length === 0) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="6" style="text-align:center;color:var(--muted);padding:24px">
+      而家冇任何放場／變化 — ESP32 會保持靜默 ✅<br>
+      <small>有人取消／放返場出嚟嗰刻，呢度會即刻出現一行 📈，同時 ESP32 beep</small></td>`;
+    tbody.appendChild(tr);
+  }
 
-  const tGen = espToday ? espToday.g : '❌ 載入失敗';
   const cGen = espEve ? espEve.g : '❌ 載入失敗';
+  const prevTs = espEve && espEve.prev ? Object.values(espEve.prev)[0] : null;
   $('#e-stats').innerHTML = `
-    <div class="stat"><b>${nToday}</b><span>📟 today 符合 device filter</span></div>
     <div class="stat"><b style="color:#2ea043">${nRelease}</b><span>📈 會 beep 🔔</span></div>
     <div class="stat"><b style="color:#f85149">${nLost}</b><span>📉 唔會 beep</span></div>
-    <div class="stat"><b style="font-size:13px">${tGen}</b><span>today.json 生成 (HKT)</span></div>
+    <div class="stat"><b style="font-size:13px">${prevTs || '—'}</b><span>對比上一鏡像 (HKT)</span></div>
     <div class="stat"><b style="font-size:13px">${cGen}</b><span>changes-eve 生成 (HKT)</span></div>`;
 }
 
@@ -843,7 +821,7 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
   if (b.dataset.tab === 'map') setTimeout(renderMap, 50);
   if (b.dataset.tab === 'activity' && activityData.length === 0) loadActivity();
   if (b.dataset.tab === 'changes' && changesData === null) loadChanges();
-  if (b.dataset.tab === 'esp' && espToday === null) loadEspFeeds();
+  if (b.dataset.tab === 'esp' && espEve === null) loadEspFeeds();
 });
 ['#f-search','#f-district','#f-time'].forEach(s => $(s).addEventListener('input', renderFacility));
 $('#f-only').addEventListener('change', renderFacility);
