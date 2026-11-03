@@ -189,4 +189,40 @@ with open(os.path.join(OUT, 'changes.json'), 'w', encoding='utf-8') as f:
 kb = os.path.getsize(os.path.join(OUT, 'changes.json')) / 1024
 print(f'📦 changes.json: {kb:.0f} KB, {total_changes} changes')
 
+# ============================================================
+# ESP32 evening feed — changes-eve.json
+# 「最新改變」ESP32 精簡版：
+#   - 淨係晚上場次（session start >= 18:00）
+#   - 排除最後一日（day-7 未開放預訂，LCSD 半夜成批放 -> 假警報）
+#   - diff 範圍同樣只計可預訂日（今日..今日+5）
+# ============================================================
+EVE_START_MIN = 18 * 60   # 1080
+
+def is_eve_bookable(change):
+    """change = [date, venue, loc, startMin, endMin, kind, old, new]"""
+    d, sm = change[0], change[3]
+    return sm >= EVE_START_MIN and d in bookable_dates
+
+bookable_dates = set(dates_window[:6])   # 今日..今日+5（day-7 = dates_window[6] 排除）
+
+eve_payload = {'g': gen_hk, 'prev': {}, 'sports': {}}
+total_eve = 0
+for sport in SPORTS:
+    if sport not in index['s']:
+        continue
+    ch = changes_payload['sports'].get(sport, [])
+    eve = [c for c in ch if is_eve_bookable(c)]
+    # record the prev window only when evening changes exist
+    if eve and sport in changes_payload['prev']:
+        eve_payload['prev'][sport] = changes_payload['prev'][sport]
+    eve_payload['sports'][sport] = eve
+    total_eve += len(eve)
+    if eve:
+        print(f'🌙 {sport}: {len(eve)} evening changes (from {len(ch)})')
+
+with open(os.path.join(OUT, 'changes-eve.json'), 'w', encoding='utf-8') as f:
+    json.dump(eve_payload, f, ensure_ascii=False, separators=(',', ':'))
+kb_eve = os.path.getsize(os.path.join(OUT, 'changes-eve.json')) / 1024
+print(f'📦 changes-eve.json: {kb_eve:.1f} KB, {total_eve} evening changes')
+
 print(f'🕐 generated: {gen_hk} HKT')
