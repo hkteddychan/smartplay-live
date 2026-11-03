@@ -28,8 +28,10 @@ const char* FEED_TODAY = "https://hkteddychan.github.io/smartplay-live/esp32/tod
 // 想睇 7 日資料改用（每個 sport 一個檔，例如 badminton-7d.json ~幾十KB）：
 // const char* FEED_7D   = "https://hkteddychan.github.io/smartplay-live/esp32/badminton-7d.json";
 
-const unsigned long REFRESH_MS = 15UL * 60UL * 1000UL;  // 15 分鐘
+const unsigned long REFRESH_MS = 15UL * 60UL * 1000UL;  // 15 分鐘 — today.json
+const unsigned long EVE_POLL_MS = 3UL * 60UL * 1000UL;  // 3 分鐘 — changes-eve.json（放場要快知）
 const int LED_PIN = 2;  // 內置 LED：拉 data 成功閃 2 下，失敗長閃 5 下
+const int BUZZER_PIN = 25;  // 被動 buzzer GPIO（冇駁 buzzer 唔會壞，淨係冇聲）
 
 // ---- 篩選設定（想淨係睇某啲區 / 晚間時段就改呢度）----
 const char* MY_DISTRICTS[] = {"九龍城區", "黃大仙區", "觀塘區"};  // 空陣列 = 全部區
@@ -37,8 +39,21 @@ const int   N_MY_DISTRICTS = sizeof(MY_DISTRICTS) / sizeof(MY_DISTRICTS[0]);
 const int   MIN_START_MIN  = 18 * 60;   // 18:00 之後先要（-1 = 全日）
 const int   MIN_COURTS     = 1;          // 至少 N 個場
 
+// ---- 放場通知（changes-eve.json）----
+const char* FEED_CHANGES_EVE = "https://hkteddychan.github.io/smartplay-live/esp32/changes-eve.json";
+String lastEveVersion = "";   // changes-eve "g" 值 — 冇變就唔使再 beep
+int beepQueue = 0;            // 放場次數 — main loop 度 beep（唔阻塞 network）
+
 unsigned long lastFetch = 0;
+unsigned long lastEvePoll = 0;
 int fetchCount = 0;
+
+void beep(int times, int onMs = 120, int offMs = 80) {
+  for (int i = 0; i < times; i++) {
+    digitalWrite(BUZZER_PIN, HIGH); delay(onMs);
+    digitalWrite(BUZZER_PIN, LOW);  delay(offMs);
+  }
+}
 
 void blink(int times, int onMs = 150, int offMs = 150) {
   for (int i = 0; i < times; i++) {
@@ -169,19 +184,85 @@ void processFeed(const String& body) {
   Serial.println("\n--- done ---");
 }
 
+// ---------- changes-eve.json poll：偵測「晚上有場放咗」----------
+void processEveChanges(const String& body) {
+  JsonDocument doc;
+  DeserializationError err = deserializeJson(doc, body);
+  if (err) {
+    Serial.printf("[EVE] parse error: %s\n", err.c_str());
+    return;
+  }
+  const char* gen = doc["g"] | "";
+  if (lastEveVersion.length() > 0 && gen == lastEveVersion) {
+    Serial.println("[EVE] no change (same version)");
+    return;
+  }
+  bool firstRun = (lastEveVersion.length() == 0);
+  lastEveVersion = gen;
+
+  JsonObject sports = doc["sports"];
+  int nReleased = 0, nNew = 0, nLost = 0;
+  char st[8], en[8];
+  Serial.println(firstRun ? "[EVE] first run — baseline only" : "\n🌙🌙🌙 晚上場次變化 🌙🌙🌙");
+  for (JsonPair kv : sports) {
+    const char* sportName = kv.key().c_str();
+    JsonArray changes = kv.value();
+    for (JsonArray c : changes) {
+      // c = [date, venue, loc, startMin, endMin, kind, oldC, newC]
+      const char* date = c[0] | "?";
+      const char* venue = c[1] | "?";
+      const char* loc = c[2] | "";
+      int sm = c[3] | 0, em = c[4] | 0;
+      const char* kind = c[5] | "";
+      int oldC = c[6] | 0, newC = c[7] | 0;
+      // district filter — changes.json 冇 district idx，用 venue 名過濾唔到區，
+      // 所以 changes-eve 淨係做「有冇放場」觸發；明細照印
+      bool isRelease = (strcmp(kind, "chg") == 0 && newC > oldC) || strcmp(kind, "new") == 0;
+      if (isRelease) { nReleased++; nNew++; beepQueue++; }
+      else { nLost++; }
+      if (!firstRun) {
+        fmtTime(sm, st, sizeof(st)); fmtTime(em, en, sizeof(en));
+        if (isRelease)
+          Serial.printf("  📈 [%s] %s %s | %s-%s | %d→%d 場 🔔\n", sportName, venue, loc, st, en, oldC, newC);
+        else if (strcmp(kind, "gone") == 0)
+          Serial.printf("  ❌ [%s] %s %s | %s-%s | 消失（原本 %d 場）\n", sportName, venue, loc, st, en, oldC);
+        else
+          Serial.printf("  📉 [%s] %s %s | %s-%s | %d→%d 場\n", sportName, venue, loc, st, en, oldC, newC);
+      }
+    }
+  }
+  if (!firstRun) {
+    Serial.printf("🌙 共 %d 個放場/新增 🔔 | %d 個被訂/消失\n", nReleased, nLost);
+  }
+}
+
+void pollEveChanges() {
+  if (WiFi.status() != WL_CONNECTED) connectWiFi();
+  String body;
+  if (httpGet(FEED_CHANGES_EVE, body)) {
+    processEveChanges(body);
+  } else {
+    Serial.println("[EVE] poll FAILED — retry next cycle");
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   delay(300);
   pinMode(LED_PIN, OUTPUT);
-  Serial.println("\n[SmartPLAY Live ESP32] boot v1.0");
+  pinMode(BUZZER_PIN, OUTPUT);
+  Serial.println("\n[SmartPLAY Live ESP32] boot v2.0 (evening release alert)");
   connectWiFi();
   fetchCount = 0;
-  lastFetch = 0;  // 立即拉第一次
+  lastFetch = 0;      // 立即拉 today.json
+  lastEvePoll = 0;    // 立即 poll changes-eve.json（first run = baseline）
 }
 
 void loop() {
-  if (millis() - lastFetch >= REFRESH_MS) {
-    lastFetch = millis();
+  unsigned long now = millis();
+  // 15 分鐘：today.json 明細
+  if (now - lastFetch >= REFRESH_MS) {
+    lastFetch = now;
     if (WiFi.status() != WL_CONNECTED) connectWiFi();
     String body;
     fetchCount++;
@@ -194,5 +275,15 @@ void loop() {
       blink(5, 400, 100);  // fail
     }
   }
-  delay(1000);
+  // 3 分鐘：changes-eve.json 放場偵測
+  if (now - lastEvePoll >= EVE_POLL_MS) {
+    lastEvePoll = now;
+    pollEveChanges();
+  }
+  // beep queue — 唔阻塞 network
+  if (beepQueue > 0) {
+    beep(min(beepQueue, 5));   // 最多 beep 5 下，唔好嘈到暈
+    beepQueue = 0;
+  }
+  delay(200);
 }
