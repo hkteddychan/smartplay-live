@@ -65,6 +65,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
 
   <div class="tabs">
     <button class="tab active" data-tab="facility">🏸 設施餘額</button>
+    <button class="tab" data-tab="changes">🔔 最新改變</button>
     <button class="tab" data-tab="activity">🏊 活動搜尋</button>
     <button class="tab" data-tab="map">🗺️ 地圖</button>
   </div>
@@ -106,6 +107,39 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
       </table>
     </div>
     <div class="hint">💡 點「⬇️ 保存 CSV」即可下載當前過濾結果（Excel 可直接開）。數據每 15 分鐘自動更新。</div>
+  </div>
+
+  <!-- ============ CHANGES TAB（最新改變） ============ -->
+  <div class="panel" id="panel-changes">
+    <div class="filters">
+      <div class="f-group">
+        <label>運動類型</label>
+        <select id="c-sport"><option value="">全部運動</option></select>
+      </div>
+      <div class="f-group">
+        <label>改變類型</label>
+        <select id="c-kind">
+          <option value="">全部</option>
+          <option value="new">🆕 新增時段</option>
+          <option value="gone">❌ 消失</option>
+          <option value="chg">🔄 餘額變動</option>
+          <option value="up">📈 放場（餘額增加）</option>
+        </select>
+      </div>
+      <div class="f-group">
+        <label>關鍵字</label>
+        <input type="text" id="c-search" placeholder="場地名...">
+      </div>
+      <button id="c-export">⬇️ 保存 CSV</button>
+    </div>
+    <div class="stats" id="c-stats"></div>
+    <div class="table-wrap">
+      <table id="c-table">
+        <thead><tr><th>運動</th><th>日期</th><th>場地</th><th>設施</th><th>時段</th><th>改變</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="hint">💡 對比今次 vs 上一次數據鏡像（約 15 分鐘前）。<b style="color:#f85149">📉 畿人訂咗</b> · <b style="color:#2ea043">📈 放咗場</b> · <b style="color:#58a6ff">🆕 新時段</b> · ❌ 成個時段消失。</div>
   </div>
 
   <!-- ============ ACTIVITY TAB ============ -->
@@ -300,6 +334,88 @@ function renderFacility() {
     <div class="stat"><b>${totalSlots}</b><span>總時段</span></div>`;
 }
 
+// ---------- CHANGES（最新改變） ----------
+let changesData = null;   // {g, prev:{sport:ts}, sports:{sport:[[date,venue,loc,startMin,endMin,kind,old,new],...]}}
+
+function fmtMin(m) { return String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0'); }
+
+async function loadChanges() {
+  try {
+    const r = await fetch('esp32/changes.json');
+    changesData = await r.json();
+  } catch (e) {
+    changesData = { g: null, prev: {}, sports: {} };
+  }
+  // sport dropdown
+  const sel = $('#c-sport');
+  Object.keys(SPORTS).forEach(k => {
+    if (changesData.sports && changesData.sports[k] !== undefined)
+      sel.add(new Option(SPORTS[k].icon + ' ' + SPORTS[k].name, k));
+  });
+  renderChanges();
+}
+
+function changesFilter() {
+  const out = [];
+  if (!changesData || !changesData.sports) return out;
+  const sport = $('#c-sport').value;
+  const kind = $('#c-kind').value;
+  const q = $('#c-search').value.trim().toLowerCase();
+  const sports = sport ? [sport] : Object.keys(changesData.sports);
+  for (const sp of sports) {
+    for (const c of (changesData.sports[sp] || [])) {
+      const [date, venue, loc, sm, em, kd, oldC, newC] = c;
+      if (kind === 'up') { if (!(kd === 'chg' && newC > oldC) && kd !== 'new') continue; }
+      else if (kind && kd !== kind) continue;
+      if (q && !(venue + ' ' + loc).toLowerCase().includes(q)) continue;
+      out.push({ sp, date, venue, loc, sm, em, kd, oldC, newC });
+    }
+  }
+  // sort: newest date first? keep API order (date asc) but put 'up'/'new' on top when no filter
+  return out;
+}
+
+function renderChanges() {
+  const rows = changesFilter();
+  const tbody = $('#c-table tbody');
+  tbody.innerHTML = '';
+  let nNew = 0, nGone = 0, nUp = 0, nDown = 0;
+  rows.slice(0, 500).forEach(x => {
+    const s = SPORTS[x.sp] || { icon: '•', name: x.sp };
+    const d = new Date(x.date + 'T00:00:00');
+    const wd = '週' + '日一二三四五六'[d.getDay()];
+    const dateLabel = x.date.slice(5).replace('-', '-') + ' ' + wd;
+    let changeHtml, cls;
+    if (x.kd === 'new')      { changeHtml = `🆕 新增 <b>${x.newC} 場</b>`;  cls = 'c3'; nNew++; }
+    else if (x.kd === 'gone'){ changeHtml = `❌ 消失（原本 ${x.oldC} 場）`; cls = 'c0'; nGone++; }
+    else if (x.newC > x.oldC){ changeHtml = `📈 ${x.oldC}→${x.newC} 場`;   cls = 'c3'; nUp++; }
+    else                     { changeHtml = `📉 ${x.oldC}→${x.newC} 場`;   cls = 'c0'; nDown++; }
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><span class="tag sport">${s.icon} ${s.name}</span></td>
+      <td>${dateLabel}</td>
+      <td>${x.venue}</td>
+      <td>${x.loc || ''}</td>
+      <td>${fmtMin(x.sm)}-${fmtMin(x.em)}</td>
+      <td class="courts ${cls}">${changeHtml}</td>`;
+    tbody.appendChild(tr);
+  });
+  const prevTs = changesData && changesData.prev ? Object.values(changesData.prev)[0] : null;
+  const genTs = changesData && changesData.g;
+  $('#c-stats').innerHTML = `
+    <div class="stat"><b style="color:#2ea043">${nUp + nNew}</b><span>📈 放場/新增 🔥</span></div>
+    <div class="stat"><b style="color:#f85149">${nDown + nGone}</b><span>📉 畿訂/消失</span></div>
+    <div class="stat"><b>${rows.length}</b><span>總改變${rows.length > 500 ? '（顯示首 500）' : ''}</span></div>
+    <div class="stat"><b style="font-size:13px">${prevTs ? prevTs : '—'} → ${genTs || '—'}</b><span>對比窗口 (HKT)</span></div>`;
+}
+
+function exportChanges() {
+  const rows = changesFilter();
+  const hdrs = ['Sport','Date','Venue','Facility','Start','End','Kind','CourtsBefore','CourtsAfter'];
+  const kn = { new: 'NEW', gone: 'GONE', chg: 'CHANGED' };
+  const out = rows.map(x => [SPORTS[x.sp]?.name||x.sp, x.date, x.venue, x.loc, fmtMin(x.sm), fmtMin(x.em), kn[x.kd]||x.kd, x.oldC, x.newC]);
+  download(`smartplay-changes-${new Date().toISOString().slice(0,10)}.csv`, toCSV(out, hdrs));
+}
+
 // ---------- ACTIVITY ----------
 let activityData = [];
 async function loadActivity() {
@@ -441,10 +557,13 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
   document.getElementById('panel-' + b.dataset.tab).classList.add('active');
   if (b.dataset.tab === 'map') setTimeout(renderMap, 50);
   if (b.dataset.tab === 'activity' && activityData.length === 0) loadActivity();
+  if (b.dataset.tab === 'changes' && changesData === null) loadChanges();
 });
 ['#f-search','#f-district','#f-date','#f-time'].forEach(s => $(s).addEventListener('input', renderFacility));
 $('#f-only').addEventListener('change', renderFacility);
 $('#f-export').addEventListener('click', exportFacility);
+['#c-sport','#c-kind','#c-search'].forEach(s => $(s).addEventListener('input', renderChanges));
+$('#c-export').addEventListener('click', exportChanges);
 ['#a-search','#a-district','#a-type','#a-date'].forEach(s => $(s).addEventListener('input', renderActivity));
 $('#a-export').addEventListener('click', exportActivity);
 $('#m-only').addEventListener('change', renderMap);
