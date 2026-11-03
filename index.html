@@ -54,10 +54,8 @@ tr:hover td { background: rgba(88,166,255,.08); }
 .chip.active { background: var(--green); border-color: var(--green); color: #000; font-weight: 600; }
 .chip .sm { color: var(--muted); font-size: 11px; }
 .chip.active .sm { color: rgba(0,0,0,.6); }
-/* 時段 pills — 每個時段自己嘅色（active 時） */
-.chip.p-am.active  { background: #f0b429; border-color: #f0b429; }  /* 琥珀橙 */
-.chip.p-pm.active  { background: #e3b341; border-color: #e3b341; }  /* 金黃 */
-.chip.p-eve.active { background: #58a6ff; border-color: #58a6ff; }  /* 靛藍 */
+/* 時段 pills — 統一琥珀橙色（同日期綠 / 運動藍分開） */
+.chip.p-am.active, .chip.p-pm.active, .chip.p-eve.active { background: #f0b429; border-color: #f0b429; }
 /* 時段 pills 手機緊湊：隱藏時間範圍 */
 @media (max-width: 700px) {
   #f-period-pills .chip .sm { display: none; }
