@@ -50,10 +50,22 @@ tr:hover td { background: rgba(88,166,255,.08); }
 .pill { background: var(--card); border: 1px solid var(--line); padding: 6px 12px; border-radius: 20px; font-size: 13px; cursor: pointer; }
 .pill.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
 .date-chips { display: flex; gap: 6px; flex-wrap: wrap; }
-.chip { background: var(--card); border: 1px solid var(--line); padding: 6px 12px; border-radius: 16px; font-size: 13px; cursor: pointer; user-select: none; white-space: nowrap; }
+.chip { background: var(--card); border: 1px solid var(--line); padding: 5px 11px; border-radius: 16px; font-size: 13px; cursor: pointer; user-select: none; white-space: nowrap; }
 .chip.active { background: var(--green); border-color: var(--green); color: #000; font-weight: 600; }
 .chip .sm { color: var(--muted); font-size: 11px; }
 .chip.active .sm { color: rgba(0,0,0,.6); }
+/* 時段 pills — 每個時段自己嘅色（active 時） */
+.chip.p-am.active  { background: #f0b429; border-color: #f0b429; }  /* 琥珀橙 */
+.chip.p-pm.active  { background: #e3b341; border-color: #e3b341; }  /* 金黃 */
+.chip.p-eve.active { background: #58a6ff; border-color: #58a6ff; }  /* 靛藍 */
+/* 時段 pills 手機緊湊：隱藏時間範圍 */
+@media (max-width: 700px) {
+  #f-period-pills .chip .sm { display: none; }
+  .f-inline-row { flex-wrap: wrap; }
+}
+/* 時段 + 開始時間合併一行 */
+.f-inline-row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+.f-inline-row .f-group { margin: 0; }
 footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; font-size: 12px; color: var(--muted); }
 .loading { text-align: center; padding: 40px; color: var(--muted); }
 .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--line); border-top-color: var(--green); border-radius: 50%; animation: spin 1s linear infinite; vertical-align: middle; margin-right: 8px; }
@@ -98,13 +110,15 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
           <input type="date" id="f-range-to" style="min-width:135px">
         </div>
       </div>
-      <div class="f-group">
-        <label>時段</label>
-        <div class="date-chips" id="f-period-pills"></div>
-      </div>
-      <div class="f-group">
-        <label>開始時間 ≥</label>
-        <input type="time" id="f-time" value="00:00">
+      <div class="f-inline-row">
+        <div class="f-group">
+          <label>時段</label>
+          <div class="date-chips" id="f-period-pills"></div>
+        </div>
+        <div class="f-group">
+          <label>開始時間 ≥</label>
+          <input type="time" id="f-time" value="00:00">
+        </div>
       </div>
       <div class="f-group">
         <label>&nbsp;</label>
@@ -267,8 +281,9 @@ function initDateChips() {
   DATES.forEach((iso, i) => {
     const c = document.createElement('span');
     c.className = 'chip' + (selDates.has(iso) ? ' active' : '');
-    const label = i === 0 ? '今日' : (i === 1 ? '聽日' : iso.slice(5).replace('-', '/'));
-    c.innerHTML = `${label} <span class="sm">${iso.slice(5)} ${weekdayCN(iso).slice(1)}</span>`;
+    const wd = weekdayCN(iso).slice(1);   // 三 四 五...
+    const label = i === 0 ? '今日' : (i === 1 ? '聽日' : `${wd} ${iso.slice(5).replace('-', '/')}`);
+    c.innerHTML = `${label} <span class="sm">${i < 2 ? iso.slice(5) + ' ' + wd : ''}</span>`;
     c.dataset.date = iso;
     c.onclick = () => {
       if (selDates.has(iso)) selDates.delete(iso); else selDates.add(iso);
@@ -289,8 +304,9 @@ function initPeriodPills() {
   wrap.innerHTML = '';
   PERIODS.forEach(p => {
     const c = document.createElement('span');
-    c.className = 'chip' + (selPeriods.has(p.k) ? ' active' : '');
+    c.className = 'chip p-' + p.k + (selPeriods.has(p.k) ? ' active' : '');
     c.innerHTML = `${p.label} <span class="sm">${p.range}</span>`;
+    c.title = p.range;   // 手機 sm 隱藏時 hover/long-press 都睇到範圍
     c.dataset.p = p.k;
     c.onclick = () => {
       if (selPeriods.has(p.k)) selPeriods.delete(p.k); else selPeriods.add(p.k);
