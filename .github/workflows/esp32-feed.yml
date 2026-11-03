@@ -8,6 +8,9 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: '7,22,37,52 * * * *'   # safety net: mirror commits by PAT trigger push, but
+                                   # bot-token commits don't — re-sync every 15 min anyway
 
 permissions:
   contents: write
