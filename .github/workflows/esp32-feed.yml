@@ -1,0 +1,44 @@
+name: Build ESP32 Feed
+
+# 由 repo 內 data/*.json（Cloudflare worker 每 15 分鐘鏡像 commit 去 main）衍生 ESP32 compact feed
+# 每次 push（即每次 mirror 更新）→ 重新生成 esp32/*.json → commit → Pages 同步上線
+# ESP32 裝置直接 GET https://hkteddychan.github.io/smartplay-live/esp32/today.json
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: esp32-feed
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Generate ESP32 compact feeds
+        run: python esp32/fetch_esp32.py
+
+      - name: Commit and push if changed
+        run: |
+          if [ -n "$(git status --porcelain esp32/)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add esp32/
+            git commit -m "🔄 ESP32 feed rebuild"
+            git push origin main
+          else
+            echo "No ESP32 feed change"
+          fi
