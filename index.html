@@ -477,12 +477,15 @@ function renderFacility() {
   const nDates = (rows._activeDates || []).length;
   rows.slice(0, 500).forEach(x => {
     const c = parseInt(x.Available_Courts || '0');
+    const dISO = x.Available_Date || '';
+    const dWd = dISO ? weekdayCN(dISO).slice(1) : '';   // 週幾（一 二 三...）
+    const dateLabel = dISO ? dISO.slice(5) + ' ' + dWd : '';
     const tr = document.createElement('tr');
     tr.innerHTML = `<td><span class="tag sport">${s.icon} ${s.name}</span></td>
       <td>${x.District_Name_TC||''}</td>
       <td>${x.Venue_Name_TC||''}</td>
       <td>${x.Facility_Type_Name_TC||''}</td>
-      <td>${x.Available_Date||''}</td>
+      <td>${dateLabel}</td>
       <td>${x.Session_Start_Time}-${x.Session_End_Time}</td>
       <td class="courts c${Math.min(c,3)}">${c} 場</td>`;
     tbody.appendChild(tr);
