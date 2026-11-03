@@ -12,6 +12,8 @@
 | `esp32/index.json` | manifest（每個 sport 有幾多行 + 7d 檔名） | <1 KB |
 | `esp32/today.json` | 全部 5 種運動，今日+聽日有餘額嘅時段 | ~幾十 KB |
 | `esp32/{sport}-7d.json` | 單一運動 7 日資料 | 13–80 KB |
+| `esp32/changes.json` | 網站「最新改變」tab 用 — 全日 diff | 幾 KB |
+| `esp32/changes-eve.json` | **ESP32 放場通知用** — 淨係晚上（≥18:00）+ 淨係可預訂日（排除 day-7） | <1 KB |
 
 ```
 https://hkteddychan.github.io/smartplay-live/esp32/today.json
