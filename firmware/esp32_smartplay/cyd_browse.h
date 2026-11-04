@@ -498,6 +498,8 @@ static void browseSwipe(int dx, int dy) {
     browseSavePrefs();
     browseFlashChip = -1;
 }
+
+static void browseTick() {
     if (!autoPage || paused || nRows == 0) return;
     if (millis() - lastPageAt < (unsigned long)pageSec * 1000UL) return;
     lastPageAt = millis();
