@@ -205,6 +205,22 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
       </table>
     </div>
     <div class="hint">💡 呢個 tab = <b>changes-eve.json</b>（ESP32 每 3 分鐘 poll 嘅放場偵測 feed）。📈 放場/新增 → ESP32 <b>beep</b> 🔔；📉 被訂走/❌ 消失 → 靜默。ESP32 唔再顯示一般場次清單 — 想睇今晚有咩場用「設施餘額」tab。</div>
+
+    <hr style="border-color:var(--border);margin:18px 0">
+    <h3 style="margin:0 0 6px">📺 觸屏瀏覽模擬（browse.json — ESP32 CYD 屏顯示緊嘅嘢）</h3>
+    <div class="f-group" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <label>區份 <select id="eb-district" style="min-width:120px"></select></label>
+      <label>日期 <select id="eb-date"><option value="">全部日子</option></select></label>
+      <span class="hint" style="margin:0">屏上部=上一區 · 下部=下一區 · 中部=換日期 · 每 5 秒自動翻頁</span>
+    </div>
+    <div style="background:#000;border:2px solid #333;border-radius:10px;max-width:420px;padding:10px;font-family:monospace" id="eb-screen">
+      <div style="color:#00e5ff;font-size:13px" id="eb-hdr"></div>
+      <hr style="border-color:#333">
+      <div id="eb-rows" style="min-height:180px"></div>
+      <hr style="border-color:#333">
+      <div style="color:#555;font-size:11px" id="eb-foot"></div>
+    </div>
+    <div class="hint">💡 <b>browse.json</b>（~6KB）= 5 項運動合併、可預訂日（今日..+5）晚上 18:00+ 場次。ESP32 按區分頁自動輪播。</div>
   </div>
 
   <!-- ============ ACTIVITY TAB ============ -->
@@ -666,12 +682,17 @@ function exportChanges() {
 // 呢個 tab 顯示 changes-eve.json 內容 = ESP32 會 beep 嘅嘢。
 let espEve = null;
 
+let espBrowse = null;
 async function loadEspFeeds() {
   $('#e-refresh').textContent = '⏳ 拉緊...';
-  espEve = await fetch('esp32/changes-eve.json', { cache: 'no-store' })
-    .then(r => r.json()).catch(() => null);
+  const [eve, browse] = await Promise.all([
+    fetch('esp32/changes-eve.json', { cache: 'no-store' }).then(r => r.json()).catch(() => null),
+    fetch('esp32/browse.json', { cache: 'no-store' }).then(r => r.json()).catch(() => null),
+  ]);
+  espEve = eve; espBrowse = browse;
   $('#e-refresh').textContent = '🔄 重新拉 ESP32 feed';
   renderEsp();
+  initEbSim();
 }
 
 function renderEsp() {
@@ -721,6 +742,49 @@ function renderEsp() {
 }
 
 $('#e-refresh').addEventListener('click', loadEspFeeds);
+
+// ---------- ESP32 browse 模擬器 ----------
+let ebDistricts = [], ebState = { d: 0, date: 0 };
+function initEbSim() {
+  if (!espBrowse) return;
+  const selD = $('#eb-district'), selDate = $('#eb-date');
+  ebDistricts = [...new Set(espBrowse.v.map(v => v.split('|')[1]))].sort();
+  if (selD.children.length === 0) {
+    ebDistricts.forEach((d, i) => selD.add(new Option(d, String(i))));
+    espBrowse.d.forEach((dl, i) => selDate.add(new Option(dl, String(i))));
+    selD.onchange = () => { ebState.d = parseInt(selD.value) || 0; renderEb(); };
+    selDate.onchange = () => { ebState.date = selDate.value === '' ? -1 : parseInt(selDate.value); renderEb(); };
+  }
+  renderEb();
+}
+function renderEb() {
+  if (!espBrowse) return;
+  const dist = ebDistricts[ebState.d];
+  const iconOf = si => (espBrowse.k || ['🏸','🏀','🏐','🎾','⚽'])[si] || '•';
+  const rows = espBrowse.r
+    .map((r, idx) => ({ r, venue: espBrowse.v[r[0]] }))
+    .filter(x => x.venue.endsWith('|' + dist) && (ebState.date < 0 || x.r[2] === ebState.date));
+  $('#eb-hdr').textContent = `${dist} · ${ebState.date < 0 ? '全部日子' : espBrowse.d[ebState.date]} · ${rows.length} 場`;
+  const per = 4;
+  const pages = Math.max(1, Math.ceil(rows.length / per));
+  let html = '';
+  if (rows.length === 0) {
+    html = '<div style="color:#555;padding:40px;text-align:center">呢個時段冇場</div>';
+  } else {
+    html = rows.slice(0, 8).map(x => {
+      const [vi, si, di, sm, em, courts] = x.r;
+      const venue = x.venue.split('|')[0];
+      return `<div style="padding:6px 0;border-bottom:1px solid #1a1a1a">
+        <span style="color:#b5e853">${iconOf(si)}</span>
+        <span style="color:#e6e6e6">${venue}</span><br>
+        <span style="color:#ffd75e;padding-left:18px">${fmtMin(sm)}-${fmtMin(em)} · ${courts} 場 · ${espBrowse.d[di]}</span>
+      </div>`;
+    }).join('');
+    if (rows.length > 8) html += `<div style="color:#666;padding:6px">…仲有 ${rows.length - 8} 場（屏上每頁 4 場自動翻）</div>`;
+  }
+  $('#eb-rows').innerHTML = html;
+  $('#eb-foot').textContent = `第 ${(ebState.d + 1)}/${ebDistricts.length} 區 · 生成 ${espBrowse.g} HKT`;
+}
 
 // ---------- ACTIVITY ----------
 let activityData = [];
