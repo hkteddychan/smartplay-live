@@ -1,9 +1,8 @@
 name: Deploy Pages
 
-# ⚠️ 數據 mirror 已遷移去 Cloudflare Worker（smartplay-live-mirror，*/15 準時 commit 去 main）
-# 呢個 workflow 只負責 Pages deploy：
-#   - Worker commit 用 PAT → 會觸發 push event → 呢個 workflow 跑
-#   - 淨係 build + deploy Pages artifact，唔 fetch / 唔 commit
+# 數據 mirror 喺 Cloudflare Worker（smartplay-live-mirror）commit 去 main
+# 呢個 workflow 由 PAT push 自動觸發（*/2 頻率）
+# concurrency 收斂排隊 run；deploy step 加 retry 等 Pages 閒（避免 in-progress 400 撞車）
 
 on:
   push:
@@ -33,6 +32,33 @@ jobs:
         with:
           path: '.'
 
-      - name: Deploy to Pages
+      # deploy-pages@v4 對 in-progress deployment 會 400 — retry 包住等 Pages 閒
+      - name: Deploy to Pages (attempt 1)
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Wait 45s (Pages cooldown)
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 45
+
+      - name: Deploy to Pages (attempt 2)
+        id: deployment2
+        if: steps.deployment.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Wait 90s (Pages cooldown)
+        if: steps.deployment.outcome == 'failure' && steps.deployment2.outcome == 'failure'
+        run: sleep 90
+
+      - name: Deploy to Pages (attempt 3)
+        id: deployment3
+        if: steps.deployment.outcome == 'failure' && steps.deployment2.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Deploy to Pages (final attempt)
+        id: deployment4
+        if: steps.deployment.outcome == 'failure' && steps.deployment2.outcome == 'failure' && steps.deployment3.outcome == 'failure'
         uses: actions/deploy-pages@v4
