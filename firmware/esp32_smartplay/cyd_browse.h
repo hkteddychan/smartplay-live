@@ -581,6 +581,13 @@ static const char *sportIconOf(int sport) {
     return "?";
 }
 
+// 設施名稱（完整），顯示喺行後面
+static const char *facilityNameOf(int sport) {
+    static const char *names[] = {"羽毛球", "籃球", "排球", "網球", "人造草地足球場"};
+    if (sport < 0 || sport >= 5) return "";
+    return names[sport];
+}
+
 static void browseDrawHeader() {
     tft.fillRect(0, 0, 320, BROWSE_HEADER_H, C_BAR);
     tft.setTextColor(C_DIM, C_BAR);
@@ -681,13 +688,20 @@ static void browseDrawBody() {
         snprintf(tm, sizeof(tm), "%02d:%02d-%02d:%02d  %d場",
                  r.sm / 60, r.sm % 60, r.em / 60, r.em % 60, r.courts);
         if (r.k < nSports && r.k < BR_N_SPORTS) {
-            tft.setTextColor(C_ACCENT, (i % 2 == 0) ? C_BG : C_CARD);
-            tft.setTextDatum(TL_DATUM);
-            tft.drawString(BR_SPORT_TEXT_ICONS[r.k], 4, ry + 22, 2);
+            uint16_t bg = (i % 2 == 0) ? C_BG : C_CARD;
+            drawUTF8(String(BR_SPORT_TEXT_ICONS[r.k]), 4, ry + 22, C_ACCENT, bg);
         }
         tft.setTextColor(C_GOOD, (i % 2 == 0) ? C_BG : C_CARD);
         tft.setTextDatum(TL_DATUM);
         tft.drawString(tm, 24, ry + 22, 2);
+        // 設施名稱
+        int sportSlot = browseSportMode ? (curSport >= 0 ? curSport : 0) : r.k;
+        const char *fac = facilityNameOf(sportSlot);
+        if (fac && *fac) {
+            int tw = tft.textWidth(tm, 2);
+            uint16_t bg = (i % 2 == 0) ? C_BG : C_CARD;
+            drawUTF8(String(fac), 24 + tw + 6, ry + 22, C_DIM, bg);
+        }
 
         tft.drawFastHLine(0, ry + BROWSE_ROW_H - 1, 320, C_BAR);
     }
