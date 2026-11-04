@@ -556,27 +556,38 @@ static void browseDrawHeader() {
     tft.setTextColor(C_DIM, C_BAR);
     tft.setTextDatum(TL_DATUM);
     tft.drawString("<", 4, 6, 2);
-    if (curDistrict < nDistricts) {
-        tft.fillRect(24, 2, 72, 22, C_CARD);
-        drawUTF8(String("區") + String(districts[curDistrict]), 26, 6, C_TEXT, C_CARD);
-    }
+
+    // helper: draw a chip at (x,y,w) with label like "區香港"
+    // district chip
+    tft.fillRect(24, 2, 72, 22, C_CARD);
+    tft.drawRect(24, 2, 72, 22, C_DIM);
+    const char *dv = (curDistrict >= 0 && curDistrict < nDistricts && districts[curDistrict][0])
+                     ? districts[curDistrict] : "全部";
+    drawUTF8(String("區 ") + String(dv), 28, 6, C_TEXT, C_CARD);
+
+    // sport chip
     tft.fillRect(98, 2, 48, 22, C_CARD);
-    tft.setTextColor(C_ACCENT, C_CARD);
-    tft.setTextDatum(TL_DATUM);
-    tft.drawString(String("運") + String(sportIconOf(curSport)), 100, 6, 2);
+    tft.drawRect(98, 2, 48, 22, C_DIM);
+    drawUTF8(String("運 ") + String(sportIconOf(curSport)), 100, 6, C_ACCENT, C_CARD);
+
+    // time chip (colour by period)
+    uint16_t tcol = (curTimePeriod == 0) ? C_ACCENT : (curTimePeriod == 1) ? C_WARN : C_GOOD;
     tft.fillRect(148, 2, 38, 22, C_CARD);
-    tft.setTextColor(paused ? C_WARN : C_GOOD, C_CARD);
-    // time chip color by period
-    uint16_t tcol = (curTimePeriod==0)?C_ACCENT:(curTimePeriod==1)?C_WARN:C_GOOD;
-    tft.setTextColor(tcol, C_CARD);
-    tft.drawString(String("時") + String(timePeriodLabel(curTimePeriod)), 150, 6, 2);
+    tft.drawRect(148, 2, 38, 22, C_DIM);
+    drawUTF8(String("時 ") + String(timePeriodLabel(curTimePeriod)), 150, 6, tcol, C_CARD);
+
+    // play/pause chip
     tft.fillRect(188, 2, 38, 22, C_CARD);
+    tft.drawRect(188, 2, 38, 22, C_DIM);
     tft.setTextColor(paused ? C_WARN : C_GOOD, C_CARD);
     tft.setTextDatum(TL_DATUM);
-    tft.drawString(paused ? "暫停" : "播放", 190, 6, 2);
+    drawUTF8(paused ? String("暫停") : String("播放"), 192, 6, paused ? C_WARN : C_GOOD, C_CARD);
+
+    // static hint
     tft.setTextColor(C_DIM, C_BAR);
     tft.setTextDatum(TL_DATUM);
-    tft.drawString("全部日子", 232, 6, 2);
+    drawUTF8(String("全部日子"), 232, 6, C_DIM, C_BAR);
+
     time_t now = time(nullptr);
     struct tm lt;
     localtime_r(&now, &lt);
