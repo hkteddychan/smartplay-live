@@ -36,6 +36,7 @@
 #include "venue_font.h"
 #include "cyd_text.h"
 #include "cyd_audio.h"
+#include "cyd_browse.h"
 
 TFT_eSPI tft = TFT_eSPI();
 
@@ -200,11 +201,16 @@ static String venueDistrict(const char *venue) {
 /* ---------------- http ---------------- */
 static WiFiClientSecure g_sec;
 
-static bool httpGet(const char *url, String &out) {
+bool httpGet(const char *url, String &out) {
   if (WiFi.status() != WL_CONNECTED) return false;
-  g_sec.setInsecure();
   HTTPClient http;
-  if (!http.begin(g_sec, url)) return false;
+  if (strncmp(url, "https://", 8) == 0) {
+    g_sec.setInsecure();
+    if (!http.begin(g_sec, url)) return false;
+  } else {
+    // plain http — a TLS client would fail the handshake
+    if (!http.begin(url)) return false;
+  }
   http.setTimeout(20000);
   http.setUserAgent("SmartPlayLive-ESP32/3.0");
   int code = http.GET();
@@ -737,6 +743,7 @@ static void handleSerial() {
   } else if (c == 'r') {
     loadVenueMap();
     pollEve();
+    browseFetch();
   } else if (c == 'a') {
     g_screen = SCR_ALERT;
     g_dirty = true;
@@ -756,8 +763,20 @@ static void handleSerial() {
   } else if (c == 'v') {
     Serial.printf("[venue] map %s (%d entries)\n", g_venueMapLoaded ? "loaded" : "not loaded",
                   g_venueCount);
+  } else if (c == 'B') {
+    Serial.printf("[browse] rows=%u venues=%u districts=%u dates=%u loaded=%d err='%s'\n",
+                  g_browse.rowCount, g_browse.venueCount, g_browse.districtCount,
+                  g_browse.dateCount, g_browse.loaded ? 1 : 0, g_browse.error);
+    for (uint16_t i = 0; i < g_browse.rowCount && i < 5; i++) {
+      const BrowseRow &r = g_browse.rows[i];
+      Serial.printf("  row %u: s=%u v=%u d=%u %u-%u c=%u mask=%u (%s)\n", i, r.sIdx, r.vIdx,
+                    r.dateIdx, r.start, r.end, r.courts, r.sportMask,
+                    browseSportList(r.sportMask).c_str());
+    }
+    for (uint16_t i = 0; i < g_browse.districtCount && i < 4; i++)
+      Serial.printf("  district %u: %s\n", i, g_browse.district[i]);
   } else {
-    Serial.println("commands: b p r a h l v");
+    Serial.println("commands: b p r a h l v B");
   }
 }
 
