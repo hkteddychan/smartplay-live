@@ -131,6 +131,23 @@ Teddy Sir 嘅 SmartPLAY Live（康文署場地即時餘額鏡像）嘅 ESP32 端
 
 ## 📝 最新開發（append-only log，新 entry 放最上）
 
+### 2026-11-04 — OpenCode Agent（Push 移除 + WiFi Plan A + 瀏覽增強）
+- **Push 功能完全移除**：smartplay.ino 刪除 pushPump/pushConnect/pushDrop/pushHandleLine/g_push*/PUSH_HOST/PUSH_PORT；platformio.ini 移除 PUSH_HOST/PUSH_PORT；drawHome 移除 push 狀態指示與 footer push 文字。通知淨係靠 1 分鐘 poll。
+- **WiFi Plan A（多網絡自動偵測）**：WIFI_NETS[] 清單（Tidy Home + Teddy Pixel），connectWiFi() 先 scan 再按優先次序嘗試，連到第一個可用。實機驗證：Tidy Home 唔在範圍時自動 skip，連 Teddy Pixel。
+- **瀏覽增強**：
+  - 自選地區 overlay（撳 header 地區名彈出 2 欄地區選擇器）
+  - 早/午/晚 時段過濾（按 startMin 分桶：&lt;12:00 早、12-18 午、≥18 晚）
+  - 運動選擇（撳 header 運動 icon 彈出運動選擇器；選特定運動時改 fetch 該運動 7d 全日檔案，支援全天時段）
+  - Play/Pause toggle（header ▶/⏸）
+  - 輕量 JSON parser（per-sport 7d 檔 30KB，避開 ArduinoJson NoMemory）
+- **Serial 指令新增**：`s` 循環運動過濾、`t` 循環時段過濾
+- 韌體記憶體：RAM 31.8%、Flash 40.5%（huge_app partition）
+- 實機驗證：badminton 7d 解析 1407 行、volleyball 500、tennis 1054、turf 564、browse.json 114；時段過濾正常
+- ⏳ 待做：更新 website 瀏覽模擬器對應新 UI；更多功能 brainstorm（見下）
+
+### 2026-11-04 — OpenCode Agent
+
+
 ### 2026-11-04 — OpenCode Agent
 - CYD 實機測試通過：WiFi 連接（Teddy Pixel, RSSI -19）、browse.json 解析（113 rows, 40 venues, 15 districts, 6 dates, 5 sports）、觸控 SPI 修正（VSPI custom pins）
 - 觸控校準正常（raw x=2000-3900, z>10），上/中/下區域分區正確
