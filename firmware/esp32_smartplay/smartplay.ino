@@ -849,7 +849,9 @@ void setup() {
   tft.fillScreen(C_BG);
   tft.setTextDatum(TL_DATUM);
 
-  ts.begin();
+  // CYD 觸控用獨立 VSPI bus：SCK=25, MISO=39, MOSI=32, CS=33
+  touchSPI.begin(25, 39, 32, 33);
+  ts.begin(touchSPI);
   ts.setRotation(1);
 
   Serial.println("\n[SmartPLAY Live CYD] boot v3.0 — 放場通知器");
