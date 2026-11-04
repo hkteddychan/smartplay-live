@@ -89,7 +89,8 @@ static int regionOf(const char *d) {
     if (strcmp(d, "中西區") == 0 || strcmp(d, "灣仔區") == 0 ||
         strcmp(d, "東區") == 0 || strcmp(d, "南區") == 0) return 0;       // 香港
     if (strcmp(d, "油尖旺區") == 0 || strcmp(d, "深水埗區") == 0 ||
-        strcmp(d, "九龍城區") == 0 || strcmp(d, "觀塘區") == 0) return 1; // 九龍
+        strcmp(d, "九龍城區") == 0 || strcmp(d, "觀塘區") == 0 ||
+        strcmp(d, "黃大仙區") == 0) return 1;                          // 九龍
     return 2;                                                            // 新界
 }
 
