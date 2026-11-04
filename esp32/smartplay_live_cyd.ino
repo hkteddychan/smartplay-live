@@ -1,5 +1,5 @@
 /*
- * SmartPLAY Live — ESP32 觸屏瀏覽器 v3.0
+ * SmartPLAY Live — ESP32 觸屏瀏覽器 v3.3
  * ================================================================
  * 硬件：ESP32-2432S028R "Cheap Yellow Display" (CYD)
  *       2.8" ILI9341 TFT 240x320 + 電阻觸控 (XPT2046) + ESP32-WROOM
@@ -57,6 +57,8 @@ const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
 const char* URL_BROWSE = "https://hkteddychan.github.io/smartplay-live/esp32/browse.json";
 const char* URL_CHANGES_EVE = "https://hkteddychan.github.io/smartplay-live/esp32/changes-eve.json";
 
+const char* URL_REPORT = "https://smartplay-live-mirror.teddy-spot.workers.dev/esp/report";
+
 const unsigned long BROWSE_REFRESH_MS = 3UL * 60 * 1000;   // browse.json 每 3min 重拉（mirror */2 加密後）
 const unsigned long EVE_POLL_MS       = 3UL * 60 * 1000;    // changes-eve poll
 const unsigned long WIFI_RETRY_MS     = 30UL * 1000;
@@ -111,7 +113,7 @@ bool httpGetString(const char* url, String& out) {
   HTTPClient http;
   http.begin(url);
   http.setTimeout(15000);
-  http.setUserAgent("SmartPlayLive-ESP32/3.0");
+  http.setUserAgent("SmartPlayLive-ESP32/3.3");
   int code = http.GET();
   if (code != 200) { http.end(); return false; }
   int len = http.getSize();
@@ -284,6 +286,45 @@ void loadPrefs() {
   prefs.end();
 }
 
+// ================= ESP32 屏狀態上報（網站「ESP32 視角」） =================
+// 每 3 分鐘 POST 當前畫面快照去 Worker — 網站「ESP32 視角」tab 顯示 + 歷史記錄
+// Worker 會 de-dupe（畫面冇變唔記 history），唔使怕重複
+unsigned long lastReport = 0;
+
+void reportScreen() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  // 當前畫面資訊（同 drawPage 一致）
+  int rowIdx[12];
+  int n = rowsFor(curDistrict, curDate, rowIdx, 12);
+  int totalPages = (n + 3) / 4; if (totalPages < 1) totalPages = 1;
+  String line1 = "";
+  if (n > 0) {
+    BRow& r = browses[rowIdx[(curPage % totalPages) * 4]];
+    line1 = sportIcons[r.k] + " " + dateLabels[r.d];
+  }
+  // payload — date 用 JSON escape 好 UTF-8 直接出（Arduino String 係 UTF-8 bytes）
+  String dateStr = (curDate == 0) ? String("ALL") : dateLabels[curDate - 1];
+  String payload = "{\"id\":\"cyd-01\",\"fw\":\"v3.3\",";
+  payload += "\"district\":\"" + districts[curDistrict] + "\",";
+  payload += "\"date\":\"" + dateStr + "\",";
+  payload += "\"page\":" + String(curPage % totalPages) + ",";
+  payload += "\"pages\":" + String(totalPages) + ",";
+  payload += "\"rows\":" + String(n) + ",";
+  payload += "\"line\":\"" + line1 + "\",";
+  payload += "\"rssi\":" + String(WiFi.RSSI()) + ",";
+  payload += "\"heap\":" + String(ESP.getFreeHeap()) + ",";
+  payload += "\"up\":" + String(millis() / 1000) + "}";
+  HTTPClient http;
+  http.begin(URL_REPORT);
+  http.setTimeout(10000);
+  http.addHeader("Content-Type", "application/json");
+  http.setUserAgent("SmartPlayLive-ESP32/3.3");
+  int code = http.POST(payload);
+  if (code != 200) Serial.printf("[REPORT] HTTP %d\n", code);
+  else Serial.printf("[REPORT] %s/%s p%d (%d rows)\n", districts[curDistrict].c_str(), dateStr.c_str(), curPage % totalPages, n);
+  http.end();
+}
+
 // ================= Eve changes（通知模式照舊） =================
 String lastEveVersion = "";
 bool baselined = false;
@@ -328,7 +369,7 @@ void setup() {
   tft.setTextColor(TFT_CYAN, TFT_BLACK); tft.setTextDatum(TL_DATUM);
   tft.drawString("SmartPLAY Live", 10, 10, 2);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.drawString("ESP32 瀏覽器 v3.1 booting...", 10, 30, 2);
+  tft.drawString("ESP32 瀏覽器 v3.3 booting...", 10, 30, 2);
 
   loadPrefs();
   connectWiFi();
@@ -356,6 +397,12 @@ void loop() {
     lastEvePoll = now;
     String body;
     if (httpGetString(URL_CHANGES_EVE, body)) processEveChanges(body);
+  }
+
+  // 屏狀態上報（每 3 分鐘）
+  if (wifiOk && now - lastReport >= 3UL * 60 * 1000) {
+    lastReport = now;
+    reportScreen();
   }
 
   // auto page
