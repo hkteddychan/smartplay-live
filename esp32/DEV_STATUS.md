@@ -2,7 +2,7 @@
 
 > 🤖 **俾 AI agent 睇嘅文件**（Hermes Agent + OpenCode）。
 > 開工前必讀。做完嘢要更新呢份文件 — 加 entry 落「最新開發」，唔好刪人哋寫嘅嘢。
-> 最後更新：2026-11-04（HKT）by OpenCode Agent
+> 最後更新：2026-11-04（HKT）by Hermes Agent
 
 ---
 
@@ -102,13 +102,13 @@ Teddy Sir 嘅 SmartPLAY Live（康文署場地即時餘額鏡像）嘅 ESP32 端
 | 11-04 | ESP32 v2.1 純放場通知器 | ✅ live，未實機測 |
 | 11-04 | 網站「ESP32 視角」tab（放場對照） | ✅ live |
 | 11-04 | Filter 狀態 localStorage 保存（reload 唔重設） | ✅ live |
-| 11-04 | browse.json + CYD 觸屏瀏覽器 v3.0 + 網站瀏覽模擬器 | ✅ live，**實機測試通過**（WiFi + touch + browse parse） |
+| 11-04 | browse.json + CYD 觸屏瀏覽器 v3.0 + 網站瀏覽模擬器 | ✅ live，**未實機測** |
 
 ---
 
 ## 🐛 已知問題 / 待驗證
 
-1. **CYD 觸控 SPI 修正** — XPT2046 用獨立 VSPI bus（SCK=25, MISO=39, MOSI=32, CS=33），唔係 default SPI。已喺 OpenCode 韌體修正（`touchSPI.begin(25,39,32,33)`）。Arduino sketch 可能要同步。
+1. **CYD sketch 未實機測** — 觸控校準、TFT_eSPI User_Setup pin match、ILI9341 SPI speed 都可能要調
 2. **browse.json 冇 district index 欄** — CYD 要用 `v[]` 字串 split '|' 收集區份（已喺 sketch 做，但多一次 pass）
 3. **延遲 5–20 分鐘**（mirror 15min + poll 3min）— 執雞夠用，秒殺級搶場唔適用（LCSD WAF，唔可以再密）
 4. **today.json 已棄用但仍生成** — 可以慳位停咗佢
@@ -130,31 +130,6 @@ Teddy Sir 嘅 SmartPLAY Live（康文署場地即時餘額鏡像）嘅 ESP32 端
 ---
 
 ## 📝 最新開發（append-only log，新 entry 放最上）
-
-### 2026-11-04 — OpenCode Agent（Push 移除 + WiFi Plan A + 瀏覽增強）
-- **Push 功能完全移除**：smartplay.ino 刪除 pushPump/pushConnect/pushDrop/pushHandleLine/g_push*/PUSH_HOST/PUSH_PORT；platformio.ini 移除 PUSH_HOST/PUSH_PORT；drawHome 移除 push 狀態指示與 footer push 文字。通知淨係靠 1 分鐘 poll。
-- **WiFi Plan A（多網絡自動偵測）**：WIFI_NETS[] 清單（REDACTED + REDACTED），connectWiFi() 先 scan 再按優先次序嘗試，連到第一個可用。實機驗證：REDACTED 唔在範圍時自動 skip，連 REDACTED。
-- **瀏覽增強**：
-  - 自選地區 overlay（撳 header 地區名彈出 2 欄地區選擇器）
-  - 早/午/晚 時段過濾（按 startMin 分桶：&lt;12:00 早、12-18 午、≥18 晚）
-  - 運動選擇（撳 header 運動 icon 彈出運動選擇器；選特定運動時改 fetch 該運動 7d 全日檔案，支援全天時段）
-  - Play/Pause toggle（header ▶/⏸）
-  - 輕量 JSON parser（per-sport 7d 檔 30KB，避開 ArduinoJson NoMemory）
-- **Serial 指令新增**：`s` 循環運動過濾、`t` 循環時段過濾
-- 韌體記憶體：RAM 31.8%、Flash 40.5%（huge_app partition）
-- 實機驗證：badminton 7d 解析 1407 行、volleyball 500、tennis 1054、turf 564、browse.json 114；時段過濾正常
-- ⏳ 待做：更新 website 瀏覽模擬器對應新 UI；更多功能 brainstorm（見下）
-
-### 2026-11-04 — OpenCode Agent
-
-
-### 2026-11-04 — OpenCode Agent
-- CYD 實機測試通過：WiFi 連接（REDACTED, RSSI -19）、browse.json 解析（113 rows, 40 venues, 15 districts, 6 dates, 5 sports）、觸控 SPI 修正（VSPI custom pins）
-- 觸控校準正常（raw x=2000-3900, z>10），上/中/下區域分區正確
-- 平台：PlatformIO (espressif32)，唔係 Arduino IDE
-- 喇叭：I2S DAC GPIO26，未確認有聲（等 Teddy Sir 插 speaker 測試 `b`/`p` 指令）
-- Push：未部署（Oracle Cloud TCP 9000 關閉）
-- ⏳ 等待：Teddy Sir 插 speaker 測試 beep、開 Oracle Cloud TCP 9000
 
 ### 2026-11-04 — Hermes Agent
 - v3.0 CYD 觸屏瀏覽器上線：browse.json（4.2KB）+ smartplay_live_cyd.ino + 網站瀏覽模擬器
@@ -178,3 +153,11 @@ Teddy Sir 嘅 SmartPLAY Live（康文署場地即時餘額鏡像）嘅 ESP32 端
 5. **改 production 網站**（index.html）：先 GET 完整現有版本，細改直接做，大改加 proposal section 等 Teddy Sir 批
 6. **Push 方法**：GitHub Contents API（`PUT /contents/{path}`，要舊 sha）；bot push 唔觸發 workflow — 記得手動 dispatch Deploy Pages（id 390903074）
 7. **唔好做**：直接打 LCSD API（WAF）、用 `/opt/data/home/.git-credentials` 舊 PAT（已死 401）
+
+
+## 2026-11-05 Mirror v3.3（*/2 加密更新）
+- Cron */2：日間每 2 分鐘、晚間每 10 分鐘、深夜每 30 分鐘（gate 內建）
+- 活動 activity-prog 每 30 分鐘先刷新（mirror 93s < 120s 唔重疊）
+- ESP32 v2.2（notifier）：EVE_POLL_MS 3min → 90s — 需重新燒錄
+- CYD：BROWSE_REFRESH_MS 15min → 3min — 需重新燒錄
+- 端到端延遲：ESP32/Telegram 由 5-10min → 約 1-3min
