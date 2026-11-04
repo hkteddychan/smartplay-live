@@ -34,6 +34,7 @@
 #include <time.h>
 
 #include "venue_font.h"
+#include "cyd_theme.h"
 #include "cyd_text.h"
 #include "cyd_audio.h"
 #include "cyd_browse.h"
@@ -65,21 +66,7 @@ static const unsigned long PUSH_RETRY_MS = 5000;   // 斷線後 5 秒重連
 #define BEEP_AMP 4000    // DAC scale (quiet); PWM path uses this as duty
 
 /* ---------------- geometry & colours ---------------- */
-static const int SCR_W = 320, SCR_H = 240;
-static const int HEADER_H = 30, FOOTER_H = 24;
-static const int BODY_Y = HEADER_H;
-static const int BODY_H = SCR_H - HEADER_H - FOOTER_H;
-
-// RGB565 values (TFT_eSPI uses 16-bit colour)
-#define C_BG ((uint16_t)0x10C8)
-#define C_BAR ((uint16_t)0x342A)
-#define C_CARD ((uint16_t)0x2644)
-#define C_CARD_HOT ((uint16_t)0x1ED8)
-#define C_TEXT ((uint16_t)0xFFFF)
-#define C_DIM ((uint16_t)0xE6B8)
-#define C_GOOD ((uint16_t)0x6730)
-#define C_ACCENT ((uint16_t)0x07FF)
-#define C_WARN ((uint16_t)0xFEE0)
+// see cyd_theme.h (shared with the browse UI)
 
 /* ---------------- types ---------------- */
 struct SportDef {
@@ -136,7 +123,10 @@ static bool g_unread = false;
 
 /* ---------------- screen state ---------------- */
 enum Screen { SCR_HOME, SCR_ALERT };
+enum Page { PAGE_NOTIFY, PAGE_BROWSE };
 static Screen g_screen = SCR_HOME;
+static Page g_page = PAGE_NOTIFY;
+static Page g_returnPage = PAGE_NOTIFY;   // 警報蓋住邊個頁，收完返返去
 static unsigned long g_alertAt = 0;
 static bool g_dirty = true;
 static String g_probeText;
@@ -300,6 +290,7 @@ static void handleRelease(const char *sportZh, const char *district, const char 
   Serial.printf("[RELEASE] %s %s | %s %s-%s | %d->%d\n", a.sport, a.venue, a.facility, st, en,
                 oldC, newC);
   beep();
+  g_returnPage = g_page;      // 警報收完返返原本個頁
   g_screen = SCR_ALERT;
   g_alertAt = millis();
   g_unread = true;
@@ -616,7 +607,7 @@ static void drawHome() {
 
   // footer
   String left = PUSH_HOST[0] ? (g_pushConnected ? "push 已連線" : "push 未連線") : "只用 poll";
-  String right = g_pollOk ? "" : "poll 失敗";
+  String right = "按一下瀏覽場地";
   if (g_pollFails) {
     snprintf(line, sizeof(line), "fail %d", g_pollFails);
     right = line;
@@ -691,13 +682,42 @@ static void drawAlert() {
 static void handleTouch() {
   if (!ts.tirqTouched() || !ts.touched()) return;
   TS_Point p = ts.getPoint();
-  (void)constrain(map(p.x, TOUCH_MIN_X, TOUCH_MAX_X, 0, SCR_W), 0, SCR_W - 1);
-  (void)constrain(map(p.y, TOUCH_MIN_Y, TOUCH_MAX_Y, 0, SCR_H), 0, SCR_H - 1);
+  // XPT2046 回傳 8191 = 冇撳；z < 10 = 壓力唔夠
+  if (p.x > 4000 || p.y > 4000 || p.z < 10) return;
+  int x = constrain(map(p.x, TOUCH_MIN_X, TOUCH_MAX_X, 0, SCR_W), 0, SCR_W - 1);
+  int y = constrain(map(p.y, TOUCH_MIN_Y, TOUCH_MAX_Y, 0, SCR_H), 0, SCR_H - 1);
+
+  // 警報卡最上層：撳一下就收，收完返返原本個頁
   if (g_screen == SCR_ALERT) {
     g_screen = SCR_HOME;
+    g_page = g_returnPage;
     g_unread = false;
     g_dirty = true;
+    return;
   }
+
+  if (g_page == PAGE_BROWSE) {
+    // 左上角撳一下 → 返通知頁
+    if (x < 32 && y < 26) {
+      g_page = PAGE_NOTIFY;
+      g_dirty = true;
+      return;
+    }
+    browseTouch(x, y);
+    g_dirty = true;
+    return;
+  }
+
+  // 通知頁：撳任何位置 → 入瀏覽頁（第一次先載入資料）
+  g_page = PAGE_BROWSE;
+  browseReset();
+  if (!browseLoaded) {
+    g_dirty = true;
+    browseFetch();
+  }
+  Serial.printf("[ui] page=browse district=%u day=%u rows=%u\n", curDistrict, curDate,
+                nRows);
+  g_dirty = true;
 }
 
 /* ---------------- clock ---------------- */
@@ -744,6 +764,24 @@ static void handleSerial() {
     loadVenueMap();
     pollEve();
     browseFetch();
+  } else if (c == 'u') {
+    Serial.printf("[ui] page=%s district=%u/%u date=%u/%u auto=%d paused=%d loaded=%d rows=%u\n",
+                  g_page == PAGE_BROWSE ? "browse" : "notify", curDistrict, nDistricts,
+                  curDate, nDates, autoPage ? 1 : 0, paused ? 1 : 0,
+                  browseLoaded ? 1 : 0, nRows);
+  } else if (c == 'g') {
+    // 去瀏覽頁（測試用，等同撳一下）
+    g_page = PAGE_BROWSE;
+    browseLoadPrefs();
+    if (!browseLoaded) browseFetch();
+    lastPageAt = millis();
+    g_dirty = true;
+    Serial.printf("[ui] page=browse district=%u date=%u rows=%u\n", curDistrict, curDate,
+                  nRows);
+  } else if (c == 'n') {
+    g_page = PAGE_NOTIFY;
+    g_dirty = true;
+    Serial.println("[ui] page=notify");
   } else if (c == 'a') {
     g_screen = SCR_ALERT;
     g_dirty = true;
@@ -764,17 +802,17 @@ static void handleSerial() {
     Serial.printf("[venue] map %s (%d entries)\n", g_venueMapLoaded ? "loaded" : "not loaded",
                   g_venueCount);
   } else if (c == 'B') {
-    Serial.printf("[browse] rows=%u venues=%u districts=%u dates=%u loaded=%d err='%s'\n",
-                  g_browse.rowCount, g_browse.venueCount, g_browse.districtCount,
-                  g_browse.dateCount, g_browse.loaded ? 1 : 0, g_browse.error);
-    for (uint16_t i = 0; i < g_browse.rowCount && i < 5; i++) {
-      const BrowseRow &r = g_browse.rows[i];
-      Serial.printf("  row %u: s=%u v=%u d=%u %u-%u c=%u mask=%u (%s)\n", i, r.sIdx, r.vIdx,
-                    r.dateIdx, r.start, r.end, r.courts, r.sportMask,
-                    browseSportList(r.sportMask).c_str());
+    Serial.printf("[browse] rows=%u venues=%u districts=%u dates=%u sports=%u loaded=%d err='%s'\n",
+                  nRows, nVenues, nDistricts, nDates, nSports, browseLoaded ? 1 : 0, browseError);
+    for (int i = 0; i < nRows && i < 5; i++) {
+      BRow &r = browses[i];
+      Serial.printf("  row %u: v=%u (%s) k=%u (%s) d=%u (%s) %u-%u c=%u\n", i, r.v,
+                    r.v < nVenues ? venueNames[r.v] : "?", r.k,
+                    r.k < nSports ? sportIcons[r.k] : "?", r.d,
+                    r.d < nDates ? dateLabels[r.d] : "?", r.sm, r.em, r.courts);
     }
-    for (uint16_t i = 0; i < g_browse.districtCount && i < 4; i++)
-      Serial.printf("  district %u: %s\n", i, g_browse.district[i]);
+    for (int i = 0; i < nDistricts && i < 8; i++)
+      Serial.printf("  district %u: %s\n", i, districts[i]);
   } else {
     Serial.println("commands: b p r a h l v B");
   }
@@ -823,6 +861,9 @@ void setup() {
   pollEve();   // 第一輪 = baseline，唔會誤嗶
   pushConnect();
 
+  // 瀏覽頁初始化（NVS 設定 + 第一次拉 browse.json）
+  browseInit();
+  browseFetch();
   g_dirty = true;
 }
 
@@ -839,16 +880,29 @@ void loop() {
   handleSerial();
   handleTouch();
   updateClock();
+  if (g_page == PAGE_BROWSE && g_screen == SCR_HOME) {
+    browseTick();
+    // 瀏覽頁開著嘅時候每 15 分鐘更新一次場次資料
+    static unsigned long lastBrowseFetch = 0;
+    if (millis() - lastBrowseFetch >= 15UL * 60UL * 1000UL) {
+      lastBrowseFetch = millis();
+      browseFetch();
+      g_dirty = true;
+    }
+  }
 
   // 警報畫面自動返回（通知已經響過，唔好霸住個位）
   if (g_screen == SCR_ALERT && millis() - g_alertAt > 120000) {
     g_screen = SCR_HOME;
+    g_page = g_returnPage;
+    g_unread = false;
     g_dirty = true;
   }
 
   if (g_dirty) {
     g_dirty = false;
     if (g_screen == SCR_ALERT && g_alertCount > 0) drawAlert();
+    else if (g_page == PAGE_BROWSE) browseDrawCurrent();
     else drawHome();
   }
 
