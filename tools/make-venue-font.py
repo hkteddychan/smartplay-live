@@ -123,9 +123,13 @@ def render_glyph(font: ImageFont.FreeTypeFont, cp: int) -> bytes:
     d = ImageDraw.Draw(img)
     ch = chr(cp)
     bbox = d.textbbox((0, 0), ch, font=font, anchor="lt")
+    glyph_h = bbox[3] - bbox[1]
     dy = 0
     if bbox[3] > CELL:
         dy = CELL - bbox[3]
+    elif glyph_h < 10:
+        # vertically centre short strokes (e.g. "一") so they don't sit too high
+        dy = (CELL - glyph_h) // 2 - bbox[1]
     if bbox[1] + dy < 0:
         dy = -bbox[1]
     d.text((0, dy), ch, font=font, fill=1, anchor="lt")
