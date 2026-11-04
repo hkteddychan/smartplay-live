@@ -26,7 +26,7 @@
 
 static const char *BR_SPORT_KEYS[]  = {"badminton","basketball","volleyball","tennis","turf-soccer-pitch"};
 static const char *BR_SPORT_NAMES[] = {"羽毛球","籃球","排球","網球","草地足球"};
-static const char *BR_SPORT_ICONS[] = {"🏸","🏀","🏐","🎾","⚽"};
+static const char *BR_SPORT_ICONS[] = {"羽","籃","排","網","足"};
 static const int BR_N_SPORTS = 5;
 static const char *BR_SPORT_TEXT_ICONS[] = {"羽","籃","排","網","足"};
 
