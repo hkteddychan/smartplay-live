@@ -530,12 +530,18 @@ static void drawHome() {
 
   // footer
   String left = String("WiFi ") + g_wifiSsid;
-  String right = "按一下瀏覽場地";
   if (g_pollFails) {
-    snprintf(line, sizeof(line), "fail %d", g_pollFails);
-    right = line;
+    snprintf(line, sizeof(line), " fail %d", g_pollFails);
+    left += line;
   }
-  drawFooter(left, right);
+  drawFooter(left, "");
+  // bottom tabs
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextSize(1);
+  tft.setTextColor(C_DIM, C_BAR);
+  drawUTF8(String("通知"), 232, SCR_H - FOOTER_H + 4, C_DIM, C_BAR);
+  tft.setTextColor(C_ACCENT, C_BAR);
+  drawUTF8(String("瀏覽"), 282, SCR_H - FOOTER_H + 4, C_ACCENT, C_BAR);
 
   // audio probe banner
   if (g_probeText.length()) {
@@ -602,19 +608,30 @@ static void drawAlert() {
 }
 
 /* ---------------- touch ---------------- */
-static void handleTouch() {
-  if (!ts.tirqTouched() || !ts.touched()) return;
-  TS_Point p = ts.getPoint();
-  // XPT2046 回傳 8191 = 冇撳；z < 10 = 壓力唔夠
-  if (p.x > 4000 || p.y > 4000 || p.z < 10) return;
-  int x = constrain(map(p.x, TOUCH_MIN_X, TOUCH_MAX_X, 0, SCR_W), 0, SCR_W - 1);
-  int y = constrain(map(p.y, TOUCH_MIN_Y, TOUCH_MAX_Y, 0, SCR_H), 0, SCR_H - 1);
+static bool touchDown = false;
+static int tStartX = 0, tStartY = 0;
+static int tLastX = 0, tLastY = 0;
+static unsigned long tStartTime = 0;
 
+static void processTap(int x, int y) {
   // 警報卡最上層：撳一下就收，收完返返原本個頁
   if (g_screen == SCR_ALERT) {
     g_screen = SCR_HOME;
     g_page = g_returnPage;
     g_unread = false;
+    g_dirty = true;
+    return;
+  }
+
+  // 底部 Tab 導航
+  if (y >= SCR_H - FOOTER_H) {
+    if (x < SCR_W / 2) {
+      g_page = PAGE_NOTIFY;
+    } else {
+      g_page = PAGE_BROWSE;
+      browseReset();
+      if (!browseLoaded) browseFetch();
+    }
     g_dirty = true;
     return;
   }
@@ -641,6 +658,46 @@ static void handleTouch() {
   Serial.printf("[ui] page=browse district=%u day=%u rows=%u\n", curDistrict, curDate,
                 nRows);
   g_dirty = true;
+}
+
+static void handleTouch() {
+  bool touched = ts.tirqTouched() && ts.touched();
+  int x = 0, y = 0;
+  if (touched) {
+    TS_Point p = ts.getPoint();
+    // XPT2046 回傳 8191 = 冇撳；z < 10 = 壓力唔夠
+    if (p.x > 4000 || p.y > 4000 || p.z < 10) touched = false;
+    else {
+      x = constrain(map(p.x, TOUCH_MIN_X, TOUCH_MAX_X, 0, SCR_W), 0, SCR_W - 1);
+      y = constrain(map(p.y, TOUCH_MIN_Y, TOUCH_MAX_Y, 0, SCR_H), 0, SCR_H - 1);
+    }
+  }
+
+  if (!touched) {
+    if (touchDown) {
+      int dx = tLastX - tStartX;
+      int dy = tLastY - tStartY;
+      unsigned long dt = millis() - tStartTime;
+      touchDown = false;
+      if (dt < 700 && (abs(dx) > 45 || abs(dy) > 45) && (abs(dx) + abs(dy)) > 60) {
+        // swipe gesture
+        if (g_page == PAGE_BROWSE && g_screen == SCR_HOME) {
+          browseSwipe(dx, dy);
+          g_dirty = true;
+        }
+      } else {
+        processTap(tStartX, tStartY);
+      }
+    }
+    return;
+  }
+
+  if (!touchDown) {
+    touchDown = true;
+    tStartX = x; tStartY = y; tLastX = x; tLastY = y; tStartTime = millis();
+    return;
+  }
+  tLastX = x; tLastY = y;
 }
 
 /* ---------------- clock ---------------- */
@@ -813,6 +870,11 @@ void loop() {
 
   handleSerial();
   handleTouch();
+  if (browseFlashUntil && millis() >= browseFlashUntil) {
+    browseFlashUntil = 0;
+    browseFlashChip = -1;
+    g_dirty = true;
+  }
   updateClock();
   if (g_page == PAGE_BROWSE && g_screen == SCR_HOME) {
     browseTick();

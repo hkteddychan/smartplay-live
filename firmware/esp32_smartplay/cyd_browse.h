@@ -48,6 +48,7 @@ static int nRows = 0;
 static bool browseLoaded = false;
 static char browseError[32] = "";
 static bool browseSportMode = false;
+static bool browseFetching = false;
 
 static Preferences browsePrefs;
 static int curDistrict = 0;
@@ -59,6 +60,9 @@ static bool autoPage = true;
 static bool paused = false;
 static int curPage = 0;
 static int browseOverlay = 0;
+
+static unsigned long browseFlashUntil = 0;
+static int browseFlashChip = -1;   // 0 district,1 sport,2 time,3 play
 
 static unsigned long lastPageAt = 0;
 
@@ -322,8 +326,10 @@ static bool browseParseSport(const char *body, int sportIdx) {
 
 // ---------------- fetch ----------------
 static bool browseFetch() {
+    browseFetching = true;
     if (WiFi.status() != WL_CONNECTED) {
         browseCopy(browseError, sizeof(browseError), "WiFi 未連接");
+        browseFetching = false;
         return false;
     }
     static String body;
@@ -338,6 +344,7 @@ static bool browseFetch() {
     if (!httpGet(url, body)) {
         browseCopy(browseError, sizeof(browseError), "抓取失敗");
         browseLoaded = false;
+        browseFetching = false;
         return false;
     }
     Serial.printf("[browse] %s -> %u bytes\n", url, (unsigned)body.length());
@@ -351,6 +358,7 @@ static bool browseFetch() {
     if (curDistrict >= nDistricts && nDistricts > 0) curDistrict = 0;
     // free body memory
     body = "";
+    browseFetching = false;
     return ok;
 }
 
@@ -469,7 +477,27 @@ static void browseTogglePaused() {
     browseSavePrefs();
 }
 
-static void browseTick() {
+static void browseSwipe(int dx, int dy) {
+    if (abs(dx) >= abs(dy)) {
+        if (dx > 40) {
+            if (curPage > 0) curPage--;
+            else if (nDistricts > 0) browseStepDistrict(-1);
+        } else if (dx < -40) {
+            int idx[64];
+            int n = browseFilteredRows(idx, 64);
+            int tp = (n + BROWSE_ROWS_PER_PAGE - 1) / BROWSE_ROWS_PER_PAGE;
+            if (tp < 1) tp = 1;
+            if (curPage + 1 < tp) curPage++;
+            else { curPage = 0; browseStepDistrict(1); }
+        }
+    } else {
+        // vertical swipe cycles time period
+        browseCycleTimePeriod();
+    }
+    lastPageAt = millis();
+    browseSavePrefs();
+    browseFlashChip = -1;
+}
     if (!autoPage || paused || nRows == 0) return;
     if (millis() - lastPageAt < (unsigned long)pageSec * 1000UL) return;
     lastPageAt = millis();
@@ -515,10 +543,10 @@ static bool browseTouch(int x, int y) {
 
     if (y < BROWSE_HEADER_H) {
         // back button handled in smartplay.ino (x<20 && y<20)
-        if (x >= 24 && x < 96) { browseOverlay = 1; return true; }   // district chip
-        if (x >= 98 && x < 146) { browseOverlay = 2; return true; }  // sport chip
-        if (x >= 148 && x < 186) { browseCycleTimePeriod(); return true; } // time chip
-        if (x >= 188 && x < 226) { browseTogglePaused(); return true; }   // play/pause chip
+        if (x >= 24 && x < 96) { browseFlashChip = 0; browseFlashUntil = millis() + 150; browseOverlay = 1; return true; }   // district chip
+        if (x >= 98 && x < 146) { browseFlashChip = 1; browseFlashUntil = millis() + 150; browseOverlay = 2; return true; }  // sport chip
+        if (x >= 148 && x < 186) { browseFlashChip = 2; browseFlashUntil = millis() + 150; browseCycleTimePeriod(); return true; } // time chip
+        if (x >= 188 && x < 226) { browseFlashChip = 3; browseFlashUntil = millis() + 150; browseTogglePaused(); return true; }   // play/pause chip
         return true;
     }
 
@@ -533,6 +561,7 @@ static bool browseTouch(int x, int y) {
         if (curPage + 1 < totalPages) curPage++;
         else { curPage = 0; browseStepDistrict(1); }
     } else {
+        if (!browseLoaded) { browseFetch(); return true; }
         browseCycleDate();
     }
     return true;
@@ -558,32 +587,33 @@ static void browseDrawHeader() {
 
     // helper: draw a chip at (x,y,w) with label like "區香港"
     // district chip
-    tft.fillRect(24, 2, 72, 22, C_CARD);
+    bool fd = (browseFlashChip == 0 && millis() < browseFlashUntil);
+    tft.fillRect(24, 2, 72, 22, fd ? C_ACCENT : C_CARD);
     tft.drawRect(24, 2, 72, 22, C_DIM);
     const char *dv = (curDistrict >= 0 && curDistrict < nDistricts && districts[curDistrict][0])
                      ? districts[curDistrict] : "全部";
-    drawUTF8(String("區 ") + String(dv), 28, 6, C_TEXT, C_CARD);
+    drawUTF8(String("區 ") + String(dv), 28, 6, fd ? C_BG : C_TEXT, fd ? C_ACCENT : C_CARD);
 
     // sport chip
-    tft.fillRect(98, 2, 48, 22, C_CARD);
+    bool fs = (browseFlashChip == 1 && millis() < browseFlashUntil);
+    tft.fillRect(98, 2, 48, 22, fs ? C_ACCENT : C_CARD);
     tft.drawRect(98, 2, 48, 22, C_DIM);
-    drawUTF8(String("運 ") + String(sportIconOf(curSport)), 100, 6, C_ACCENT, C_CARD);
+    drawUTF8(String("運 ") + String(sportIconOf(curSport)), 100, 6, fs ? C_BG : C_ACCENT, fs ? C_ACCENT : C_CARD);
 
     // time chip (colour by period)
+    bool ft = (browseFlashChip == 2 && millis() < browseFlashUntil);
     uint16_t tcol = (curTimePeriod == 0) ? C_ACCENT : (curTimePeriod == 1) ? C_WARN : C_GOOD;
-    tft.fillRect(148, 2, 38, 22, C_CARD);
+    tft.fillRect(148, 2, 38, 22, ft ? C_ACCENT : C_CARD);
     tft.drawRect(148, 2, 38, 22, C_DIM);
-    drawUTF8(String("時 ") + String(timePeriodLabel(curTimePeriod)), 150, 6, tcol, C_CARD);
+    drawUTF8(String("時 ") + String(timePeriodLabel(curTimePeriod)), 150, 6, ft ? C_BG : tcol, ft ? C_ACCENT : C_CARD);
 
     // play/pause chip
-    tft.fillRect(188, 2, 38, 22, C_CARD);
+    bool fp = (browseFlashChip == 3 && millis() < browseFlashUntil);
+    tft.fillRect(188, 2, 38, 22, fp ? C_ACCENT : C_CARD);
     tft.drawRect(188, 2, 38, 22, C_DIM);
-    drawUTF8(paused ? String("⏸") : String("▶"), 200, 6, paused ? C_WARN : C_GOOD, C_CARD);
+    drawUTF8(paused ? String("⏸") : String("▶"), 200, 6, fp ? C_BG : (paused ? C_WARN : C_GOOD), fp ? C_ACCENT : C_CARD);
 
-    // static hint
-    tft.setTextColor(C_DIM, C_BAR);
-    tft.setTextDatum(TL_DATUM);
-    drawUTF8(String("全部日子"), 232, 6, C_DIM, C_BAR);
+    // (static hint removed — no longer used)
 
     time_t now = time(nullptr);
     struct tm lt;
@@ -600,13 +630,25 @@ static void browseDrawHeader() {
 }
 
 static void browseDrawBody() {
+    int y = BROWSE_HEADER_H;
+    if (browseFetching) {
+        tft.fillRect(0, y, 320, 240 - y - BROWSE_FOOTER_H, C_BG);
+        String msg = "載入中…";
+        drawUTF8(msg, (320 - measureUTF8(msg)) / 2, y + 90, C_ACCENT, C_BG);
+        // simple spinner
+        const char *sp = "|/-\\";
+        char c[2] = { sp[(millis() / 150) % 4], 0 };
+        tft.setTextColor(C_ACCENT, C_BG);
+        tft.setTextDatum(TL_DATUM);
+        tft.drawString(c, 160 - 4, y + 110, 2);
+        return;
+    }
     int idx[64];
     int n = browseFilteredRows(idx, 64);
     int totalPages = (n + BROWSE_ROWS_PER_PAGE - 1) / BROWSE_ROWS_PER_PAGE;
     if (totalPages < 1) totalPages = 1;
     if (curPage >= totalPages) curPage = 0;
 
-    int y = BROWSE_HEADER_H;
     if (n == 0) {
         tft.fillRect(0, y, 320, 240 - y - BROWSE_FOOTER_H, C_BG);
         String none = "呢個條件暫時冇可訂場地";
@@ -663,8 +705,12 @@ static void browseDrawFooter() {
     snprintf(buf, sizeof(buf), "%d/%d區 · 頁%d/%d · %d行",
              curDistrict + 1, nDistricts, curPage + 1, tp, n);
     tft.drawString(buf, 6, y + 3, 1);
-    tft.setTextDatum(TR_DATUM);
-    tft.drawString("可訂 地區/運動/時段/播放", 314, y + 3, 1);
+    // bottom tabs
+    tft.setTextDatum(CR_DATUM);
+    tft.setTextColor(C_DIM, C_BAR);
+    tft.drawString("通知", 220, y + 3, 1);
+    tft.setTextColor(C_ACCENT, C_BAR);
+    tft.drawString("瀏覽", 314, y + 3, 1);
     tft.setTextDatum(TL_DATUM);
 }
 
