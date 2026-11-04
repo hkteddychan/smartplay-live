@@ -1,0 +1,15 @@
+[Unit]
+Description=CYD reverse relay (ESP32 SOCKS5 over residential IP)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/cyd/cyd_relay.py --pool 9000 --front 1080 --bind 127.0.0.1 -v
+Restart=always
+RestartSec=5
+# 非特權直接行都得；有 sudo 就加下面兩行
+# User=cyd
+# Group=cyd
+
+[Install]
+WantedBy=multi-user.target

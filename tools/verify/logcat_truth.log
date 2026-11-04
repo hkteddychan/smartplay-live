@@ -1,0 +1,39 @@
+--------- beginning of main
+         1793513042.755  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513042.810  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513042.862  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513049.831  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513057.394  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513057.448  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513057.499  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513198.862  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513207.943  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513208.042  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513208.156  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513222.658  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513222.712  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513222.764  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513223.023  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513272.202  6513  7134 D TrafficStats: tagSocket(290) with statsTag=0xffffffff, statsUid=-1
+         1793513376.806  6513  8888 I OpenGLRenderer: Davey! duration=153848ms; Flags=0, FrameTimelineVsyncId=857855, IntendedVsync=1816349641938, Vsync=1816383058664, InputEventId=0, HandleInputStart=1816399141390, AnimationStart=1816399142848, PerformTraversalsStart=1816399144046, DrawStart=1816399448421, FrameDeadline=1816537393135, FrameInterval=1816399134202, FrameStartTime=16708363, SyncQueued=1816399768369, SyncStart=1816450154150, IssueDrawCommandsStart=1816450435660, SwapBuffers=1816468558317, FrameCompleted=1970248657893, DequeueBufferDuration=0, QueueBufferDuration=0, GpuCompleted=1970248657893, SwapBuffersCompleted=1816501581285, DisplayPresentTime=1526672998792, CommandSubmissionCompleted=1816468558317, 
+         1793513378.489  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513378.695  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513382.518  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513382.610  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513382.662  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513428.888  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513548.482  6513 12887 D TrafficStats: tagSocket(251) with statsTag=0xffffffff, statsUid=-1
+         1793513548.869  6513  6526 I OpenGLRenderer: Davey! duration=120047ms; Flags=0, FrameTimelineVsyncId=954609, IntendedVsync=2022214566327, Vsync=2022247983213, InputEventId=0, HandleInputStart=2022264364853, AnimationStart=2022264366155, PerformTraversalsStart=2022264367509, DrawStart=2022264594436, FrameDeadline=2022402316512, FrameInterval=2022264359488, FrameStartTime=16708443, SyncQueued=2022264873238, SyncStart=2022314465894, IssueDrawCommandsStart=2022314900113, SwapBuffers=2022335916728, FrameCompleted=2142311696526, DequeueBufferDuration=0, QueueBufferDuration=0, GpuCompleted=2142311696526, SwapBuffersCompleted=2022365569957, DisplayPresentTime=-2, CommandSubmissionCompleted=2022335916728, 
+         1793513550.482  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513558.778  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513558.875  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513559.022  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513742.560  6513  6526 I OpenGLRenderer: Davey! duration=183555ms; Flags=0, FrameTimelineVsyncId=1015924, IntendedVsync=2152406886342, Vsync=2152406886342, InputEventId=0, HandleInputStart=2152407900168, AnimationStart=2152407901574, PerformTraversalsStart=2152407902772, DrawStart=2152408124803, FrameDeadline=2152494387053, FrameInterval=2152407896470, FrameStartTime=16708505, SyncQueued=2152408416418, SyncStart=2152448337980, IssueDrawCommandsStart=2152448718709, SwapBuffers=2152468064282, FrameCompleted=2336002738796, DequeueBufferDuration=0, QueueBufferDuration=0, GpuCompleted=2336002738796, SwapBuffersCompleted=2152468612772, DisplayPresentTime=1643481834008, CommandSubmissionCompleted=2152468064282, 
+         1793513744.164  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513744.269  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513744.526  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513772.657  6513  8888 I OpenGLRenderer: Davey! duration=28195ms; Flags=0, FrameTimelineVsyncId=1102888, IntendedVsync=2337854088972, Vsync=2337887506242, InputEventId=0, HandleInputStart=2337902197337, AnimationStart=2337902198066, PerformTraversalsStart=2337902198691, DrawStart=2337902357284, FrameDeadline=2338025136709, FrameInterval=2337902193847, FrameStartTime=16708635, SyncQueued=2337902556920, SyncStart=2337953300670, IssueDrawCommandsStart=2337953543639, SwapBuffers=2337971062805, FrameCompleted=2366099836545, DequeueBufferDuration=0, QueueBufferDuration=0, GpuCompleted=2366099836545, SwapBuffersCompleted=2338004407597, DisplayPresentTime=1651251267286, CommandSubmissionCompleted=2337971062805, 
+         1793513774.269  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513774.319  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513774.375  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+         1793513774.476  6513  6735 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback

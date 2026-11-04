@@ -1,0 +1,21 @@
+# build output
+.pio/
+node_modules/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+
+# working scratch (large regenerable artefacts)
+.work/
+dist/
+logcat.txt
+tools/pgo_sessions/
+*.bak
+*.bak2
+
+# editor / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

@@ -1,0 +1,49 @@
+﻿15:42:55.003 [http+ws] game + results on http://127.0.0.1:8899
+15:43:07.546 [WS] game client connected from ::ffff:127.0.0.1
+15:43:07.551 [<-] hello #1: game=NEON SERPENT 3D protocol=neon-serpent-3d/1 snakes=3 dirs=+x,-x,+y,-y,+z,-z
+15:43:07.552 [->] join ESP32-CYD + autopilot off (firmware boot path)
+15:43:07.589 [<-] join response ok=true id=agent-1
+15:43:07.679 PASS  T0 hello received  | {"game":"NEON SERPENT 3D","protocol":"neon-serpent-3d/1","dirs":["+x","-x","+y","-y","+z","-z"],"snakes":3}
+15:43:07.709 PASS  T1 join accepted  | {"id":"agent-1","name":"ESP32-CYD","kind":"agent"}
+15:43:07.774 PASS  T1b agent snake present in state  | {"id":"agent-1","len":5,"head":{"x":7,"y":9,"z":5}}
+15:43:07.882 PASS  T1c arena auto-started by join  | {"state":"playing"}
+15:43:07.885 PASS  T2 invalid direction rejected  | {"error":"invalid_direction"}
+15:43:07.917 PASS  T3 opposite direction rejected  | {"error":"opposite_direction","current":"+x"}
+15:43:07.946 PASS  T4 same direction accepted, not queued  | {"queued":false}
+15:43:08.210 [->] gotoCenter done, head= {"x":10,"y":9,"z":8}
+15:43:08.330 PASS  T5 move +x one cell along +x  | {"at":15,"from":{"x":10,"y":9,"z":10},"to":{"x":11,"y":9,"z":10}}
+15:43:08.531 PASS  T5 move +y one cell along +y  | {"at":18,"from":{"x":13,"y":9,"z":10},"to":{"x":13,"y":10,"z":10}}
+15:43:08.592 PASS  T5 move -x one cell along -x  | {"at":20,"from":{"x":13,"y":11,"z":10},"to":{"x":12,"y":11,"z":10}}
+15:43:08.686 PASS  T5 move +z one cell along +z  | {"at":22,"from":{"x":11,"y":11,"z":10},"to":{"x":11,"y":11,"z":11}}
+15:43:08.746 PASS  T5 move -y one cell along -y  | {"at":24,"from":{"x":11,"y":11,"z":12},"to":{"x":11,"y":10,"z":12}}
+15:43:12.215 PASS  T5 move -z one cell along -z  | {"at":25,"from":{"x":11,"y":10,"z":12},"to":{"x":11,"y":10,"z":11}}
+15:43:12.216 PASS  T5 coverage  | {"verified":["+x","+y","-x","+z","-y","-z"],"skipped":[],"note":"貼牆/被擋方向會跳過，其餘應全數通過"}
+15:43:12.617 PASS  T6 queue consumed one per tick, turns in order  | {"plan":["+x","+y","+z"],"matchStart":0,"deltas":["+x","+y","+z","+z","+z","+z","+z","+z"],"note":"state 於 tick 後發出，改以相鄰位移序列驗證佇列順序消費"}
+15:43:12.627 PASS  T7a pause accepted  | {"state":"paused"}
+15:43:12.655 PASS  T7b command while paused rejected  | {"error":"arena_not_running"}
+15:43:12.657 PASS  T7c resume accepted  | {"state":"playing"}
+15:43:12.688 PASS  T8a autopilot on accepted  | {"autopilot":true}
+15:43:12.968 PASS  T8b autopilot moves without commands  | {"from":{"x":12,"y":11,"z":16},"to":{"x":15,"y":8,"z":16}}
+15:43:12.971 PASS  T8c autopilot off accepted  | {"autopilot":false}
+15:43:12.986 PASS  T9a second join accepted  | {"id":"agent-2"}
+15:43:13.016 PASS  T9b two agent snakes on board  | {"agents":["agent-1","agent-2"]}
+15:43:13.019 PASS  T9c leave removes snake  | {"id":"agent-2"}
+15:43:13.201 PASS  T10 unknown command -> response(ok=false, unknown_command)  | {"error":"unknown_command","requestType":"blink_led","note":"修正前：回應的 type 欄位被 ...result 覆蓋成指令名，導致客端無法辨識"}
+15:43:15.499 PASS  T11 malformed frame survives  | {"snakes":3}
+15:43:17.251 PASS  T12 wrong namespace ignored, game alive  | {"unsolicitedReply":false,"alive":true}
+15:43:17.257 PASS  T13 get_state snapshot complete  | {"arenaSize":18,"tick":52,"snakes":3,"foods":5,"board":3}
+15:43:17.282 PASS  T14a reset accepted  | {}
+15:43:20.956 PASS  T14b firmware auto-rejoin after reset  | {"id":"agent-1"}
+15:43:20.993 PASS  T15 command latency (p50)  | {"p50":1.08,"p95":10.14,"max":10.14,"unit":"ms","note":"p95/max 的離群值來自無頭 SwiftShader 算繪停頓，非 WebSocket 協議延遲"}
+15:43:21.007 PASS  T16a leave main agent  | {"id":"agent-1"}
+15:43:24.564 PASS  T16b rejoin returns snake to arena  | {"id":"agent-2"}
+15:43:24.566 SUITE DONE — waiting for page reload (T17 reconnect test)…
+15:43:27.020 [WS] socket error: read ECONNRESET
+15:43:27.021 [WS] game client disconnected
+15:43:32.216 [WS] game client connected from ::ffff:127.0.0.1
+15:43:32.228 [<-] hello #2: game=NEON SERPENT 3D protocol=neon-serpent-3d/1 snakes=3 dirs=+x,-x,+y,-y,+z,-z
+15:43:32.228 [->] join ESP32-CYD + autopilot off (firmware boot path)
+15:43:34.106 PASS  T17 reconnect: agent back after page reload  | {"id":"agent-1","hellos":2}
+15:43:34.107 RECONNECT TEST DONE — exiting in 2s
+15:43:34.477 [WS] socket error: read ECONNRESET
+15:43:34.477 [WS] game client disconnected

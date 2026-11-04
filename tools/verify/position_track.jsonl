@@ -1,0 +1,8 @@
+{"i": 0, "t": 1793559834.68, "known": true, "lat": 40.753897, "lon": -73.982076, "local": "11-01 14:03:54", "auto_spin": true, "speed_kmh": "30.0"}
+{"i": 1, "t": 1793559852.548, "known": true, "lat": 40.753897, "lon": -73.982076, "local": "11-01 14:04:12", "auto_spin": true, "speed_kmh": "30.0", "moved_m": 0.0}
+{"i": 2, "t": 1793559878.677, "known": false, "lat": null, "lon": null, "local": null, "auto_spin": true, "speed_kmh": "30.0", "moved_m": 0.0}
+{"i": 3, "t": 1793559900.16, "known": true, "lat": 40.753897, "lon": -73.982076, "local": "11-01 14:04:59", "auto_spin": true, "speed_kmh": "30.0", "moved_m": 0.0}
+{"i": 0, "t": 1793560019.149, "known": true, "lat": 40.753897, "lon": -73.982076, "local": "11-01 14:06:58", "auto_spin": true, "speed_kmh": "30.0"}
+{"i": 1, "t": 1793560035.733, "known": true, "lat": 40.754234, "lon": -73.981948, "local": "11-01 14:07:15", "auto_spin": true, "speed_kmh": "30.0", "moved_m": 39.0}
+{"i": 2, "t": 1793560052.213, "known": true, "lat": 40.754595, "lon": -73.981811, "local": "11-01 14:07:31", "auto_spin": true, "speed_kmh": "30.0", "moved_m": 41.8}
+{"i": 3, "t": 1793560068.942, "known": true, "lat": 40.755018, "lon": -73.981655, "local": "11-01 14:07:48", "auto_spin": true, "speed_kmh": "30.0", "moved_m": 48.8}
