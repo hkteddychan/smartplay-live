@@ -1,0 +1,345 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "manifest_version": "1.0",
+  "generated": "2026-11-04",
+  "project": "ESP32 CYD workspace",
+  "workspace": "D:\\Teddy\\Opencode\\ESP32",
+  "description": "Machine-readable capability manifest for the ESP32-2432S028R (CYD) board and every firmware project in this workspace. Loadable by any tool that can parse JSON.",
+
+  "board": {
+    "model": "ESP32-2432S028R",
+    "nickname": "CYD (Cheap Yellow Display)",
+    "mcu": "ESP32-WROOM-32 (classic, Xtensa LX6 dual-core @ 240 MHz)",
+    "usb_serial_chip": {
+      "name": "CH340",
+      "pnp_id": "USB\\VID_1A86&PID_7523",
+      "com_port": "assigned by Windows at plug time — seen as COM7 and COM8 on this machine",
+      "resolve_with": "esp32_port.py (auto-detect by PNP id); override with ESP32_PORT env var"
+    },
+    "memory": {
+      "flash_mb": 4,
+      "psram": false,
+      "sram_kb": 520,
+      "rom_kb": 448
+    },
+    "firmware": {
+      "framework": "Arduino",
+      "arduino_core": "3.3.12",
+      "platformio_core": "6.2.0",
+      "platform": "espressif32 8.0.0",
+      "python": "3.13.5",
+      "pytest": "9.0.3",
+      "pyserial": "3.5"
+    },
+    "network": {
+      "wifi": "2.4 GHz STA, WPA2",
+      "ssid": "REDACTED",
+      "ip": "192.168.31.34",
+      "ip_note": "DHCP-assigned, changes between boots — re-check the serial log",
+      "mac": "b4-a6-4a-80-0f-e8",
+      "rssi_dbm": [-52, -46],
+      "outbound_only": true,
+      "outbound_only_note": "device dials out; no inbound port forwarding needed (reverse relay pattern)"
+    },
+    "peripherals": {
+      "display": {
+        "type": "2.8 inch TFT, resistive touch",
+        "controller": "ILI9341 (ST7789 on some variants — not auto-detected)",
+        "resolution": "240x320 portrait",
+        "orientation_used": "320x240 landscape, tft.setRotation(1)",
+        "driver": "TFT_eSPI 2.5.43",
+        "driver_flag": "ILI9341_2_DRIVER",
+        "spi_bus": "HSPI (SPI2)",
+        "pins": {"miso": 12, "mosi": 13, "sclk": 14, "cs": 15, "dc": 2, "rst": -1, "backlight": 21},
+        "backlight_note": "RST tied to EN; GPIO 27 on some variants instead of 21"
+      },
+      "touch": {
+        "controller": "XPT2046",
+        "type": "resistive",
+        "spi_bus": "VSPI (SPI3) — separate from the display, this is the key CYD gotcha",
+        "pins": {"clk": 25, "miso": 39, "mosi": 32, "cs": 33, "irq": 36},
+        "calibration_raw_range": {"x": [200, 3900], "y": [200, 3900]},
+        "rotation": 1
+      },
+      "rgb_led": {
+        "pins": {"red": 4, "green": 16, "blue": 17},
+        "active_low": true
+      },
+      "speaker": {
+        "amp": "onboard class-D amp, fed from GPIO26 (analog input)",
+        "amp_pin": 26,
+        "drive_method": "ESP32 internal DAC through I2S: i2s_set_dac_mode(I2S_DAC_CHANNEL_LEFT_EN)",
+        "dac_mapping": {
+          "I2S_DAC_CHANNEL_RIGHT_EN": "DAC channel 0 -> GPIO25 (also the touch clock — do not use)",
+          "I2S_DAC_CHANNEL_LEFT_EN": "DAC channel 1 -> GPIO26 (the amp)"
+        },
+        "api_note": "requires the legacy driver/i2s.h — the newer driver/i2s_std.h has no DAC mode",
+        "connector": "P4, 2P 1.25 mm Molex PicoBlade, labelled SPEAK, on the back",
+        "speaker_included": false,
+        "speaker_note": "speaker is optional; without one the board is silent but everything else still works"
+      },
+      "sd_card": {
+        "cs": 5,
+        "spi_bus": "VSPI (SPI3) — shares the bus with touch",
+        "pins": {"sck": 18, "miso": 19, "mosi": 23},
+        "used": false
+      },
+      "light_sensor": {"gpio": 34, "type": "LDR (some variants only)"},
+      "buttons": {
+        "boot": {"gpio": 0, "mode": "INPUT_PULLUP", "pressed": "LOW"},
+        "reset": {"pin": "EN", "note": "tied to the display RST"}
+      },
+      "microphone": {
+        "present": false,
+        "note": "no mic on board — voice input needs an external INMP441 I2S mic on free GPIOs"
+      },
+      "free_gpios": [1, 3, 6, 7, 8, 9, 10, 11, 22, 27, 35, 38],
+      "free_gpios_note": "GPIO 35 and 38 are input-only with no internal pull-ups; GPIO 21 is the backlight; 22 and 27 are broken out on the Molex connectors",
+      "connectors": {
+        "P1": "4P Molex PicoBlade — VIN, IO1(TX), IO3(RX), GND",
+        "P3": "4P Molex PicoBlade — GND, IO35, IO22, IO21(backlight)",
+        "P4": "2P Molex PicoBlade — SPEAKER",
+        "CN1": "4P Molex PicoBlade — GND, IO22, IO27, 3.3V"
+      }
+    }
+  },
+
+  "firmware_projects": [
+    {
+      "id": "esp32_smartplay",
+      "path": "firmware/esp32_smartplay",
+      "title": "SmartPLAY Live 放場通知器 (release-only)",
+      "version": "3.0",
+      "status": "CURRENTLY FLASHED ON THE BOARD",
+      "source_brief": "https://hkteddychan.github.io/smartplay-live/esp32/BUILD_HANDOFF.md",
+      "purpose": "Standalone release alarm: the board tells you when evening court slots open up — one beep plus a full-screen card. Nothing else.",
+      "standalone": true,
+      "features": [
+        "two independent paths, deduped so an event never beeps twice",
+        "PUSH: the board dials out to the VM (NAT-proof) and the VM pushes a release the moment the feed changes",
+        "POLL fallback: HTTPS GET changes-eve.json every 60 s",
+        "release detection: kind == 'chg' && new > old, or kind == 'new'",
+        "first poll is baseline-only — a reboot never false-alarms",
+        "one short quiet beep per release (1 kHz, 160 ms, raised-cosine envelope, I2S DAC left -> GPIO26)",
+        "full-screen alert card: sport, district, venue, time range, facility, old->new courts",
+        "green header bar + RGB LED green blink on alert",
+        "tap the touchscreen to dismiss; auto-dismiss after 120 s",
+        "status screen: last poll, next poll, feed version, releases seen, push link state",
+        "venue -> district resolved server-side (the board never downloads today.json)",
+        "CJK font subset generated from the live feed (323 glyphs / 10 KB)",
+        "NTP time (HKT) via configTime"
+      ],
+      "push_protocol": {
+        "transport": "plain TCP, board dials out (no inbound ports)",
+        "vm_host": "13.236.188.205",
+        "vm_port": 9000,
+        "board_greeting": "CYD PUSH 1",
+        "vm_ack": "OK",
+        "vm_message": "RELEASE {json}",
+        "json_fields": ["sport", "district", "venue", "facility", "date", "start", "end", "old", "new"],
+        "dedupe": "16-entry key ring buffer (sport|venue|date|start|old|new)"
+      },
+      "feeds": {
+        "changes_eve": "https://hkteddychan.github.io/smartplay-live/esp32/changes-eve.json",
+        "index": "https://hkteddychan.github.io/smartplay-live/esp32/index.json",
+        "today": "https://hkteddychan.github.io/smartplay-live/esp32/today.json — server side only"
+      },
+      "build": {
+        "partition": "huge_app.csv",
+        "flash_bytes": 1251063,
+        "flash_capacity_bytes": 3145728,
+        "static_ram_bytes": 67516
+      },
+      "serial_commands": {
+        "b": "beep once",
+        "p": "audio probe — 880 Hz I2S-DAC-L(GPIO26), 1174 Hz I2S-DAC-R(GPIO25), 1567 Hz PWM(GPIO26)",
+        "r": "re-fetch the feed now",
+        "a": "jump to the alert screen",
+        "h": "back to the home screen",
+        "l": "print the releases seen since boot",
+        "v": "print the venue->district map status"
+      },
+      "verified": {
+        "boot": true,
+        "wifi_connect": true,
+        "baseline_no_false_alarm": true,
+        "push_path": "verified end-to-end locally by tools/cyd_push_test.py (handshake, version change, RELEASE delivered with venue + district)",
+        "poll_path": true,
+        "beep_path": "AUDIO_PATH_AMP (I2S DAC left, GPIO26)",
+        "beep_audible": "UNKNOWN — needs a human to confirm a speaker is plugged in"
+      },
+      "known_limitations": [
+        "silent unless a speaker is connected to the SPEAK socket",
+        "push needs the daemon running on the VM and TCP 9000 open in the Oracle Cloud Security Group — currently closed, so the board runs on the 1-minute poll fallback",
+        "changes-eve.json has no district field; the VM fills it in from the venue->district map",
+        "the upstream LCSD mirror refreshes every 15 min — that dominates the end-to-end latency",
+        "no OTA partition (huge_app.csv)"
+      ]
+    },
+    {
+      "id": "esp32_socks5_proxy",
+      "path": "firmware/esp32_socks5_proxy",
+      "title": "SOCKS5 proxy node + reverse relay",
+      "status": "source in repo — one command to restore",
+      "purpose": "Exits the residential IP through the board; also dials out to a VM so the VM can reach the board without port forwarding.",
+      "features": [
+        "SOCKS5 with RFC 1929 username/password auth (slot=4)",
+        "listens on port 1080",
+        "4 concurrent sessions, 16 KB buffers per session",
+        "reverse relay: the board dials the VM on :9000 every 5 s with a 'CYD RELAY 1' handshake",
+        "hardening: pipelining leftover handling, per-ATYP length validation, blocking DNS/connect, EOF handling, 120 s idle timeout, WiFi reconnect with server.begin() re-run, WiFi.setSleep(false)",
+        "LED status: green ready, blue blink active, red no WiFi"
+      ],
+      "verified": {
+        "greeting": "0502 (user/pass)",
+        "auth": "0100",
+        "connect": "05 00 00 01",
+        "http_over_tunnel": "HTTP/1.1 200 OK",
+        "bad_password": "0101 rejected",
+        "curl_http": "200 in 0.27 s",
+        "curl_https": "200 in 0.36 s",
+        "test_script": "tools/test-socks5.py"
+      }
+    },
+    {
+      "id": "esp32_cyd_chat",
+      "path": "firmware/esp32_cyd_chat",
+      "title": "AI Math Tutor (touch chat toy)",
+      "status": "source in repo — verified on real hardware earlier",
+      "purpose": "Touch-driven AI tutor on the 2.8 inch panel with Chinese output.",
+      "features": [
+        "state machine: WiFi list -> keyboard -> connecting -> chat -> settings -> model",
+        "layered on-screen keyboard (lower/upper/symbol, symbol layer +-*/=<>^_)",
+        "chat bubbles with word-wrap, drag-to-scroll, viewport clipping",
+        "NVS memory (namespace 'cydmath'): last 10 messages survive reboot, ~3900 B cap",
+        "OpenRouter free models with automatic fallback on 429, stops immediately on 401",
+        "max_tokens 320, last 6 messages as context, setInsecure() TLS",
+        "personas: Tutor / Short / Exam / Proof",
+        "RGB LED status, tone() beeps",
+        "CJK font: 16x16 1-bit, Big5 Level 1 + symbols, 5905 glyphs, ~196 KB flash",
+        "demo mode with no API key — playable immediately"
+      ],
+      "build": {"partition": "min_spiffs.csv", "flash_mb": 1.5, "app_partition_mb": 1.9, "flash_pct": 76.2, "ram_pct": 15.4},
+      "known_limitations": [
+        "keyboard is ASCII only — Chinese can only come from the AI or serial",
+        "one blocking POST, no streaming",
+        "no OTA partition with min_spiffs.csv"
+      ]
+    },
+    {
+      "id": "esp32_cyd_controller",
+      "path": "firmware/esp32_cyd_controller",
+      "title": "NEON SERPENT 3D wireless controller",
+      "status": "source in repo — verified by test/esp32-deep-test.mjs",
+      "purpose": "Touch game-pad that runs a WebSocket server; the game page connects as a client.",
+      "features": [
+        "WebSocket server on port 8787",
+        "touch direction pad (FWD/BACK/LT/RT, Y+/Y-, PAUSE, AUTO) + BOOT button shortcuts",
+        "splash image (splash_data.h, RLE) + 'HELLO TEDDY!' banner + greeting melody on GPIO 26",
+        "RGB LED status: blue slow blink = setup, solid = linked",
+        "WiFi captive-portal setup (AP 'NEON-SERPENT-CYD' / 'serpent3d' / 192.168.4.1), credentials persisted in NVS, long-press BOOT 3 s to reset",
+        "protocol: board -> game join / autopilot / command / pause / resume; game -> board hello / state / response"
+      ],
+      "verified": {"hello_received": true, "join_accepted": true, "agent_snake_in_state": true, "reconnect": true}
+    }
+  ],
+
+  "host_tooling": {
+    "scripts": [
+      {"file": "esp32_port.py", "purpose": "resolve the CH340 COM port by PNP id; explicit arg > ESP32_PORT env > auto-detect"},
+      {"file": "test/test_esp32_port.py", "purpose": "pytest suite for esp32_port (logic + live-hardware checks)"},
+      {"file": "esp32_probe.py", "purpose": "reset pulse + capture the ROM banner"},
+      {"file": "esp32_monitor.py", "purpose": "serial monitor with a clean reset pulse"},
+      {"file": "esp32_socks_watch.py", "purpose": "capture the SOCKS5 boot log and the WiFi/IP status"},
+      {"file": "esp32_socks_log.py", "purpose": "read serial without resetting, fire a SOCKS request, print device logs"},
+      {"file": "esp32_watch_raw.py", "purpose": "long raw serial watch"},
+      {"file": "esp32_chat_test.py", "purpose": "automated chat-firmware test over serial"},
+      {"file": "esp32_cjk_test.py", "purpose": "automated CJK rendering test over serial"},
+      {"file": "tools/test-socks5.py", "purpose": "raw-socket SOCKS5 conformance test (greeting/auth/connect/HTTP/bad-password)"},
+      {"file": "tools/cyd_relay.py", "purpose": "VM side: SOCKS reverse relay (pool :9000 / front :1080) AND the release push notifier (same port, 'CYD PUSH 1' greeting)"},
+      {"file": "tools/cyd_push_test.py", "purpose": "local end-to-end test of the push path — fake feed + fake board, asserts the RELEASE line arrives with venue + district"},
+      {"file": "tools/make-cjk-font.py", "purpose": "generate the 5905-glyph CJK font for the chat firmware"},
+      {"file": "tools/make-venue-font.py", "purpose": "generate the feed-derived CJK subset for the smartplay firmware"},
+      {"file": "tools/check-cjk-coverage.py", "purpose": "verify every non-ASCII char used is covered by the font"}
+    ],
+    "node_tests": [
+      "test/esp32-deep-test.mjs",
+      "test/esp32-device-simulator.mjs",
+      "test/cdp-driver.mjs",
+      "test/syntax-check.mjs"
+    ]
+  },
+
+  "capability_summary": {
+    "standalone_onboard": [
+      "WiFi station + TLS client (pull JSON feeds)",
+      "JSON parsing (ArduinoJson 7.4.3)",
+      "graphics on a 320x240 capacitive-touch TFT",
+      "resistive touch input with its own SPI bus",
+      "RGB LED status",
+      "audio output through the onboard amp (GPIO26, I2S DAC)",
+      "NVS persistence",
+      "NTP time"
+    ],
+    "needs_extra_hardware": [
+      "audio input — no microphone on board (INMP441 I2S mic on 3 free GPIOs)",
+      "onboard wake word — ESP-SR needs an ESP32-S3, not available on the classic ESP32",
+      "cleaner audio — the onboard amp is analog; an I2S DAC (MAX98357A) gives better TTS quality"
+    ],
+    "not_possible_on_this_board": [
+      "on-device ASR (Whisper-class needs ~100 MB and vector instructions)",
+      "on-device TTS of good quality",
+      "true hands-free wake word on the classic ESP32",
+      "OTA with the current partition tables"
+    ]
+  },
+
+  "future_voice_plan": {
+    "recommended_mode": "push-to-talk on the touchscreen, PC (or cloud) as the brain",
+    "why": "the reverse relay already gives the needed always-reachable audio uplink/downlink; the ESP32 only needs I2S capture, PCM transport, screen UI and playback",
+    "phases": [
+      "0. quiet audio probe — is there actually a speaker on this board?",
+      "1. TTS playback — PC sends PCM, board plays it and shows the text",
+      "2. add an INMP441 mic — stream to the PC, run whisper, show the transcript",
+      "3. full loop + wake word (on the PC)"
+    ],
+    "alternative_modes": [
+      "B — hands-free with the wake word on the PC (mic always streaming)",
+      "C — on-device wake word (needs an ESP32-S3, different form factor)",
+      "D — voice output only (no mic; cheapest real voice win)",
+      "E — standalone, no PC (board calls cloud STT/TTS over its own WiFi)"
+    ]
+  },
+
+  "docs": {
+    "capabilities_narrative": "docs/esp32-capabilities.md",
+    "manifest": "docs/esp32-manifest.json",
+    "progress_report": "docs/esp32-progress.md",
+    "knowledge_base": "knowledge/",
+    "firmware_readmes": [
+      "firmware/esp32_smartplay/README.md",
+      "firmware/esp32_socks5_proxy/README.md",
+      "firmware/esp32_cyd_chat/README.md"
+    ],
+    "notes": "this file is the machine-readable source of truth — regenerate it when the board or a firmware project changes"
+  },
+
+  "environment_notes": [
+    "pio is not on PATH — use 'python -m platformio'",
+    "opening the CH340 port with DTR/RTS asserted resets the ESP32 — the helper scripts pulse RTS deliberately",
+    "COM3-COM6 on this machine are Bluetooth virtual serial ports (decoys) and must never be selected",
+    "the SOCKS proxy firmware is what is needed when the AWS VM must reach the house IP; smartplay is what the board is running now",
+    "the COM port number changes between replugs (COM7 -> COM8) — never hardcode it"
+  ],
+
+  "test_status": {
+    "test_esp32_port_py": {
+      "runner": "pytest",
+      "command": "python -m pytest test/test_esp32_port.py -v",
+      "tests": 12,
+      "status": "all passing",
+      "runtime_seconds": 0.35,
+      "note": "the resolver was rewritten to use 'pnputil' (61 ms) instead of the WMI/CIM query (10.5 s)"
+    }
+  }
+}

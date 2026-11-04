@@ -1,0 +1,409 @@
+{
+  "summary": {
+    "startedAt": "2026-10-31T15:42:54.997Z",
+    "port": 8899,
+    "hellos": 2,
+    "reconnectTest": "done",
+    "done": true
+  },
+  "results": [
+    {
+      "name": "T0 hello received",
+      "pass": true,
+      "detail": {
+        "game": "NEON SERPENT 3D",
+        "protocol": "neon-serpent-3d/1",
+        "dirs": [
+          "+x",
+          "-x",
+          "+y",
+          "-y",
+          "+z",
+          "-z"
+        ],
+        "snakes": 3
+      },
+      "at": "2026-10-31T15:43:07.679Z"
+    },
+    {
+      "name": "T1 join accepted",
+      "pass": true,
+      "detail": {
+        "id": "agent-1",
+        "name": "ESP32-CYD",
+        "kind": "agent"
+      },
+      "at": "2026-10-31T15:43:07.709Z"
+    },
+    {
+      "name": "T1b agent snake present in state",
+      "pass": true,
+      "detail": {
+        "id": "agent-1",
+        "len": 5,
+        "head": {
+          "x": 7,
+          "y": 9,
+          "z": 5
+        }
+      },
+      "at": "2026-10-31T15:43:07.773Z"
+    },
+    {
+      "name": "T1c arena auto-started by join",
+      "pass": true,
+      "detail": {
+        "state": "playing"
+      },
+      "at": "2026-10-31T15:43:07.882Z"
+    },
+    {
+      "name": "T2 invalid direction rejected",
+      "pass": true,
+      "detail": {
+        "error": "invalid_direction"
+      },
+      "at": "2026-10-31T15:43:07.885Z"
+    },
+    {
+      "name": "T3 opposite direction rejected",
+      "pass": true,
+      "detail": {
+        "error": "opposite_direction",
+        "current": "+x"
+      },
+      "at": "2026-10-31T15:43:07.917Z"
+    },
+    {
+      "name": "T4 same direction accepted, not queued",
+      "pass": true,
+      "detail": {
+        "queued": false
+      },
+      "at": "2026-10-31T15:43:07.946Z"
+    },
+    {
+      "name": "T5 move +x one cell along +x",
+      "pass": true,
+      "detail": {
+        "at": 15,
+        "from": {
+          "x": 10,
+          "y": 9,
+          "z": 10
+        },
+        "to": {
+          "x": 11,
+          "y": 9,
+          "z": 10
+        }
+      },
+      "at": "2026-10-31T15:43:08.330Z"
+    },
+    {
+      "name": "T5 move +y one cell along +y",
+      "pass": true,
+      "detail": {
+        "at": 18,
+        "from": {
+          "x": 13,
+          "y": 9,
+          "z": 10
+        },
+        "to": {
+          "x": 13,
+          "y": 10,
+          "z": 10
+        }
+      },
+      "at": "2026-10-31T15:43:08.531Z"
+    },
+    {
+      "name": "T5 move -x one cell along -x",
+      "pass": true,
+      "detail": {
+        "at": 20,
+        "from": {
+          "x": 13,
+          "y": 11,
+          "z": 10
+        },
+        "to": {
+          "x": 12,
+          "y": 11,
+          "z": 10
+        }
+      },
+      "at": "2026-10-31T15:43:08.592Z"
+    },
+    {
+      "name": "T5 move +z one cell along +z",
+      "pass": true,
+      "detail": {
+        "at": 22,
+        "from": {
+          "x": 11,
+          "y": 11,
+          "z": 10
+        },
+        "to": {
+          "x": 11,
+          "y": 11,
+          "z": 11
+        }
+      },
+      "at": "2026-10-31T15:43:08.686Z"
+    },
+    {
+      "name": "T5 move -y one cell along -y",
+      "pass": true,
+      "detail": {
+        "at": 24,
+        "from": {
+          "x": 11,
+          "y": 11,
+          "z": 12
+        },
+        "to": {
+          "x": 11,
+          "y": 10,
+          "z": 12
+        }
+      },
+      "at": "2026-10-31T15:43:08.746Z"
+    },
+    {
+      "name": "T5 move -z one cell along -z",
+      "pass": true,
+      "detail": {
+        "at": 25,
+        "from": {
+          "x": 11,
+          "y": 10,
+          "z": 12
+        },
+        "to": {
+          "x": 11,
+          "y": 10,
+          "z": 11
+        }
+      },
+      "at": "2026-10-31T15:43:12.215Z"
+    },
+    {
+      "name": "T5 coverage",
+      "pass": true,
+      "detail": {
+        "verified": [
+          "+x",
+          "+y",
+          "-x",
+          "+z",
+          "-y",
+          "-z"
+        ],
+        "skipped": [],
+        "note": "貼牆/被擋方向會跳過，其餘應全數通過"
+      },
+      "at": "2026-10-31T15:43:12.216Z"
+    },
+    {
+      "name": "T6 queue consumed one per tick, turns in order",
+      "pass": true,
+      "detail": {
+        "plan": [
+          "+x",
+          "+y",
+          "+z"
+        ],
+        "matchStart": 0,
+        "deltas": [
+          "+x",
+          "+y",
+          "+z",
+          "+z",
+          "+z",
+          "+z",
+          "+z",
+          "+z"
+        ],
+        "note": "state 於 tick 後發出，改以相鄰位移序列驗證佇列順序消費"
+      },
+      "at": "2026-10-31T15:43:12.617Z"
+    },
+    {
+      "name": "T7a pause accepted",
+      "pass": true,
+      "detail": {
+        "state": "paused"
+      },
+      "at": "2026-10-31T15:43:12.627Z"
+    },
+    {
+      "name": "T7b command while paused rejected",
+      "pass": true,
+      "detail": {
+        "error": "arena_not_running"
+      },
+      "at": "2026-10-31T15:43:12.655Z"
+    },
+    {
+      "name": "T7c resume accepted",
+      "pass": true,
+      "detail": {
+        "state": "playing"
+      },
+      "at": "2026-10-31T15:43:12.657Z"
+    },
+    {
+      "name": "T8a autopilot on accepted",
+      "pass": true,
+      "detail": {
+        "autopilot": true
+      },
+      "at": "2026-10-31T15:43:12.688Z"
+    },
+    {
+      "name": "T8b autopilot moves without commands",
+      "pass": true,
+      "detail": {
+        "from": {
+          "x": 12,
+          "y": 11,
+          "z": 16
+        },
+        "to": {
+          "x": 15,
+          "y": 8,
+          "z": 16
+        }
+      },
+      "at": "2026-10-31T15:43:12.968Z"
+    },
+    {
+      "name": "T8c autopilot off accepted",
+      "pass": true,
+      "detail": {
+        "autopilot": false
+      },
+      "at": "2026-10-31T15:43:12.971Z"
+    },
+    {
+      "name": "T9a second join accepted",
+      "pass": true,
+      "detail": {
+        "id": "agent-2"
+      },
+      "at": "2026-10-31T15:43:12.986Z"
+    },
+    {
+      "name": "T9b two agent snakes on board",
+      "pass": true,
+      "detail": {
+        "agents": [
+          "agent-1",
+          "agent-2"
+        ]
+      },
+      "at": "2026-10-31T15:43:13.016Z"
+    },
+    {
+      "name": "T9c leave removes snake",
+      "pass": true,
+      "detail": {
+        "id": "agent-2"
+      },
+      "at": "2026-10-31T15:43:13.019Z"
+    },
+    {
+      "name": "T10 unknown command -> response(ok=false, unknown_command)",
+      "pass": true,
+      "detail": {
+        "error": "unknown_command",
+        "requestType": "blink_led",
+        "note": "修正前：回應的 type 欄位被 ...result 覆蓋成指令名，導致客端無法辨識"
+      },
+      "at": "2026-10-31T15:43:13.201Z"
+    },
+    {
+      "name": "T11 malformed frame survives",
+      "pass": true,
+      "detail": {
+        "snakes": 3
+      },
+      "at": "2026-10-31T15:43:15.499Z"
+    },
+    {
+      "name": "T12 wrong namespace ignored, game alive",
+      "pass": true,
+      "detail": {
+        "unsolicitedReply": false,
+        "alive": true
+      },
+      "at": "2026-10-31T15:43:17.251Z"
+    },
+    {
+      "name": "T13 get_state snapshot complete",
+      "pass": true,
+      "detail": {
+        "arenaSize": 18,
+        "tick": 52,
+        "snakes": 3,
+        "foods": 5,
+        "board": 3
+      },
+      "at": "2026-10-31T15:43:17.257Z"
+    },
+    {
+      "name": "T14a reset accepted",
+      "pass": true,
+      "detail": {},
+      "at": "2026-10-31T15:43:17.282Z"
+    },
+    {
+      "name": "T14b firmware auto-rejoin after reset",
+      "pass": true,
+      "detail": {
+        "id": "agent-1"
+      },
+      "at": "2026-10-31T15:43:20.956Z"
+    },
+    {
+      "name": "T15 command latency (p50)",
+      "pass": true,
+      "detail": {
+        "p50": 1.08,
+        "p95": 10.14,
+        "max": 10.14,
+        "unit": "ms",
+        "note": "p95/max 的離群值來自無頭 SwiftShader 算繪停頓，非 WebSocket 協議延遲"
+      },
+      "at": "2026-10-31T15:43:20.993Z"
+    },
+    {
+      "name": "T16a leave main agent",
+      "pass": true,
+      "detail": {
+        "id": "agent-1"
+      },
+      "at": "2026-10-31T15:43:21.007Z"
+    },
+    {
+      "name": "T16b rejoin returns snake to arena",
+      "pass": true,
+      "detail": {
+        "id": "agent-2"
+      },
+      "at": "2026-10-31T15:43:24.564Z"
+    },
+    {
+      "name": "T17 reconnect: agent back after page reload",
+      "pass": true,
+      "detail": {
+        "id": "agent-1",
+        "hellos": 2
+      },
+      "at": "2026-10-31T15:43:34.106Z"
+    }
+  ]
+}

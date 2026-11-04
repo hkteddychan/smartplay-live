@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.opencode.pgodrive"
+    android:versionCode="1"
+    android:versionName="1.0">
+
+    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="34" />
+
+    <!-- layer-level access to the node tree + injecting touches -->
+    <uses-permission android:name="android.permission.INJECT_EVENTS" />
+    <uses-permission android:name="android.permission.RETRIEVE_WINDOW_CONTENT" />
+
+    <application
+        android:label="pgdrive"
+        android:debuggable="true"
+        android:allowBackup="false">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+    <instrumentation
+        android:name=".Driver"
+        android:targetPackage="com.opencode.pgodrive"
+        android:targetProcesses="*"
+        android:label="pgdrive driver" />
+</manifest>

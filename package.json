@@ -1,0 +1,11 @@
+{
+  "name": "neon-serpent-3d",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "NEON SERPENT — a cinematic 3D snake arena for Cloudflare Pages",
+  "scripts": {
+    "test": "node test/syntax-check.mjs",
+    "check": "node test/syntax-check.mjs"
+  }
+}

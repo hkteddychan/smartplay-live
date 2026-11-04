@@ -1,0 +1,40 @@
+{
+  "t": 1793559675.81,
+  "toggles": {
+    "帳號管理員": false,
+    "虛擬定位": true,
+    "操縱桿": true,
+    "隱藏 PGSharp": false,
+    "隱藏訓練家名字": true,
+    "顯示背包寶可夢IV": true,
+    "顯示野外寶可夢IV": true,
+    "抓獲結果預覽": true,
+    "地圖": true,
+    "附近的寶可夢": true,
+    "快速狙擊 I": false,
+    "快速狙擊 II": false,
+    "冷卻計時器": false,
+    "自動孵蛋器": false,
+    "禮品助理": false,
+    "快速捕捉": false,
+    "快速旋轉": true,
+    "跳過過場動畫": false,
+    "跳過非異色": false,
+    "屏蔽非滿個體寶可夢": false,
+    "快速加載地圖": false,
+    "擴大遭遇範圍": "On",
+    "捕獲時傳送": false,
+    "虛擬 Go Plus": false,
+    "Raid & Gym Battle Assistant": false,
+    "極巨化戰鬥輔助": false,
+    "自動治療/復活（對戰）": false,
+    "任務助手((自動拍照))": false,
+    "夥伴助理": false,
+    "PvP": false
+  },
+  "values": [
+    "30.0",
+    "80"
+  ],
+  "sniping_disabled": true
+}

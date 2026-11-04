@@ -1,0 +1,161 @@
+--------- beginning of main
+11-01 13:18:13.241 30078 30211 D ScreenshotListenerService: setListener
+11-01 13:18:17.874 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → KeyValues for Segment Encounter = [EncounterResult,CapturedPokemon]
+11-01 13:18:17.874 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → KeyValues for Segment Encounter = [EncounterMode,Standard]
+11-01 13:18:17.883 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → Segment ended.
+11-01 13:18:17.924 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → SegmentBegin Name = MapExplore
+11-01 13:18:17.924 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → UserId for Segment MapExplore = E:mfLStJ98b+MkIOd4inwTVN5b2cpB+T1u+ShUzlol5Ok=
+11-01 13:18:17.952 30078 31156 D TrafficStats: tagSocket(298) with statsTag=0xffffffff, statsUid=-1
+11-01 13:18:18.046 30078 30211 D ScreenshotListenerService: removeListener
+11-01 13:18:44.431 30078 30078 I QUAGO-SDK: QuagoManager.onPause() → Called
+11-01 13:18:45.752 30078 30211 D HomeWidgetHelper: Using Niantic AS 1.0 content provider
+11-01 13:18:45.753 30078 30211 D HomeWidgetHelper: get content://com.nianticlabs.pokemongo.bgcore.util.KeyValueContentProvider/string/com.nianticlabs.pokemongo.gameData/progressUpdateResponse = EgAiDhIMAACgQAAAyEEAAEhCKhcKBggBGAcgAQoGCAIYByABEIGAyquZNA==
+11-01 13:18:45.754 30078 30211 D HomeWidgetHelper: Using Niantic AS 1.0 content provider
+11-01 13:18:45.754 30078 30211 D HomeWidgetHelper: set content://com.nianticlabs.pokemongo.bgcore.util.KeyValueContentProvider/string/com.nianticlabs.pokemongo.gameData/progressUpdateResponse = EgAiDhIMAACgQAAAyEEAAEhCKhcKBggBEAEYBwoGCAIYByABEL6u/6uZNA==
+11-01 13:18:45.841 30078 30211 D AAudio  : AAudioStream_requestStop(s#1) called
+11-01 13:18:45.845 30078 30211 D AAudioStream: setState(s#1) from 4 to 9
+11-01 13:18:45.845 30078 30211 D AudioTrack: stop(27): called with 25389600 frames delivered
+11-01 13:18:45.857 30078 30211 D AAudioStream: setState(s#1) from 9 to 10
+11-01 13:18:45.912 30078 30078 I QUAGO-SDK: QuagoManager.onStop() → Called
+11-01 13:18:46.562 30078 10875 I FA      : Application backgrounded at: timestamp_millis: 1793510324554
+11-01 13:18:49.046 30078 30078 I QUAGO-SDK: QuagoManager.onResume() → Called
+11-01 13:18:49.069 30078 30078 D Client  : initializeBackgroundService
+11-01 13:18:49.070 30078 30078 D PermissionsManager: permissionsRequired for 1: 31
+11-01 13:18:49.072 30078 30078 D PermissionsManager: permissionStatus LOCATION status: DENIED
+11-01 13:18:49.072 30078 30078 D PermissionsManager: permissionStatus BACKGROUND_LOCATION status: DENIED
+11-01 13:18:49.072 30078 30078 D PermissionsManager: permissionStatus ACTIVITY status: DENIED
+11-01 13:18:49.072 30078 30078 D PermissionsManager: permissionStatus PRECISE_LOCATION status: DENIED
+11-01 13:18:49.073 30078 30078 D PermissionsManager: permissionStatus FITNESS status: DENIED
+11-01 13:18:49.079 30078 30078 D FitnessJobDispatcher: unscheduleFitnessJob
+11-01 13:18:49.096 30078 30078 I Client  : Fitness disabled, skipping Fitness service
+11-01 13:18:49.097 30078 30078 D PermissionsManager: permissionsRequired for 2: 15
+11-01 13:18:49.097 30078 30078 D PermissionsManager: permissionStatus LOCATION status: DENIED
+11-01 13:18:49.097 30078 30078 D PermissionsManager: permissionStatus BACKGROUND_LOCATION status: DENIED
+11-01 13:18:49.097 30078 30078 D PermissionsManager: permissionStatus ACTIVITY status: DENIED
+11-01 13:18:49.097 30078 30078 D PermissionsManager: permissionStatus PRECISE_LOCATION status: DENIED
+11-01 13:18:49.098 30078 30078 D PermissionsManager: permissionsRequired for 16: 15
+11-01 13:18:49.098 30078 30078 D PermissionsManager: permissionStatus LOCATION status: DENIED
+11-01 13:18:49.098 30078 30078 D PermissionsManager: permissionStatus BACKGROUND_LOCATION status: DENIED
+11-01 13:18:49.098 30078 30078 D PermissionsManager: permissionStatus ACTIVITY status: DENIED
+11-01 13:18:49.098 30078 30078 D PermissionsManager: permissionStatus PRECISE_LOCATION status: DENIED
+11-01 13:18:49.098 30078 30078 I AwarenessWorker: Enqueueing work: com.nianticlabs.ShutdownAwarenessAction
+11-01 13:18:49.099 30078 30078 I AwarenessWorker: Enqueueing expedited work with data:com.nianticlabs.ShutdownAwarenessAction
+11-01 13:18:49.100 30078 30078 D PermissionsManager: permissionsRequired for 8: 15
+11-01 13:18:49.100 30078 30078 D PermissionsManager: permissionStatus LOCATION status: DENIED
+11-01 13:18:49.100 30078 30078 D PermissionsManager: permissionStatus BACKGROUND_LOCATION status: DENIED
+11-01 13:18:49.100 30078 30078 D PermissionsManager: permissionStatus ACTIVITY status: DENIED
+11-01 13:18:49.100 30078 30078 D PermissionsManager: permissionStatus PRECISE_LOCATION status: DENIED
+11-01 13:18:49.100 30078 30078 D SensorJobDispatcher: unscheduleSensorJob
+11-01 13:18:49.105 30078 30078 I Client  : Sensor disabled, skipping Sensor service
+11-01 13:18:49.115 30078 30078 D NiaAdvsyncLocationApi: Cannot start Location Service because it has to be initialized from the AdvsyncLocationManager C# API
+11-01 13:18:49.142 30078 30206 E OpenGLRenderer: Unable to match the desired swap behavior.
+11-01 13:18:49.156 30078 30078 E SurfaceSyncer: Failed to find sync for id=0
+11-01 13:18:49.156 30078 30078 E SurfaceSyncer: Failed to find sync for id=1
+11-01 13:18:49.156 30078 30078 E SurfaceSyncer: Failed to find sync for id=2
+11-01 13:18:49.362 30078 30200 I AwarenessWorker: Starting AwarenessWorker job:
+11-01 13:18:49.363 30078 30200 I AwarenessProcessor: Awareness Service not available. Exiting.
+11-01 13:18:49.363 30078 30200 I AwarenessWorker: Ending AwarenessWorker job: SUCCESS
+11-01 13:18:49.382 30078 30235 I WM-WorkerWrapper: Worker result SUCCESS for Work [ id=2ff15fd1-30ec-4797-9f21-1f7132fd8adf, tags={ com.nianticlabs.background.awareness.AwarenessWorker, awareness-worker } ]
+11-01 13:18:49.589 30078 30800 D TrafficStats: tagSocket(228) with statsTag=0x4e864ee, statsUid=-1
+11-01 13:18:49.717 30078 30211 E Unity   : Location permission is set up to be handled manually, but is not handled
+11-01 13:18:49.841 30078 30211 D AAudio  : AAudioStream_requestStart(s#1) called --------------
+11-01 13:18:49.841 30078 30211 D AAudioStream: setState(s#1) from 10 to 3
+11-01 13:18:49.867 30078 30211 D AAudio  : AAudioStream_requestStart(s#1) returned 0 ---------
+11-01 13:18:49.867 30078 30091 D AudioStreamLegacy: onAudioDeviceUpdate(deviceId = 3)
+11-01 13:18:49.874 30078 30078 D MediaRouter: onRestoreRoute() : route=RouteInfo{ name=手機, description=null, status=null, category=RouteCategory{ name=系統 types=ROUTE_TYPE_LIVE_AUDIO ROUTE_TYPE_LIVE_VIDEO  groupable=false }, supportedTypes=ROUTE_TYPE_LIVE_AUDIO ROUTE_TYPE_LIVE_VIDEO , presentationDisplay=null }
+11-01 13:18:49.874 30078 30078 V MediaRouter: Selecting route: RouteInfo{ name=手機, description=null, status=null, category=RouteCategory{ name=系統 types=ROUTE_TYPE_LIVE_AUDIO ROUTE_TYPE_LIVE_VIDEO  groupable=false }, supportedTypes=ROUTE_TYPE_LIVE_AUDIO ROUTE_TYPE_LIVE_VIDEO , presentationDisplay=null }
+11-01 13:18:50.043 30078 30354 D AAudioStream: setState(s#1) from 3 to 4
+11-01 13:19:14.853 30078 30078 D TrafficStats: tagSocket(293) with statsTag=0xffffffff, statsUid=-1
+11-01 13:19:14.862 30078 30078 D TrafficStats: tagSocket(293) with statsTag=0xffffffff, statsUid=-1
+11-01 13:19:15.101 30078 30078 D TrafficStats: tagSocket(293) with statsTag=0xffffffff, statsUid=-1
+11-01 13:19:15.106 30078 30078 D TrafficStats: tagSocket(293) with statsTag=0xffffffff, statsUid=-1
+11-01 13:19:16.402 30078 30206 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+11-01 13:19:16.519 30078 30206 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+11-01 13:19:17.740 30078 30206 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+11-01 13:19:17.856 30078 30206 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+11-01 13:19:18.656 30078 30206 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+11-01 13:19:18.823 30078 30206 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+11-01 13:19:18.849 30078 30078 E UniWebView: <UniWebView-Android> Hiding web view is ignored since it is already invisible.
+11-01 13:19:42.609 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → Segment ended.
+11-01 13:19:42.778 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → SegmentBegin Name = Pokestop
+11-01 13:19:42.778 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → UserId for Segment Pokestop = E:mfLStJ98b+MkIOd4inwTVN5b2cpB+T1u+ShUzlol5Ok=
+11-01 13:19:42.778 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → KeyValues for Segment Pokestop = [PokestopId,0644fadc6b954f82bcdb1e097bae5f0e.16]
+11-01 13:19:42.798 30078 31156 D TrafficStats: tagSocket(293) with statsTag=0xffffffff, statsUid=-1
+11-01 13:19:43.159 30078 30211 W Unity   : Setting angular velocity of a kinematic body is not supported.
+11-01 13:19:43.159 30078 30211 W Unity   : Niantic.Holoholo.Map.BasePoiSpinner:Cleanup()
+11-01 13:19:43.159 30078 30211 W Unity   : Niantic.Holoholo.Map.PoiItemSpinner:Cleanup()
+11-01 13:19:43.159 30078 30211 W Unity   : Niantic.Holoholo.Pokestop.MapPokestopInteractive:RefreshSpinner()
+11-01 13:19:43.159 30078 30211 W Unity   : Niantic.Holoholo.Util.PoolingFactory`4:Create(TData)
+11-01 13:19:43.159 30078 30211 W Unity   : Niantic.Holoholo.Map.MapPlaceAssetsManager:GetPokestopModel(IMapPokestop, PSState)
+11-01 13:19:43.159 30078 30211 W Unity   : Niantic.Holoholo.Pokestop.MapPokestop:bgge()
+11-01 13:19:43.159 30078 30211 W Unity   : Niantic.Holoholo.Pokestop.MapPokestop:StartInteractiveMode()
+11-01 13:19:43.159 30078 30211 W Unity   : Niantic.Holoholo.Pokestop.PokestopInteractionState:EnterState()
+11-01 13:19:43.159 30078 30211 W Unity   : Niantic.Zeppelin.GameStates.GameState:SetActiveSubstate()
+11-01 13:19:43.159 30078 30211 W Unity   : Niantic.Holoholo.CameraRig.crj:MoveNext()
+11-01 13:19:43.159 30078 30211 W Unity   : Niantic.Zeppelin.Scheduler.ActiveCoroutine:Step()
+11-01 13:19:43.159 30078 30211 W Unity   : Niantic.Zeppelin.Scheduler.Scheduler:StepQueue(SchedulerQueue, Int32&, Int32&)
+11-01 13:19:43.159 30078 30211 W Unity   : 
+11-01 13:19:43.159 30078 30211 W Unity   : [ line 353048680]
+11-01 13:19:43.159 30078 30211 W Unity   : 
+11-01 13:19:51.340 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → Segment ended.
+11-01 13:19:51.345 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → SegmentBegin Name = MapExplore
+11-01 13:19:51.345 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → UserId for Segment MapExplore = E:mfLStJ98b+MkIOd4inwTVN5b2cpB+T1u+ShUzlol5Ok=
+11-01 13:19:51.350 30078 31156 D TrafficStats: tagSocket(281) with statsTag=0xffffffff, statsUid=-1
+11-01 13:20:16.568 30078 30206 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+11-01 13:20:16.618 30078 30206 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+11-01 13:20:16.653 30078 30206 W OpenGLRenderer: dequeueBuffer failed, error = -110; switching to fallback
+11-01 13:20:31.125 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → Segment ended.
+11-01 13:20:31.144 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → SegmentBegin Name = Pokestop
+11-01 13:20:31.144 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → UserId for Segment Pokestop = E:mfLStJ98b+MkIOd4inwTVN5b2cpB+T1u+ShUzlol5Ok=
+11-01 13:20:31.151 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → KeyValues for Segment Pokestop = [PokestopId,3e1b27bbb95a408b8c3b4a868baa794a.16]
+11-01 13:20:31.169 30078 31156 D TrafficStats: tagSocket(195) with statsTag=0xffffffff, statsUid=-1
+11-01 13:20:31.690 30078 30211 W Unity   : Setting angular velocity of a kinematic body is not supported.
+11-01 13:20:31.690 30078 30211 W Unity   : Niantic.Holoholo.Map.BasePoiSpinner:Cleanup()
+11-01 13:20:31.690 30078 30211 W Unity   : Niantic.Holoholo.Map.PoiItemSpinner:Cleanup()
+11-01 13:20:31.690 30078 30211 W Unity   : Niantic.Holoholo.Pokestop.MapPokestopInteractive:RefreshSpinner()
+11-01 13:20:31.690 30078 30211 W Unity   : Niantic.Holoholo.Util.PoolingFactory`4:Create(TData)
+11-01 13:20:31.690 30078 30211 W Unity   : Niantic.Holoholo.Map.MapPlaceAssetsManager:GetPokestopModel(IMapPokestop, PSState)
+11-01 13:20:31.690 30078 30211 W Unity   : Niantic.Holoholo.Pokestop.MapPokestop:bgge()
+11-01 13:20:31.690 30078 30211 W Unity   : Niantic.Holoholo.Pokestop.MapPokestop:StartInteractiveMode()
+11-01 13:20:31.690 30078 30211 W Unity   : Niantic.Holoholo.Pokestop.PokestopInteractionState:EnterState()
+11-01 13:20:31.690 30078 30211 W Unity   : Niantic.Zeppelin.GameStates.GameState:SetActiveSubstate()
+11-01 13:20:31.690 30078 30211 W Unity   : Niantic.Holoholo.CameraRig.crj:MoveNext()
+11-01 13:20:31.690 30078 30211 W Unity   : Niantic.Zeppelin.Scheduler.ActiveCoroutine:Step()
+11-01 13:20:31.690 30078 30211 W Unity   : Niantic.Zeppelin.Scheduler.Scheduler:StepQueue(SchedulerQueue, Int32&, Int32&)
+11-01 13:20:31.690 30078 30211 W Unity   : 
+11-01 13:20:31.690 30078 30211 W Unity   : [ line 353048680]
+11-01 13:20:31.690 30078 30211 W Unity   : 
+11-01 13:20:37.236 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → Segment ended.
+11-01 13:20:37.240 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → SegmentBegin Name = MapExplore
+11-01 13:20:37.240 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → UserId for Segment MapExplore = E:mfLStJ98b+MkIOd4inwTVN5b2cpB+T1u+ShUzlol5Ok=
+11-01 13:20:37.248 30078 31156 D TrafficStats: tagSocket(362) with statsTag=0xffffffff, statsUid=-1
+11-01 13:21:02.553 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → Segment ended.
+11-01 13:21:02.580 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → SegmentBegin Name = Pokestop
+11-01 13:21:02.580 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → UserId for Segment Pokestop = E:mfLStJ98b+MkIOd4inwTVN5b2cpB+T1u+ShUzlol5Ok=
+11-01 13:21:02.580 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → KeyValues for Segment Pokestop = [PokestopId,436ae88cb1ce4418a993c5717d8ffac1.16]
+11-01 13:21:02.586 30078 31156 D TrafficStats: tagSocket(281) with statsTag=0xffffffff, statsUid=-1
+11-01 13:21:03.136 30078 30211 W Unity   : Setting angular velocity of a kinematic body is not supported.
+11-01 13:21:03.136 30078 30211 W Unity   : Niantic.Holoholo.Map.BasePoiSpinner:Cleanup()
+11-01 13:21:03.136 30078 30211 W Unity   : Niantic.Holoholo.Map.PoiItemSpinner:Cleanup()
+11-01 13:21:03.136 30078 30211 W Unity   : Niantic.Holoholo.Pokestop.MapPokestopInteractive:RefreshSpinner()
+11-01 13:21:03.136 30078 30211 W Unity   : Niantic.Holoholo.Util.PoolingFactory`4:Create(TData)
+11-01 13:21:03.136 30078 30211 W Unity   : Niantic.Holoholo.Map.MapPlaceAssetsManager:GetPokestopModel(IMapPokestop, PSState)
+11-01 13:21:03.136 30078 30211 W Unity   : Niantic.Holoholo.Pokestop.MapPokestop:bgge()
+11-01 13:21:03.136 30078 30211 W Unity   : Niantic.Holoholo.Pokestop.MapPokestop:StartInteractiveMode()
+11-01 13:21:03.136 30078 30211 W Unity   : Niantic.Holoholo.Pokestop.PokestopInteractionState:EnterState()
+11-01 13:21:03.136 30078 30211 W Unity   : Niantic.Zeppelin.GameStates.GameState:SetActiveSubstate()
+11-01 13:21:03.136 30078 30211 W Unity   : Niantic.Holoholo.CameraRig.crj:MoveNext()
+11-01 13:21:03.136 30078 30211 W Unity   : Niantic.Zeppelin.Scheduler.ActiveCoroutine:Step()
+11-01 13:21:03.136 30078 30211 W Unity   : Niantic.Zeppelin.Scheduler.Scheduler:StepQueue(SchedulerQueue, Int32&, Int32&)
+11-01 13:21:03.136 30078 30211 W Unity   : 
+11-01 13:21:03.136 30078 30211 W Unity   : [ line 353048680]
+11-01 13:21:03.136 30078 30211 W Unity   : 
+11-01 13:21:08.635 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → Segment ended.
+11-01 13:21:08.640 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → SegmentBegin Name = MapExplore
+11-01 13:21:08.640 30078 31155 I QUAGO-SDK: QuagoManager.Handler() → UserId for Segment MapExplore = E:mfLStJ98b+MkIOd4inwTVN5b2cpB+T1u+ShUzlol5Ok=
+11-01 13:21:08.645 30078 31156 D TrafficStats: tagSocket(6) with statsTag=0xffffffff, statsUid=-1
+11-01 13:21:44.327 30078 30086 I clabs.pokemongo: Background young concurrent copying GC freed 1123857(36MB) AllocSpace objects, 269(10112KB) LOS objects, 71% free, 17MB/63MB, paused 151us,114us total 124.144ms
+11-01 13:22:03.255 30078 30498 D TrafficStats: tagSocket(215) with statsTag=0xffffffff, statsUid=-1
+11-01 13:22:03.276 30078 30496 D TrafficStats: tagSocket(424) with statsTag=0xffffffff, statsUid=-1
+11-01 13:22:03.285 30078 30502 D TrafficStats: tagSocket(419) with statsTag=0xffffffff, statsUid=-1
+11-01 13:23:04.309 30078 15921 D TrafficStats: tagSocket(276) with statsTag=0xffffffff, statsUid=-1

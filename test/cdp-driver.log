@@ -1,0 +1,6 @@
+﻿15:42:59.843 [driver] browser: C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe (headless)
+15:43:07.596 [driver] game booted, installing tick driver
+15:43:07.603 [driver] tick driver: installed
+15:43:25.522 [driver] suite done — reloading page for T17 reconnect test
+15:43:32.432 [driver] reloaded, tick driver reinstalled
+15:43:34.457 [driver] reconnect test done
