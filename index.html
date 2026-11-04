@@ -317,11 +317,62 @@ const DATES = (() => {          // 7 days starting today (HKT)
 let dateMode = 'chips';                          // 'chips' | 'range'
 let selDates = new Set(DATES);                   // chips mode: default ALL 7 selected
 let selPeriods = new Set(['am', 'pm', 'eve']);   // default all selected
+
+// ---------- FILTER PERSISTENCE（reload 後還原 filter，唔好全部重設） ----------
+const FS_KEY = 'spl_filters_v1';
+function saveFilters() {
+  try {
+    localStorage.setItem(FS_KEY, JSON.stringify({
+      sport: currentSport,
+      mode: dateMode,
+      dates: [...selDates],
+      periods: [...selPeriods],
+      search: $('#f-search').value,
+      district: $('#f-district').value,
+      time: $('#f-time').value,
+      rangeFrom: $('#f-range-from').value,
+      rangeTo: $('#f-range-to').value,
+      only: $('#f-only').checked,
+    }));
+  } catch (e) { /* private mode 等 — 靜默 */ }
+}
+function loadFilters() {
+  try {
+    const f = JSON.parse(localStorage.getItem(FS_KEY) || 'null');
+    if (!f) return;
+    if (SPORTS[f.sport]) currentSport = f.sport;
+    if (f.mode === 'chips' || f.mode === 'range') dateMode = f.mode;
+    if (Array.isArray(f.dates)) selDates = new Set(f.dates.filter(d => DATES.includes(d)));
+    if (selDates.size === 0) selDates = new Set(DATES);   // 過晒期就重設返全部
+    if (Array.isArray(f.periods)) {
+      const valid = f.periods.filter(k => PERIODS.some(p => p.k === k));
+      if (valid.length) selPeriods = new Set(valid);      // 全部清空就保持預設全選
+    }
+    if (f.search) $('#f-search').value = f.search;
+    if (f.district) $('#f-district').value = f.district;  // options 未填都無妨，initDistricts 後再試
+    if (f.time) $('#f-time').value = f.time;
+    if (f.rangeFrom) $('#f-range-from').value = f.rangeFrom;
+    if (f.rangeTo) $('#f-range-to').value = f.rangeTo;
+    if (f.only === false) $('#f-only').checked = false;
+    if (f.district) { // district options 喺 initDistricts 先填 — 呢度先記住
+      const reqDistrict = f.district;
+      const _origInit = initDistricts;
+      initDistricts = function() { _origInit(); $('#f-district').value = reqDistrict; if ($('#f-district').value !== reqDistrict) $('#f-district').value = ''; };
+    }
+  } catch (e) { /* 壞 JSON — 當冇存過 */ }
+}
+// 攔截所有會觸發 render 嘅互動，順手 saveFilters（包一次就夠）
+['#f-search','#f-district','#f-time'].forEach(s => $(s).addEventListener('input', saveFilters));
+$('#f-only').addEventListener('change', saveFilters);
+['f-range-from', 'f-range-to'].forEach(id => $('#' + id).addEventListener('input', saveFilters));
+setInterval(saveFilters, 3000);   // 兜底：chips/pills/mode 點擊冇 hook，每 3 秒 snapshot 一次
+window.addEventListener('beforeunload', saveFilters);
 const PERIODS = [
   { k: 'am',  label: '🌅 早上', range: '07:00-11:59', from: 7*60,  to: 12*60-1 },
   { k: 'pm',  label: '☀️ 下午', range: '12:00-17:59', from: 12*60, to: 18*60-1 },
   { k: 'eve', label: '🌙 晚上', range: '18:00+',     from: 18*60, to: 24*60   },
 ];
+loadFilters();   // reload 後還原 filter（要喺 initSports/initDateChips 之前；PERIODS 之後避免 TDZ）
 
 function initDateChips() {
   const wrap = $('#f-date-chips');
@@ -410,6 +461,10 @@ async function loadAll() {
   initDateChips();
   initPeriodPills();
   setupDateModeToggle();
+  // 還原 date mode 顯示狀態
+  $('#f-date-chips').style.display = dateMode === 'chips' ? 'flex' : 'none';
+  $('#f-date-range').style.display = dateMode === 'range' ? 'flex' : 'none';
+  $('#f-date-mode-toggle').textContent = dateMode === 'chips' ? '（切換範圍模式）' : '（切換多選模式）';
   renderFacility();
 }
 
