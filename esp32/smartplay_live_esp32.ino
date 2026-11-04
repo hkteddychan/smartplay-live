@@ -29,7 +29,7 @@ const char* WIFI_SSID = "YOUR_WIFI_SSID";
 const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
 
 const char* FEED_CHANGES_EVE = "https://hkteddychan.github.io/smartplay-live/esp32/changes-eve.json";
-const unsigned long EVE_POLL_MS = 3UL * 60UL * 1000UL;   // 3 分鐘 poll 一次
+const unsigned long EVE_POLL_MS = 90UL * 1000UL;   // 90 秒 poll 一次（mirror */2 加密後，延遲 ≤ 3 分鐘）
 
 const int LED_PIN    = 2;    // 內置 LED：poll 成功閃 1 下，失敗長閃 5 下
 const int BUZZER_PIN = 25;   // 被動 buzzer
@@ -161,7 +161,7 @@ void setup() {
   delay(300);
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUZZER_PIN, OUTPUT);
-  Serial.println("\n[SmartPLAY Live ESP32] boot v2.1 — 放場通知器（release-only）");
+  Serial.println("\n[SmartPLAY Live ESP32] boot v2.2 — 放場通知器（release-only）");
   Serial.println("feed: changes-eve.json | poll: 3min | beep on: 📈放場/🆕新時段");
   connectWiFi();
   lastPoll = 0;   // 立即 poll 第一次（baseline）
