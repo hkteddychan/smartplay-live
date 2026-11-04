@@ -283,3 +283,59 @@ void loop() {
 - Sketch: https://raw.githubusercontent.com/hkteddychan/smartplay-live/main/esp32/smartplay_live_esp32.ino
 - Feed: https://hkteddychan.github.io/smartplay-live/esp32/changes-eve.json
 - 對照 tab: https://hkteddychan.github.io/smartplay-live/ （🤖 ESP32 視角）
+
+
+---
+
+# 📺 v3.0 — CYD 觸屏瀏覽器（2026-11-04）
+
+## 硬件：ESP32-2432S028R "Cheap Yellow Display"
+
+- 2.8" ILI9341 TFT 240×320 + XPT2046 電阻觸控 + ESP32-WROOM（一體板，~US$12）
+- 唔使額外接線（屏+觸控一體）；buzzer 照舊 GPIO25
+
+## 新 Feed：`esp32/browse.json`（~6KB）
+
+```json
+{
+  "g": "2026-11-04 09:00",
+  "k": ["🏸","🏀","🏐","🎾","⚽"],
+  "d": ["11-04 三", "11-05 四", ...],
+  "v": ["香港單車館|九龍城區", ...],
+  "r": [[vIdx, sportIdx, dateIdx, startMin, endMin, courts], ...]
+}
+```
+
+- 合併 5 項運動、可預訂日（今日..+5）晚上 ≥18:00
+- 每 15 分鐘同 mirror 同步
+
+## 畫面同操作
+
+- 自動翻頁：每 5 秒（NVS 記住設定）
+- 觸屏：上部=上一區 / 下部=下一區 / 中部=換日期（全部日子→11-04→...→返轉頭）
+- 設定存 Preferences（斷電唔會冇）
+- 🔔 通知模式照舊並行：changes-eve poll 3min，放場 beep + 屏頂閃紫線
+
+## Libraries
+
+- ArduinoJson ≥7、TFT_eSPI（Bodmer）、XPT2046_Touchscreen（Paul Stoffregen）
+
+## TFT_eSPI User_Setup.h（CYD 標準）
+
+```
+#define ILI9341_DRIVER
+#define TFT_MISO 12
+#define TFT_MOSI 13
+#define TFT_SCLK 14
+#define TFT_CS   15
+#define TFT_DC    2
+#define TFT_RST  -1
+#define TFT_BL   21
+#define TOUCH_CS 33
+```
+
+## 檔案
+
+- CYD sketch: https://raw.githubusercontent.com/hkteddychan/smartplay-live/main/esp32/smartplay_live_cyd.ino
+- Browse feed: https://hkteddychan.github.io/smartplay-live/esp32/browse.json
+- 網站模擬器: https://hkteddychan.github.io/smartplay-live/ → 🤖 ESP32 視角 tab 下半部
