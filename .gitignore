@@ -19,3 +19,5 @@ tools/pgo_sessions/
 .idea/
 Thumbs.db
 .DS_Store
+
+.superpowers/
