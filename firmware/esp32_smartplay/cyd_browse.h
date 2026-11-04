@@ -503,17 +503,23 @@ static bool browseTouch(int x, int y) {
     }
     if (browseOverlay == 2) {
         if (x < 60 || x > 260 || y < 40 || y > 220) { browseOverlay = 0; return true; }
-        int idx = (y - 40) / 22;
-        if (idx == 0) browseSetSport(-1);
-        else if (idx >= 1 && idx <= BR_N_SPORTS) browseSetSport(idx - 1);
+        // visual layout: "全部運動" at y=62, sports at y=84+i*22
+        if (y >= 52 && y < 84) {
+            browseSetSport(-1);
+        } else {
+            int i = (y - 84) / 22;
+            if (i >= 0 && i < BR_N_SPORTS) browseSetSport(i);
+            else browseOverlay = 0;
+        }
         return true;
     }
 
     if (y < BROWSE_HEADER_H) {
-        if (x >= 28 && x < 99) { browseOverlay = 1; return true; }
-        if (x >= 99 && x < 149) { browseOverlay = 2; return true; }
-        if (x >= 149 && x < 189) { browseCycleTimePeriod(); return true; }
-        if (x >= 189 && x < 229) { browseTogglePaused(); return true; }
+        // back button handled in smartplay.ino (x<20 && y<20)
+        if (x >= 24 && x < 96) { browseOverlay = 1; return true; }   // district chip
+        if (x >= 98 && x < 146) { browseOverlay = 2; return true; }  // sport chip
+        if (x >= 148 && x < 186) { browseCycleTimePeriod(); return true; } // time chip
+        if (x >= 188 && x < 226) { browseTogglePaused(); return true; }   // play/pause chip
         return true;
     }
 
