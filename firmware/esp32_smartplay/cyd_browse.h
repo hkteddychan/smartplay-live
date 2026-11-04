@@ -9,8 +9,8 @@
 
 #include "cyd_theme.h"
 
-#define BROWSE_ROWS_PER_PAGE 4
-#define BROWSE_ROW_H 64
+#define BROWSE_ROWS_PER_PAGE 5
+#define BROWSE_ROW_H 40
 #define BROWSE_HEADER_H 26
 #define BROWSE_FOOTER_H 14
 
@@ -78,6 +78,16 @@ static int districtIndexOf(const char *d) {
     return -1;
 }
 
+// 將康文署 18 區歸類為 3 大區域
+static int regionOf(const char *d) {
+    if (!d || !*d) return 2;
+    if (strcmp(d, "中西區") == 0 || strcmp(d, "灣仔區") == 0 ||
+        strcmp(d, "東區") == 0 || strcmp(d, "南區") == 0) return 0;       // 香港
+    if (strcmp(d, "油尖旺區") == 0 || strcmp(d, "深水埗區") == 0 ||
+        strcmp(d, "九龍城區") == 0 || strcmp(d, "觀塘區") == 0) return 1; // 九龍
+    return 2;                                                            // 新界
+}
+
 bool httpGet(const char *url, String &out);
 
 // ---------------- parse browse.json ----------------
@@ -133,8 +143,15 @@ static bool browseParseBrowse(const char *body) {
             browseCopy(venueDists[nVenues], sizeof(venueDists[0]), "");
         }
         districtIndexOf(venueDists[nVenues]);
+        districtIndexOf(venueDists[nVenues]);
         nVenues++;
     }
+
+    // 3 大區域（取代 18 區）
+    browseCopy(districts[0], sizeof(districts[0]), "香港");
+    browseCopy(districts[1], sizeof(districts[1]), "九龍");
+    browseCopy(districts[2], sizeof(districts[2]), "新界");
+    nDistricts = 3;
 
     JsonArray rs = doc["r"].as<JsonArray>();
     for (JsonVariant v : rs) {
@@ -292,6 +309,12 @@ static bool browseParseSport(const char *body, int sportIdx) {
         }
     }
 
+    // 3 大區域（取代 per-sport 18 區）
+    browseCopy(districts[0], sizeof(districts[0]), "香港");
+    browseCopy(districts[1], sizeof(districts[1]), "九龍");
+    browseCopy(districts[2], sizeof(districts[2]), "新界");
+    nDistricts = 3;
+
     browseLoaded = true;
     return nRows > 0;
 }
@@ -325,7 +348,6 @@ static bool browseFetch() {
     }
     if (!ok) browseCopy(browseError, sizeof(browseError), "解析失敗");
     if (curDistrict >= nDistricts && nDistricts > 0) curDistrict = 0;
-    if (curDate > nDates) curDate = 0;
     // free body memory
     body = "";
     return ok;
@@ -342,6 +364,8 @@ static void browseLoadPrefs() {
     autoPage = browsePrefs.getBool("auto", true);
     browsePrefs.end();
     paused = !autoPage;
+    if (curDistrict >= 3) curDistrict = 0;
+    if (curTimePeriod < 0 || curTimePeriod > 2) curTimePeriod = 0;
     if (pageSec < 2) pageSec = 2;
     if (pageSec > 30) pageSec = 30;
 }
@@ -358,9 +382,9 @@ static void browseSavePrefs() {
 }
 
 static int timePeriodOf(uint16_t sm) {
-    if (sm < 720) return 1;
-    if (sm < 1080) return 2;
-    return 3;
+    if (sm < 720) return 0;
+    if (sm < 1080) return 1;
+    return 2;
 }
 
 static int browseFilteredRows(int *out, int maxOut) {
@@ -368,9 +392,8 @@ static int browseFilteredRows(int *out, int maxOut) {
     for (int i = 0; i < nRows && n < maxOut; i++) {
         BRow &r = browses[i];
         if (r.v >= nVenues) continue;
-        if (nDistricts > 0 && strcmp(venueDists[r.v], districts[curDistrict]) != 0) continue;
-        if (curDate > 0 && r.d != (uint8_t)(curDate - 1)) continue;
-        if (curTimePeriod > 0 && timePeriodOf(r.sm) != curTimePeriod) continue;
+        if (nDistricts > 0 && regionOf(venueDists[r.v]) != curDistrict) continue;
+        if (timePeriodOf(r.sm) != curTimePeriod) continue;
         out[n++] = i;
     }
     return n;
@@ -380,14 +403,14 @@ static void browseStepDistrict(int delta) {
     if (nDistricts <= 0) return;
     int d = curDistrict + delta;
     while (d < 0) d += nDistricts;
-    curDistrict = d % nDistricts;
+    curDistrict = d % 3;
     curPage = 0;
     lastPageAt = millis();
     browseSavePrefs();
 }
 
 static void browseSetDistrict(int idx) {
-    if (idx < 0 || idx >= nDistricts) return;
+    if (idx < 0 || idx >= 3) return;
     curDistrict = idx;
     curPage = 0;
     lastPageAt = millis();
@@ -402,7 +425,7 @@ static void browseCycleDate() {
 }
 
 static void browseCycleTimePeriod() {
-    curTimePeriod = (curTimePeriod + 1) % 4;
+    curTimePeriod = (curTimePeriod + 1) % 3;
     curPage = 0;
     lastPageAt = millis();
     browseSavePrefs();
@@ -470,11 +493,9 @@ static bool browseTouch(int x, int y) {
     lastPageAt = millis();
 
     if (browseOverlay == 1) {
-        if (x < 20 || x > 300 || y < 30 || y > 210) { browseOverlay = 0; return true; }
-        int col = (x < 160) ? 0 : 1;
-        int row = (y - 30) / 18;
-        int idx = col * 10 + row;
-        if (idx >= 0 && idx < nDistricts) browseSetDistrict(idx);
+        if (x < 40 || x > 280 || y < 60 || y > 180) { browseOverlay = 0; return true; }
+        int idx = (y - 88) / 32;
+        if (idx >= 0 && idx < 3) browseSetDistrict(idx);
         browseOverlay = 0;
         return true;
     }
@@ -511,9 +532,8 @@ static bool browseTouch(int x, int y) {
 }
 
 static const char *timePeriodLabel(int tp) {
-    if (tp == 0) return "全部";
-    if (tp == 1) return "早";
-    if (tp == 2) return "午";
+    if (tp == 0) return "早";
+    if (tp == 1) return "午";
     return "晚";
 }
 
@@ -542,10 +562,9 @@ static void browseDrawHeader() {
     tft.fillRect(188, 2, 38, 22, C_CARD);
     tft.setTextColor(C_TEXT, C_CARD);
     tft.drawString(paused ? "II" : ">", 200, 6, 2);
-    const char *dl = (curDate == 0) ? "全部" : (curDate <= nDates ? dateLabels[curDate - 1] : "");
     tft.setTextColor(C_DIM, C_BAR);
     tft.setTextDatum(TL_DATUM);
-    tft.drawString(dl, 232, 6, 2);
+    tft.drawString("全部日子", 232, 6, 2);
     time_t now = time(nullptr);
     struct tm lt;
     localtime_r(&now, &lt);
@@ -571,7 +590,7 @@ static void browseDrawBody() {
     if (n == 0) {
         tft.fillRect(0, y, 320, 240 - y - BROWSE_FOOTER_H, C_BG);
         String none = "呢個條件冇場";
-        drawUTF8(none, (320 - measureUTF8(none)) / 2, y + 60, C_DIM, C_BG);
+        drawUTF8(none, (320 - measureUTF8(none)) / 2, y + 80, C_DIM, C_BG);
         return;
     }
 
@@ -586,33 +605,23 @@ static void browseDrawBody() {
 
         tft.fillRect(0, ry, 320, BROWSE_ROW_H, (i % 2 == 0) ? C_BG : C_CARD);
 
+        String line1 = "";
+        if (r.d < nDates) line1 += String(dateLabels[r.d]) + " ";
+        line1 += String(venueDists[r.v]) + " ";
+        if (r.v < nVenues) line1 += String(venueNames[r.v]);
+        drawUTF8(fitUTF8(line1, 312), 4, ry + 2, C_TEXT, (i % 2 == 0) ? C_BG : C_CARD);
+
+        char tm[24];
+        snprintf(tm, sizeof(tm), "%02d:%02d-%02d:%02d  %d場",
+                 r.sm / 60, r.sm % 60, r.em / 60, r.em % 60, r.courts);
         if (r.k < nSports) {
             tft.setTextColor(C_ACCENT, (i % 2 == 0) ? C_BG : C_CARD);
             tft.setTextDatum(TL_DATUM);
-            tft.drawString(sportIcons[r.k], 6, ry + 4, 4);
+            tft.drawString(sportIcons[r.k], 4, ry + 22, 2);
         }
-
-        if (r.d < nDates) {
-            tft.setTextColor(C_DIM, (i % 2 == 0) ? C_BG : C_CARD);
-            tft.drawString(dateLabels[r.d], 40, ry + 6, 2);
-        }
-
-        if (r.v < nVenues) {
-            drawUTF8(fitUTF8(String(venueNames[r.v]), 200), 40, ry + 26,
-                     C_TEXT, (i % 2 == 0) ? C_BG : C_CARD);
-            drawUTF8(String(venueDists[r.v]), 40, ry + 46,
-                     C_DIM, (i % 2 == 0) ? C_BG : C_CARD);
-        }
-
-        char tm[16];
-        snprintf(tm, sizeof(tm), "%02d:%02d", r.sm / 60, r.sm % 60);
-        tft.setTextColor(C_TEXT, (i % 2 == 0) ? C_BG : C_CARD);
-        tft.setTextDatum(TR_DATUM);
-        tft.drawString(tm, 314, ry + 6, 2);
-        snprintf(tm, sizeof(tm), "%d 場", r.courts);
         tft.setTextColor(C_GOOD, (i % 2 == 0) ? C_BG : C_CARD);
-        tft.drawString(tm, 314, ry + 26, 2);
         tft.setTextDatum(TL_DATUM);
+        tft.drawString(tm, 24, ry + 22, 2);
 
         tft.drawFastHLine(0, ry + BROWSE_ROW_H - 1, 320, C_BAR);
     }
@@ -641,16 +650,13 @@ static void browseDrawOverlay() {
     if (browseOverlay == 0) return;
     tft.fillRect(0, 0, 320, 240, C_BG);
     if (browseOverlay == 1) {
-        tft.fillRect(20, 26, 280, 190, C_CARD);
-        tft.drawRect(20, 26, 280, 190, C_DIM);
-        drawUTF8(String("選擇地區"), 28, 30, C_TEXT, C_CARD);
-        for (int i = 0; i < nDistricts && i < 20; i++) {
-            int col = (i < 10) ? 0 : 1;
-            int row = (i < 10) ? i : i - 10;
-            int x = 28 + col * 140;
-            int yy = 52 + row * 17;
-            uint16_t fg = (i == curDistrict) ? C_ACCENT : C_TEXT;
-            drawUTF8(String(districts[i]), x, yy, fg, C_CARD);
+        tft.fillRect(40, 60, 240, 120, C_CARD);
+        tft.drawRect(40, 60, 240, 120, C_DIM);
+        drawUTF8(String("選擇地區"), 48, 64, C_TEXT, C_CARD);
+        const char *regions[] = {"香港", "九龍", "新界"};
+        for (int i = 0; i < 3; i++) {
+            tft.fillRect(48, 88 + i * 32, 224, 28, (i == curDistrict) ? C_ACCENT : C_BAR);
+            drawUTF8(String(regions[i]), 56, 92 + i * 32, C_TEXT, (i == curDistrict) ? C_ACCENT : C_BAR);
         }
     } else if (browseOverlay == 2) {
         tft.fillRect(60, 36, 200, 170, C_CARD);
