@@ -22,6 +22,7 @@
  * ============================================================= */
 #include <Arduino.h>
 #include <WiFi.h>
+#include <ArduinoOTA.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -847,8 +848,23 @@ void setup() {
   ts.begin(touchSPI);
   ts.setRotation(1);
 
-  Serial.println("\n[SmartPLAY Live CYD] boot v3.0 — 放場通知器");
+  Serial.println("\n[SmartPLAY Live CYD] boot v3.0-OTA — 放場通知器");
   connectWiFi();
+  // ---- OTA (over-the-air) 更新 ----
+  ArduinoOTA.setHostname("smartplay-cyd");
+  ArduinoOTA.setPassword("smartplay");
+  ArduinoOTA.onStart([]() { Serial.println("[OTA] start"); });
+  ArduinoOTA.onEnd([]() { Serial.println("[OTA] end"); });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("[OTA] %u%%\r", (progress * 100) / total);
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("[OTA] error %u\n", error);
+  });
+  ArduinoOTA.begin();
+  Serial.printf("[OTA] ready, IP=%s, hostname=smartplay-cyd, password=smartplay\n",
+                WiFi.localIP().toString().c_str());
+
   configTime(8 * 3600, 0, "pool.ntp.org", "hk.pool.ntp.org");  // HKT
 
   g_lastEvePoll = 0;
@@ -872,6 +888,7 @@ void loop() {
   }
 
   handleSerial();
+  ArduinoOTA.handle();
   handleTouch();
   if (browseFlashUntil && millis() >= browseFlashUntil) {
     browseFlashUntil = 0;

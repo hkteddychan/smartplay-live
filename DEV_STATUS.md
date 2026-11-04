@@ -28,7 +28,10 @@
 - UX ideas: favorites, notification history, settings page, backlight sleep, offline cache (see docs/ESP32-BRAINSTORM.md).
 - Update DEV_STATUS.md on GitHub once remote is configured.
 
-## Verification
+## OTA (over-the-air)
+- ArduinoOTA enabled: hostname `smartplay-cyd`, password `smartplay`, port 3232.
+- Custom `partitions.csv`: two 1.5MB app slots (app0/app1) for safe OTA.
+- Tested end-to-end: espota upload succeeded, board rebooted into new firmware without cable.
 - `python tools/check-browse-font-coverage.py` → no missing chars.
 - `python tools/check-cjk-coverage.py` → (legacy chat firmware) not applicable.
 - No PlatformIO CLI available in this environment; firmware not compiled here.
