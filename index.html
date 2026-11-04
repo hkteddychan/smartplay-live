@@ -244,6 +244,44 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
       <div style="color:#555;font-size:11px" id="eb-foot"></div>
     </div>
     <div class="hint">💡 <b>browse.json</b>（~6KB）= 5 項運動合併、可預訂日（今日..+5）晚上 18:00+ 場次。ESP32 按區分頁自動輪播。</div>
+
+    <hr style="border-color:var(--line);margin:18px 0">
+    <h3 style="margin:0 0 6px">📡 CYD 實機狀態（部屏而家顯示緊嘅嘢 + 歷史）</h3>
+    <div class="filters" style="margin-bottom:10px">
+      <div class="f-group">
+        <label>歷史時段</label>
+        <select id="ec-range">
+          <option value="6">最近 6 小時</option>
+          <option value="12" selected>最近 12 小時</option>
+          <option value="24">最近 24 小時</option>
+          <option value="0">全部</option>
+        </select>
+      </div>
+      <div class="f-group">
+        <label>&nbsp;</label>
+        <button class="secondary" id="ec-refresh">🔄 更新</button>
+      </div>
+    </div>
+    <div class="stats" id="ec-stats"></div>
+    <div style="display:grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start;">
+      <div>
+        <div id="ec-screen" style="background:#000;border:10px solid #222;border-radius:14px;max-width:320px;aspect-ratio:3/4;display:flex;flex-direction:column;font-family:monospace;box-shadow:0 4px 20px rgba(0,0,0,.6)">
+          <div style="display:flex;justify-content:space-between;padding:8px 10px;color:#00e5ff;font-size:12px;border-bottom:1px solid #333" id="ec-hdr"><span>—</span><span></span></div>
+          <div style="flex:1;padding:10px;overflow:hidden" id="ec-body"><div style="color:#555;text-align:center;margin-top:40%">未有報告</div></div>
+          <div style="display:flex;justify-content:space-between;padding:6px 10px;color:#666;font-size:10px;border-top:1px solid #333" id="ec-foot"><span></span><span></span></div>
+        </div>
+        <div class="hint">🖥️ 1:1 重演 CYD 屏畫面（240×320 landscape 顯示）</div>
+      </div>
+      <div>
+        <div class="table-wrap" style="max-height:52vh">
+          <table id="ec-table">
+            <thead><tr><th>報告時間</th><th>區份</th><th>日期</th><th>頁</th><th>畫面首行</th><th>場次</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="hint">📡 CYD 每 3 分鐘 POST 畫面快照；畫面冇變唔會重複記錄。超過 10 分鐘冇報告 = 離線 🔴。</div>
+      </div>
+    </div>
   </div>
 
   <!-- ============ ACTIVITY TAB ============ -->
@@ -948,6 +986,94 @@ function renderEb() {
   $('#eb-foot').textContent = `第 ${(ebState.d + 1)}/${ebDistricts.length} 區 · 生成 ${espBrowse.g} HKT`;
 }
 
+// ---------- CYD 實機狀態（ESP32 屏上報 → status.json / status-history.json） ----------
+let cydStatus = null, cydHistory = null;
+
+async function loadCyds(force) {
+  if (!force && cydStatus !== null) { renderCyds(); return; }
+  try {
+    const t = Date.now();
+    const pulls = [
+      fetch(`esp32/status.json?t=${t}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`esp32/status-history.json?t=${t}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
+    ];
+    if (!espBrowse) pulls.push(fetch('esp32/browse.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null));
+    const [sR, hR, bR] = await Promise.all(pulls);
+    cydStatus = sR; cydHistory = hR;
+    if (bR) espBrowse = bR;
+  } catch (e) {}
+  renderCyds();
+}
+
+function renderCyds() {
+  const staleMin = cydStatus && cydStatus.ts ? (Date.now() - new Date(cydStatus.ts).getTime()) / 60000 : Infinity;
+  const online = staleMin < 10;
+  $('#ec-stats').innerHTML = `
+    <div class="stat"><b style="color:${online ? '#2ea043' : '#f85149'}">${cydStatus ? (online ? '🟢 在線' : '🔴 離線 ' + Math.round(staleMin) + ' 分') : '— 未有報告'}</b><span>連線狀態</span></div>
+    <div class="stat"><b>${cydStatus ? (cydStatus.district || '—') : '—'}</b><span>目前區份</span></div>
+    <div class="stat"><b>${cydStatus ? (cydStatus.rows || 0) : 0}</b><span>符合場次</span></div>
+    <div class="stat"><b>${cydHistory ? cydHistory.n : 0}</b><span>歷史記錄</span></div>
+    ${cydStatus && cydStatus.rssi ? `<div class="stat"><b>${cydStatus.rssi} dBm</b><span>WiFi 訊號</span></div>` : ''}
+    ${cydStatus && cydStatus.fw ? `<div class="stat"><b style="font-size:13px">v${cydStatus.fw}</b><span>韌體</span></div>` : ''}`;
+
+  // 屏重演 — 用 CYD 上報嘅 filter 套返落 browse.json（同 CYD drawPage 同一數據源）
+  const body = $('#ec-body'), hdr = $('#ec-hdr'), foot = $('#ec-foot');
+  if (!cydStatus) {
+    body.innerHTML = '<div style="color:#555;text-align:center;margin-top:40%">未有報告</div>';
+    hdr.innerHTML = '<span>—</span><span></span>';
+    foot.innerHTML = '<span></span><span></span>';
+  } else {
+    const dateLabel = cydStatus.date === 'ALL' ? '全部日子' : (cydStatus.date || '');
+    hdr.innerHTML = `<span>${cydStatus.district || '—'}</span><span>${dateLabel}</span>`;
+    foot.innerHTML = `<span>頁 ${(cydStatus.page || 0) + 1}/${cydStatus.pages || 1}</span><span>${(cydStatus.g || '').slice(11)}</span>`;
+    let rows = [];
+    if (espBrowse && espBrowse.r) {
+      rows = espBrowse.r.filter(r => {
+        const vd = (espBrowse.v[r[0]] || '').split('|')[1];
+        if (cydStatus.district && vd !== cydStatus.district) return false;
+        if (cydStatus.date !== 'ALL' && dateLabel && espBrowse.d[r[2]] !== dateLabel) return false;
+        return true;
+      });
+    }
+    if (rows.length === 0) {
+      body.innerHTML = '<div style="color:#555;text-align:center;margin-top:40%">呢個時段冇場</div>';
+    } else {
+      const totalPages = Math.max(1, Math.ceil(rows.length / 4));
+      const page = (cydStatus.page || 0) % totalPages;
+      const iconOf = si => (espBrowse.k || [])[si] || '•';
+      body.innerHTML = rows.slice(page * 4, page * 4 + 4).map(r => {
+        const [vi, si, di, sm, em, courts] = r;
+        const venue = (espBrowse.v[vi] || '').split('|')[0];
+        return `<div style="margin-bottom:12px">
+          <div style="color:#b5e853;font-size:11px">${iconOf(si)} ${espBrowse.d[di] || ''}</div>
+          <div style="color:#fff;font-size:13px;font-weight:600">${venue}</div>
+          <div style="color:#ffd75e;font-size:12px">${fmtMin(sm)} · ${courts} 場</div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // 歷史表
+  const rangeH = parseInt($('#ec-range').value);
+  const now = Date.now();
+  let h = (cydHistory && cydHistory.h) || [];
+  if (rangeH > 0) h = h.filter(x => now - new Date(x.ts).getTime() <= rangeH * 3600 * 1000);
+  const tb = $('#ec-table tbody');
+  tb.innerHTML = h.length === 0
+    ? '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px">冇記錄</td></tr>'
+    : h.slice().reverse().map(x => `<tr>
+        <td>${x.hk || x.ts}</td>
+        <td>${x.district || ''}</td>
+        <td>${x.date === 'ALL' ? '全部日子' : (x.date || '')}</td>
+        <td>${(x.page || 0) + 1}/${x.pages || 1}</td>
+        <td>${x.line || ''}</td>
+        <td class="courts">${x.rows || 0}</td>
+      </tr>`).join('');
+}
+
+$('#ec-range').addEventListener('change', () => renderCyds());
+$('#ec-refresh').addEventListener('click', () => loadCyds(true));
+
 // ---------- ACTIVITY ----------
 let activityData = [];
 async function loadActivity() {
@@ -1212,6 +1338,7 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
   if (b.dataset.tab === 'activity' && activityData.length === 0) loadActivity();
   if (b.dataset.tab === 'changes' && changesData === null) loadChanges();
   if (b.dataset.tab === 'esp' && espEve === null) loadEspFeeds();
+  if (b.dataset.tab === 'esp') loadCyds();
   if (b.dataset.tab === 'session' && sessionsData === null) loadSessions();
 });
 ['#f-search','#f-time'].forEach(s => $(s).addEventListener('input', () => { renderFacility(); renderMap(); }));
