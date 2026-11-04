@@ -97,6 +97,7 @@ static int g_releaseTotal = 0;   // 開機至今收到幾多個放場
 static char g_venueName[MAX_VENUES][44];
 static char g_venueDistrict[MAX_VENUES][16];
 static int g_venueCount = 0;
+static bool g_venueMapLoaded = false;
 
 static char g_eveVersion[24] = "";
 static char g_feedGen[24] = "";
@@ -324,7 +325,7 @@ static void handleRelease(const char *sportZh, const char *district, const char 
   char st[8], en[8];
   fmtTime(a.start, st, sizeof(st));
   fmtTime(a.end, en, sizeof(en));
-  Serial.printf("[RELEASE] %s %s | %s %s-%s | %d->%d\n", a.sport, a.venue, a.facility, st, en,
+  Serial.printf("[RELEASE] %s %s | %s | %s %s-%s | %d->%d\n", a.sport, a.date, a.venue, a.facility, st, en,
                 oldC, newC);
   beep();
   g_returnPage = g_page;      // 警報收完返返原本個頁
@@ -339,6 +340,7 @@ static void handleRelease(const char *sportZh, const char *district, const char 
 static String g_eveBody;
 
 static void pollEve() {
+  if (!g_venueMapLoaded) loadVenueMap();
   if (!httpGet(FEED_EVE, g_eveBody)) {
     Serial.println("[eve] fetch FAILED");
     g_pollFails++;
@@ -385,6 +387,15 @@ static void pollEve() {
 
       const char *venue = c[1] | "";
       String d = venueDistrict(venue);
+      if (d.length() == 0 && venue && *venue) {
+          if (!g_venueMapLoaded) loadVenueMap();
+          d = venueDistrict(venue);
+      }
+      if (d.length() == 0 && venue && *venue && browseLoaded) {
+          for (int i = 0; i < nVenues; i++) {
+              if (strcmp(venueNames[i], venue) == 0 && venueDists[i][0]) { d = String(venueDists[i]); break; }
+          }
+      }
       handleRelease(sportZh, d.c_str(), venue, c[2] | "", c[0] | "", c[3] | 0, c[4] | 0, oldC, newC);
     }
   }
@@ -398,7 +409,6 @@ static void pollEve() {
 
 /* ---------------- 區名對照（後備 poll 路徑，需要時先載入） ---------------- */
 static String g_todayBody;
-static bool g_venueMapLoaded = false;
 
 static void loadVenueMap() {
   if (g_venueMapLoaded) return;
@@ -474,7 +484,7 @@ static void drawHome() {
 
   tft.setTextColor(C_TEXT, C_BAR);
   tft.setTextDatum(TL_DATUM);
-  tft.drawString("放場通知器", 6, 7, 2);
+  drawUTF8(String("放場通知器"), 6, 7, C_TEXT, C_BAR);
   if (g_unread) tft.fillCircle(SCR_W - 86, 15, 5, C_GOOD);
 
   // 大字">
@@ -569,17 +579,17 @@ static void drawAlert() {
     int dw = measureUTF8(delta);
     drawUTF8(delta, SCR_W - 10 - dw, y + 3, C_GOOD, C_CARD_HOT);
 
-    // line 2: time range + facility
+    // line 2: date + time range + facility
     char st[8], en[8];
     fmtTime(a.start, st, sizeof(st));
     fmtTime(a.end, en, sizeof(en));
     char range[24];
     snprintf(range, sizeof(range), "%s-%s", st, en);
-    tft.setTextColor(C_TEXT, C_CARD_HOT);
-    tft.setTextDatum(TL_DATUM);
-    tft.drawString(range, 10, y + 20, 2);
-    int rw = tft.textWidth(range, 2);
-    if (a.facility[0]) drawUTF8(String(a.facility), 14 + rw, y + 20, C_DIM, C_CARD_HOT);
+    String line2 = "";
+    if (a.date[0]) line2 += String(a.date) + "  ";
+    line2 += String(range);
+    if (a.facility[0]) line2 += "  " + String(a.facility);
+    drawUTF8(fitUTF8(line2, SCR_W - 20), 10, y + 20, C_TEXT, C_CARD_HOT);
 
     // line 3: venue
     drawUTF8(fitUTF8(String(a.venue), SCR_W - 24), 10, y + 37, C_TEXT, C_CARD_HOT);
@@ -690,6 +700,14 @@ static void handleSerial() {
     browseCycleTimePeriod();
     g_dirty = true;
     Serial.printf("[browse] timePeriod=%d\n", curTimePeriod);
+  } else if (c == 'o') {
+    browseOverlay = 1;
+    g_dirty = true;
+    Serial.println("[ui] overlay=district");
+  } else if (c == 'O') {
+    browseOverlay = 2;
+    g_dirty = true;
+    Serial.println("[ui] overlay=sport");
   } else if (c == 'u') {
     Serial.printf("[ui] page=%s district=%u/%u date=%u/%u auto=%d paused=%d loaded=%d rows=%u\n",
                   g_page == PAGE_BROWSE ? "browse" : "notify", curDistrict, nDistricts,
@@ -711,6 +729,11 @@ static void handleSerial() {
   } else if (c == 'a') {
     g_screen = SCR_ALERT;
     g_dirty = true;
+  } else if (c == 'A') {
+    handleRelease("羽毛球", "九龍城區", "香港單車館", "主場", "2026-11-05", 1080, 1140, 1, 3);
+    g_screen = SCR_ALERT;
+    g_dirty = true;
+    Serial.println("[debug] injected sample alert");
   } else if (c == 'h') {
     g_screen = SCR_HOME;
     g_dirty = true;
@@ -721,7 +744,7 @@ static void handleSerial() {
       char st[8], en[8];
       fmtTime(a.start, st, sizeof(st));
       fmtTime(a.end, en, sizeof(en));
-      Serial.printf("  %s %s %s-%s %s (%s) %d->%d\n", a.sport, a.venue, st, en, a.facility,
+      Serial.printf("  %s %s %s %s-%s %s (%s) %d->%d\n", a.sport, a.date, a.venue, st, en, a.facility,
                     a.district, a.oldC, a.newC);
     }
   } else if (c == 'v') {
@@ -770,6 +793,7 @@ void setup() {
   configTime(8 * 3600, 0, "pool.ntp.org", "hk.pool.ntp.org");  // HKT
 
   g_lastEvePoll = 0;
+  loadVenueMap();
   pollEve();   // 第一輪 = baseline，唔會誤嗶
 
   // 瀏覽頁初始化（NVS 設定 + 第一次拉 browse.json）
