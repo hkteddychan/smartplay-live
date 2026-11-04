@@ -310,7 +310,7 @@ void processEveChanges(const String& body) {
   }
   if (!firstRun && nRel > 0) {
     Serial.printf("[EVE] 🔔 %d releases\n", nRel);
-    tft.fillRect(0, 26, 240, 8, TFT_MAGENTA);   // 頂部閃一條紫線提示
+    tft.fillRect(0, 26, 240, 8, TFT_ORANGE);    // 頂部閃一條橙色線提示（背景黑，橙對比強）
   }
 }
 
@@ -328,7 +328,7 @@ void setup() {
   tft.setTextColor(TFT_CYAN, TFT_BLACK); tft.setTextDatum(TL_DATUM);
   tft.drawString("SmartPLAY Live", 10, 10, 2);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.drawString("ESP32 瀏覽器 v3.0 booting...", 10, 30, 2);
+  tft.drawString("ESP32 瀏覽器 v3.1 booting...", 10, 30, 2);
 
   loadPrefs();
   connectWiFi();
