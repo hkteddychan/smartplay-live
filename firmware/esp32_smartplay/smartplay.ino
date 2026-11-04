@@ -42,7 +42,9 @@ TFT_eSPI tft = TFT_eSPI();
 static const char *FEED_EVE = "https://hkteddychan.github.io/smartplay-live/esp32/changes-eve.json";
 static const char *FEED_TODAY = "https://hkteddychan.github.io/smartplay-live/esp32/today.json";
 
-static const unsigned long EVE_POLL_MS = 60UL * 1000UL;   // 每 1 分鐘 poll 一次
+static const unsigned long EVE_POLL_MIN_MS = 60UL * 1000UL;
+static const unsigned long EVE_POLL_MAX_MS = 90UL * 1000UL;
+static unsigned long g_evePollInterval = 60UL * 1000UL;   // 每次 poll 後隨機 60–90s
 
 // Which speaker path the alert beep uses (see cyd_audio.h).
 #ifndef BEEP_PATH
@@ -510,7 +512,7 @@ static void drawHome() {
   tft.setTextColor(C_DIM, C_BG);
   tft.drawString("next poll", 8, y, 2);
   unsigned long since = millis() - g_lastEvePoll;
-  unsigned long waitMs = EVE_POLL_MS - (since % EVE_POLL_MS);
+  unsigned long waitMs = g_evePollInterval - (since % g_evePollInterval);
   snprintf(line, sizeof(line), "%lus", waitMs / 1000);
   tft.setTextColor(C_TEXT, C_BG);
   tft.drawString(line, 92, y, 2);
@@ -862,10 +864,11 @@ void setup() {
 void loop() {
   unsigned long now = millis();
 
-  if (now - g_lastEvePoll >= EVE_POLL_MS) {
+  if (now - g_lastEvePoll >= g_evePollInterval) {
     g_lastEvePoll = now;
     if (WiFi.status() != WL_CONNECTED) connectWiFi();
     pollEve();
+    g_evePollInterval = EVE_POLL_MIN_MS + (unsigned long)random((int)(EVE_POLL_MAX_MS - EVE_POLL_MIN_MS + 1));
   }
 
   handleSerial();
