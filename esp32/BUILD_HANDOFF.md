@@ -339,3 +339,9 @@ void loop() {
 - CYD sketch: https://raw.githubusercontent.com/hkteddychan/smartplay-live/main/esp32/smartplay_live_cyd.ino
 - Browse feed: https://hkteddychan.github.io/smartplay-live/esp32/browse.json
 - 網站模擬器: https://hkteddychan.github.io/smartplay-live/ → 🤖 ESP32 視角 tab 下半部
+
+
+## v3.1 (2026-11-04)
+- 放場提示線：TFT_MAGENTA（紫）→ TFT_ORANGE（橙）— 黑底對比更強
+- boot 畫面顯示 v3.1
+- 請重新燒錄 esp32/smartplay_live_cyd.ino
