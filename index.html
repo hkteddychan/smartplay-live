@@ -51,6 +51,18 @@ tr:hover td { background: rgba(88,166,255,.08); }
 .pill.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
 .date-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip { background: var(--card); border: 1px solid var(--line); padding: 5px 11px; border-radius: 16px; font-size: 13px; cursor: pointer; user-select: none; white-space: nowrap; }
+.dist-dd { position: relative; }
+.dist-dd-btn { background: var(--card); border: 1px solid var(--line); color: var(--text); padding: 7px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; min-width: 150px; text-align: left; }
+.dist-dd-btn:hover { border-color: var(--accent); }
+.dist-dd-panel { position: absolute; top: calc(100% + 4px); left: 0; z-index: 500; background: var(--card); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.5); min-width: 240px; max-width: 300px; }
+.dist-dd-actions { display: flex; gap: 6px; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.dist-dd-mini { background: transparent; border: 1px solid var(--line); color: var(--accent); border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
+.dist-dd-mini:hover { border-color: var(--accent); }
+.dist-dd-list { max-height: 280px; overflow-y: auto; padding: 4px 0; }
+.dist-dd-list label { display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+.dist-dd-list label:hover { background: rgba(88,166,255,.08); }
+.dist-dd-list input[type=checkbox] { accent-color: var(--accent); cursor: pointer; }
+.dist-dd-list .cnt { color: var(--muted); font-size: 11px; margin-left: auto; }
 .chip.active { background: var(--green); border-color: var(--green); color: #000; font-weight: 600; }
 .chip .sm { color: var(--muted); font-size: 11px; }
 .chip.active .sm { color: rgba(0,0,0,.6); }
@@ -111,8 +123,19 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
         <div class="sport-pills" id="sport-pills"></div>
       </div>
       <div class="f-group">
-        <label>地區</label>
-        <select id="f-district"><option value="">全部地區</option></select>
+        <label>地區（可多選）</label>
+        <div class="dist-dd" id="dist-dd">
+          <button type="button" class="dist-dd-btn" id="f-district-btn">全部地區 ▾</button>
+          <div class="dist-dd-panel" id="f-district-panel" style="display:none">
+            <div class="dist-dd-actions">
+              <span id="f-district-count" class="sm"></span>
+              <span style="flex:1"></span>
+              <button type="button" class="dist-dd-mini" id="f-district-all">全部</button>
+              <button type="button" class="dist-dd-mini" id="f-district-none">清除</button>
+            </div>
+            <div class="dist-dd-list" id="f-district-list"></div>
+          </div>
+        </div>
       </div>
       <div class="f-group">
         <label>關鍵字</label>
@@ -333,6 +356,7 @@ const DATES = (() => {          // 7 days starting today (HKT)
 let dateMode = 'chips';                          // 'chips' | 'range'
 let selDates = new Set(DATES);                   // chips mode: default ALL 7 selected
 let selPeriods = new Set(['am', 'pm', 'eve']);   // default all selected
+let selDists = new Set();                        // 地區多選：空 = 全部
 
 // ---------- FILTER PERSISTENCE（reload 後還原 filter，唔好全部重設） ----------
 const FS_KEY = 'spl_filters_v1';
@@ -344,7 +368,7 @@ function saveFilters() {
       dates: [...selDates],
       periods: [...selPeriods],
       search: $('#f-search').value,
-      district: $('#f-district').value,
+      dists: [...selDists],
       time: $('#f-time').value,
       rangeFrom: $('#f-range-from').value,
       rangeTo: $('#f-range-to').value,
@@ -365,20 +389,15 @@ function loadFilters() {
       if (valid.length) selPeriods = new Set(valid);      // 全部清空就保持預設全選
     }
     if (f.search) $('#f-search').value = f.search;
-    if (f.district) $('#f-district').value = f.district;  // options 未填都無妨，initDistricts 後再試
     if (f.time) $('#f-time').value = f.time;
     if (f.rangeFrom) $('#f-range-from').value = f.rangeFrom;
     if (f.rangeTo) $('#f-range-to').value = f.rangeTo;
     if (f.only === false) $('#f-only').checked = false;
-    if (f.district) { // district options 喺 initDistricts 先填 — 呢度先記住
-      const reqDistrict = f.district;
-      const _origInit = initDistricts;
-      initDistricts = function() { _origInit(); $('#f-district').value = reqDistrict; if ($('#f-district').value !== reqDistrict) $('#f-district').value = ''; };
-    }
+    // 地區多選還原喺 initDistricts() 入面做（options 填好先 set）
   } catch (e) { /* 壞 JSON — 當冇存過 */ }
 }
 // 攔截所有會觸發 render 嘅互動，順手 saveFilters（包一次就夠）
-['#f-search','#f-district','#f-time'].forEach(s => $(s).addEventListener('input', saveFilters));
+['#f-search','#f-time'].forEach(s => $(s).addEventListener('input', saveFilters));
 $('#f-only').addEventListener('change', saveFilters);
 ['f-range-from', 'f-range-to'].forEach(id => $('#' + id).addEventListener('input', saveFilters));
 setInterval(saveFilters, 3000);   // 兜底：chips/pills/mode 點擊冇 hook，每 3 秒 snapshot 一次
@@ -518,16 +537,60 @@ function initDistricts() {
   const dists = new Set();
   Object.values(all).forEach(arr => arr.forEach(x => dists.add(x.District_Name_TC)));
   const sorted = [...dists].sort();
-  const fSel = $('#f-district'), aSel = $('#a-district');
-  sorted.forEach(d => {
-    fSel.add(new Option(d, d));
-    aSel.add(new Option(d, d));
+  const aSel = $('#a-district');
+  sorted.forEach(d => aSel.add(new Option(d, d)));
+  initDistDropdown(sorted);
+  // 還原 localStorage 存嘅選擇
+  try {
+    const f = JSON.parse(localStorage.getItem(FS_KEY) || 'null');
+    if (f && Array.isArray(f.dists) && f.dists.length) {
+      selDists = new Set(f.dists.filter(d => sorted.includes(d)));
+      syncDistUI();
+    }
+  } catch (e) {}
+}
+function distLabel() {
+  if (selDists.size === 0) return '全部地區';
+  if (selDists.size <= 2) return [...selDists].join('、');
+  return `已揀 ${selDists.size} 區`;
+}
+function syncDistUI() {
+  $('#f-district-btn').textContent = distLabel() + ' ▾';
+  $('#f-district-count').textContent = selDists.size === 0 ? '全部 18 區' : `${selDists.size} / 18 區`;
+  document.querySelectorAll('#f-district-list input[type=checkbox]').forEach(cb => {
+    cb.checked = selDists.has(cb.dataset.d);
   });
+}
+function initDistDropdown(sorted) {
+  const list = $('#f-district-list');
+  list.innerHTML = '';
+  // 每區場地數（顯示用）
+  const cnt = {};
+  Object.values(all).forEach(arr => arr.forEach(x => { if (x.Available_Date) cnt[x.District_Name_TC] = (cnt[x.District_Name_TC]||0)+1; }));
+  sorted.forEach(d => {
+    const lb = document.createElement('label');
+    lb.innerHTML = `<input type="checkbox" data-d="${d}"> ${d} <span class="cnt">${cnt[d]||0}</span>`;
+    lb.querySelector('input').addEventListener('change', ev => {
+      if (ev.target.checked) selDists.add(d); else selDists.delete(d);
+      syncDistUI(); saveFilters(); renderFacility();
+    });
+    list.appendChild(lb);
+  });
+  syncDistUI();
+  $('#f-district-btn').onclick = () => {
+    const p = $('#f-district-panel');
+    p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  };
+  document.addEventListener('click', ev => {
+    if (!ev.target.closest('.dist-dd')) $('#f-district-panel').style.display = 'none';
+  });
+  $('#f-district-all').onclick = () => { selDists = new Set(); syncDistUI(); saveFilters(); renderFacility(); };
+  $('#f-district-none').onclick = () => { selDists = new Set(); syncDistUI(); saveFilters(); renderFacility(); };
 }
 
 function facilityFilter() {
   const q = $('#f-search').value.trim().toLowerCase();
-  const dist = $('#f-district').value;
+  const dist = null; // 地區多選改用 selDists（下面）
   const time = $('#f-time').value || '00:00';
   const only = $('#f-only').checked;
   // active dates: chips mode = selected set; range mode = [from, to]
@@ -544,7 +607,7 @@ function facilityFilter() {
   const rows = [];
   const arr = all[currentSport] || [];
   for (const x of arr) {
-    if (dist && x.District_Name_TC !== dist) continue;
+    if (selDists.size > 0 && !selDists.has(x.District_Name_TC)) continue;
     if (!dateSet.has(x.Available_Date)) continue;
     // period filter: session START time decides the period
     if (activePeriods.length < PERIODS.length) {
@@ -899,7 +962,6 @@ function renderMap() {
       fillColor: courtColor(v.total), fillOpacity: 0.8
     }).bindPopup(`<b>${s.icon} ${v.name}</b><br>${v.dist}<br>可訂時段 ${v.count} 個 / 共 ${v.total} 場<br><small>${v.sessions.join('<br>')}</small>`).addTo(mapObj);
   });
-  $('#m-only-label').textContent = '';
 }
 
 // ---------- EXPORT CSV ----------
@@ -942,7 +1004,7 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
   if (b.dataset.tab === 'changes' && changesData === null) loadChanges();
   if (b.dataset.tab === 'esp' && espEve === null) loadEspFeeds();
 });
-['#f-search','#f-district','#f-time'].forEach(s => $(s).addEventListener('input', renderFacility));
+['#f-search','#f-time'].forEach(s => $(s).addEventListener('input', renderFacility));
 $('#f-only').addEventListener('change', renderFacility);
 $('#f-export').addEventListener('click', exportFacility);
 ['#c-sport','#c-kind','#c-search'].forEach(s => $(s).addEventListener('input', renderChanges));
