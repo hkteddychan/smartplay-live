@@ -9,10 +9,7 @@
  * 想睇今晚有咩場 → 用網站 https://hkteddychan.github.io/smartplay-live/
  *
  * 兩條路收到放場通知（邊條都行，唔會重複）：
- *   1. PUSH：板子主動出連 VM（打穿 NAT，唔使 port forward），VM 一見到
- *            feed 有更新即刻推落嚟 → 幾乎即時
- *   2. POLL：自己 HTTPS GET changes-eve.json，每 1 分鐘一次（VM 唔在/推送
- *            斷咗嘅後備）
+ *   1. POLL：自己 HTTPS GET changes-eve.json，每 1 分鐘一次
  *
  * Board notes (ESP32-2432S028R):
  *   display  : ILI9341, HSPI, MISO 12 / MOSI 13 / SCLK 14 / CS 15 / DC 2 / BL 21
@@ -46,16 +43,6 @@ static const char *FEED_EVE = "https://hkteddychan.github.io/smartplay-live/esp3
 static const char *FEED_TODAY = "https://hkteddychan.github.io/smartplay-live/esp32/today.json";
 
 static const unsigned long EVE_POLL_MS = 60UL * 1000UL;   // 每 1 分鐘 poll 一次
-
-// Push channel — VM 端用 tools/cyd_push.py（行喺 AWS VM 上）
-// VM_HOST 留空 = 淨係用 poll
-#ifndef PUSH_HOST
-#define PUSH_HOST ""
-#endif
-#ifndef PUSH_PORT
-#define PUSH_PORT 9000
-#endif
-static const unsigned long PUSH_RETRY_MS = 5000;   // 斷線後 5 秒重連
 
 // Which speaker path the alert beep uses (see cyd_audio.h).
 #ifndef BEEP_PATH
@@ -188,7 +175,57 @@ static String venueDistrict(const char *venue) {
   return String("");
 }
 
-/* ---------------- http ---------------- */
+/* ---------------- WiFi Plan A: multi-network auto-detect ---------------- */
+struct WifiNet { const char *ssid; const char *pass; };
+static const WifiNet WIFI_NETS[] = {
+    {"Tidy Home", "97470738"},
+    {"Teddy Pixel", "teddychan"},
+};
+static const int N_WIFI_NETS = sizeof(WIFI_NETS) / sizeof(WIFI_NETS[0]);
+static char g_wifiSsid[32] = "";
+
+static void connectWiFi() {
+    if (WiFi.status() == WL_CONNECTED) return;
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect(true);
+    delay(100);
+
+    // Scan available networks first
+    Serial.println("[WiFi] scanning...");
+    int n = WiFi.scanNetworks();
+    Serial.printf("[WiFi] found %d networks\n", n);
+
+    // Try each configured network in priority order; only connect if seen in scan
+    for (int i = 0; i < N_WIFI_NETS; i++) {
+        bool seen = false;
+        for (int j = 0; j < n; j++) {
+            if (strcmp(WiFi.SSID(j).c_str(), WIFI_NETS[i].ssid) == 0) { seen = true; break; }
+        }
+        if (!seen) {
+            Serial.printf("[WiFi] '%s' not in range, skip\n", WIFI_NETS[i].ssid);
+            continue;
+        }
+        Serial.printf("[WiFi] trying %s\n", WIFI_NETS[i].ssid);
+        WiFi.begin(WIFI_NETS[i].ssid, WIFI_NETS[i].pass);
+        unsigned long t0 = millis();
+        while (WiFi.status() != WL_CONNECTED && millis() - t0 < 15000) {
+            delay(400);
+            Serial.print(".");
+        }
+        Serial.println();
+        if (WiFi.status() == WL_CONNECTED) {
+            strncpy(g_wifiSsid, WIFI_NETS[i].ssid, sizeof(g_wifiSsid) - 1);
+            g_wifiSsid[sizeof(g_wifiSsid) - 1] = 0;
+            Serial.printf("[WiFi] connected to %s IP=%s RSSI=%d\n", g_wifiSsid,
+                          WiFi.localIP().toString().c_str(), WiFi.RSSI());
+            return;
+        }
+        Serial.printf("[WiFi] %s FAILED\n", WIFI_NETS[i].ssid);
+    }
+    Serial.println("[WiFi] all networks failed");
+}
+
+/* ---------------- feed urls ---------------- */
 static WiFiClientSecure g_sec;
 
 bool httpGet(const char *url, String &out) {
@@ -228,7 +265,7 @@ bool httpGet(const char *url, String &out) {
   return true;
 }
 
-/* ---------------- 放場處理（push 同 poll 共用） ---------------- */
+/* ---------------- 放場處理（poll 路径） ---------------- */
 // push 同 poll 兩條路可能同時見到同一個放場事件 → 用呢個 key 去重，
 // 避免響兩聲。
 #define DEDUPE_N 16
@@ -296,121 +333,6 @@ static void handleRelease(const char *sportZh, const char *district, const char 
   g_unread = true;
   ledGreenBlink(3);
   g_dirty = true;
-}
-
-/* ---------------- push channel（VM → 板子） ---------------- */
-/* 協定（行式，方便 debug）：
- *   ESP32 → VM : "CYD PUSH 1\r\n"
- *   VM    → ESP32: "OK\r\n"
- *   VM    → ESP32: "RELEASE {json}\r\n"
- */
-static WiFiClient g_push;
-static bool g_pushConnected = false;
-static unsigned long g_pushLastTry = 0;
-static String g_pushBuf;
-
-static void pushDrop() {
-  if (g_pushConnected) Serial.println("[push] disconnected");
-  g_push.stop();
-  g_pushConnected = false;
-  g_pushBuf = "";
-}
-
-static void pushConnect() {
-  static int dialFails = 0;
-  if (PUSH_HOST[0] == 0) return;
-  if (WiFi.status() != WL_CONNECTED) return;
-  if (millis() - g_pushLastTry < PUSH_RETRY_MS) return;
-  // 唔好阻住 poll：poll 更加緊要
-  if (millis() - g_lastEvePoll >= EVE_POLL_MS) return;
-  g_pushLastTry = millis();
-
-  // timeout 短啲，唔好因為 VM 唔喺度就成段時間冇反應
-  if (!g_push.connect(PUSH_HOST, PUSH_PORT, 2000)) {
-    if (dialFails == 0 || dialFails % 12 == 0)
-      Serial.printf("[push] dial %s:%d FAIL (try %d)\n", PUSH_HOST, PUSH_PORT, dialFails + 1);
-    dialFails++;
-    g_pushConnected = false;
-    return;
-  }
-  g_push.setNoDelay(true);
-  g_push.print("CYD PUSH 1\r\n");
-
-  // 等 VM 嘅 OK
-  uint32_t t0 = millis();
-  String ack = "";
-  while (millis() - t0 < 3000) {
-    if (g_push.available()) {
-      char c = (char)g_push.read();
-      if (c == '\n') break;
-      if (c != '\r') ack += c;
-    } else if (!g_push.connected()) {
-      break;
-    } else {
-      delay(10);
-    }
-  }
-  if (!g_push.connected() || !ack.startsWith("OK")) {
-    Serial.printf("[push] bad ack '%s'\n", ack.c_str());
-    g_push.stop();
-    g_pushConnected = false;
-    return;
-  }
-  dialFails = 0;
-  g_pushConnected = true;
-  Serial.printf("[push] connected to %s:%d\n", PUSH_HOST, PUSH_PORT);
-  g_dirty = true;
-}
-
-static void pushHandleLine(const String &line) {
-  if (!line.startsWith("RELEASE ")) return;
-  String payload = line.substring(8);
-  JsonDocument doc;
-  if (deserializeJson(doc, payload)) {
-    Serial.printf("[push] bad json: %s\n", payload.c_str());
-    return;
-  }
-  const char *sportZh = doc["sport"] | "";
-  const char *district = doc["district"] | "";
-  const char *venue = doc["venue"] | "";
-  const char *facility = doc["facility"] | "";
-  const char *date = doc["date"] | "";
-  int startMin = doc["start"] | 0, endMin = doc["end"] | 0;
-  int oldC = doc["old"] | 0, newC = doc["new"] | 0;
-
-  // VM 冇帶區名就自己查（後備 poll 路徑用）
-  if (!district[0] && venue[0]) {
-    String d = venueDistrict(venue);
-    if (d.length()) {
-      static char dbuf[16];
-      strncpy(dbuf, d.c_str(), sizeof(dbuf) - 1);
-      dbuf[sizeof(dbuf) - 1] = 0;
-      district = dbuf;
-    }
-  }
-  handleRelease(sportZh, district, venue, facility, date, startMin, endMin, oldC, newC);
-}
-
-static void pushPump() {
-  if (!g_pushConnected) {
-    pushConnect();
-    return;
-  }
-  if (!g_push.connected()) {
-    pushDrop();
-    return;
-  }
-  while (g_push.available()) {
-    char c = (char)g_push.read();
-    if (c == '\n') {
-      String line = g_pushBuf;
-      g_pushBuf = "";
-      line.trim();
-      if (line.length()) pushHandleLine(line);
-    } else if (c != '\r') {
-      if (g_pushBuf.length() < 512) g_pushBuf += c;
-    }
-  }
 }
 
 /* ---------------- changes-eve.json poll（後備） ---------------- */
@@ -555,16 +477,7 @@ static void drawHome() {
   tft.drawString("放場通知器", 6, 7, 2);
   if (g_unread) tft.fillCircle(SCR_W - 86, 15, 5, C_GOOD);
 
-  // push link state
-  if (PUSH_HOST[0]) {
-    if (g_pushConnected) {
-      tft.fillCircle(SCR_W - 120, 15, 4, C_GOOD);
-    } else {
-      tft.fillCircle(SCR_W - 120, 15, 4, C_WARN);
-    }
-  }
-
-  // 大字
+  // 大字">
   String big = "等待放場中";
   int bw = measureUTF8(big);
   drawUTF8(big, (SCR_W - bw) / 2, BODY_Y + 26, C_TEXT, C_BG);
@@ -606,7 +519,7 @@ static void drawHome() {
   tft.drawString(line, 92, y, 2);
 
   // footer
-  String left = PUSH_HOST[0] ? (g_pushConnected ? "push 已連線" : "push 未連線") : "只用 poll";
+  String left = String("WiFi ") + g_wifiSsid;
   String right = "按一下瀏覽場地";
   if (g_pollFails) {
     snprintf(line, sizeof(line), "fail %d", g_pollFails);
@@ -697,8 +610,8 @@ static void handleTouch() {
   }
 
   if (g_page == PAGE_BROWSE) {
-    // 左上角撳一下 → 返通知頁
-    if (x < 32 && y < 26) {
+    // 極左上角細角落 → 返通知頁（避免同地區 chip 衝突）
+    if (x < 20 && y < 20) {
       g_page = PAGE_NOTIFY;
       g_dirty = true;
       return;
@@ -764,6 +677,19 @@ static void handleSerial() {
     loadVenueMap();
     pollEve();
     browseFetch();
+  } else if (c == 's') {
+    if (curSport == -1) curSport = 0;
+    else if (curSport >= 4) curSport = -1;
+    else curSport++;
+    curDistrict = 0; curDate = 0; curPage = 0;
+    browseSavePrefs();
+    browseFetch();
+    g_dirty = true;
+    Serial.printf("[browse] sport=%d rows=%u\n", curSport, nRows);
+  } else if (c == 't') {
+    browseCycleTimePeriod();
+    g_dirty = true;
+    Serial.printf("[browse] timePeriod=%d\n", curTimePeriod);
   } else if (c == 'u') {
     Serial.printf("[ui] page=%s district=%u/%u date=%u/%u auto=%d paused=%d loaded=%d rows=%u\n",
                   g_page == PAGE_BROWSE ? "browse" : "notify", curDistrict, nDistricts,
@@ -819,21 +745,6 @@ static void handleSerial() {
 }
 
 /* ---------------- setup ---------------- */
-static void connectWiFi() {
-  if (WiFi.status() == WL_CONNECTED) return;
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  Serial.printf("[WiFi] connecting to %s", WIFI_SSID);
-  unsigned long t0 = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - t0 < 20000) {
-    delay(400);
-    Serial.print(".");
-  }
-  if (WiFi.status() == WL_CONNECTED)
-    Serial.printf(" OK IP=%s RSSI=%d\n", WiFi.localIP().toString().c_str(), WiFi.RSSI());
-  else
-    Serial.println(" FAILED");
-}
 
 void setup() {
   Serial.begin(115200);
@@ -855,13 +766,11 @@ void setup() {
   ts.setRotation(1);
 
   Serial.println("\n[SmartPLAY Live CYD] boot v3.0 — 放場通知器");
-  Serial.printf("[push] host '%s:%d'\n", PUSH_HOST, PUSH_PORT);
   connectWiFi();
   configTime(8 * 3600, 0, "pool.ntp.org", "hk.pool.ntp.org");  // HKT
 
   g_lastEvePoll = 0;
   pollEve();   // 第一輪 = baseline，唔會誤嗶
-  pushConnect();
 
   // 瀏覽頁初始化（NVS 設定 + 第一次拉 browse.json）
   browseInit();
@@ -878,7 +787,6 @@ void loop() {
     pollEve();
   }
 
-  pushPump();
   handleSerial();
   handleTouch();
   updateClock();
