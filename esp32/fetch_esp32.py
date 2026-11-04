@@ -225,4 +225,49 @@ with open(os.path.join(OUT, 'changes-eve.json'), 'w', encoding='utf-8') as f:
 kb_eve = os.path.getsize(os.path.join(OUT, 'changes-eve.json')) / 1024
 print(f'📦 changes-eve.json: {kb_eve:.1f} KB, {total_eve} evening changes')
 
+# ============================================================
+# ESP32 browse feed — browse.json（觸屏瀏覽模式）
+#   合併 5 項運動、淨係可預訂日（今日..+5）晚上場（>=18:00）
+#   格式：kinds=運動 icon 列表、v=場地|區、r=[vIdx, sportIdx, dateIdx, startMin, endMin, courts]
+#   ESP32 按區過濾顯示 + 自動翻頁
+# ============================================================
+ICONS = {'badminton': '🏸', 'basketball': '🏀', 'volleyball': '🏐', 'tennis': '🎾', 'turf-soccer-pitch': '⚽'}
+browse_v, browse_r = [], []
+vset = {}
+total_browse = 0
+browse_dates = []
+wd_cn = ['一', '二', '三', '四', '五', '六', '日']
+for d_iso in dates_window[:6]:                       # 可預訂日 only（day-7 未開放）
+    dt = datetime.fromisoformat(d_iso)
+    browse_dates.append(d_iso[5:] + ' ' + wd_cn[dt.weekday()])   # "11-05 四"
+for si, sport in enumerate(SPORTS):
+    if sport not in index['s']:
+        continue
+    src = os.path.join(DATA, f'{sport}.json')
+    with open(src, encoding='utf-8') as f:
+        records = json.load(f)
+    v7, d7, r7 = compact_rows(records, include_7d=True)
+    for row in r7:
+        vi, di, di_date, sm, em, courts = row
+        if sm < EVE_START_MIN or di_date >= 6:       # 晚上 only + 可預訂日 only
+            continue
+        venue_name = v7[vi]
+        if venue_name not in vset:
+            vset[venue_name] = len(browse_v)
+            browse_v.append(f'{venue_name}|{d7[di]}')
+        browse_r.append([vset[venue_name], si, di_date, sm, em, courts])
+        total_browse += 1
+browse_r.sort(key=lambda x: (x[0], x[2], x[3]))
+browse_payload = {
+    'g': gen_hk,
+    'k': [ICONS[s] for s in SPORTS],
+    'd': browse_dates,
+    'v': browse_v,
+    'r': browse_r,
+}
+with open(os.path.join(OUT, 'browse.json'), 'w', encoding='utf-8') as f:
+    json.dump(browse_payload, f, ensure_ascii=False, separators=(',', ':'))
+kb_browse = os.path.getsize(os.path.join(OUT, 'browse.json')) / 1024
+print(f'📦 browse.json: {kb_browse:.1f} KB, {total_browse} evening sessions, {len(browse_v)} venues')
+
 print(f'🕐 generated: {gen_hk} HKT')
