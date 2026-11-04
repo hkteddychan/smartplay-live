@@ -57,7 +57,7 @@ const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
 const char* URL_BROWSE = "https://hkteddychan.github.io/smartplay-live/esp32/browse.json";
 const char* URL_CHANGES_EVE = "https://hkteddychan.github.io/smartplay-live/esp32/changes-eve.json";
 
-const unsigned long BROWSE_REFRESH_MS = 15UL * 60 * 1000;   // browse.json 每 15min 重拉
+const unsigned long BROWSE_REFRESH_MS = 3UL * 60 * 1000;   // browse.json 每 3min 重拉（mirror */2 加密後）
 const unsigned long EVE_POLL_MS       = 3UL * 60 * 1000;    // changes-eve poll
 const unsigned long WIFI_RETRY_MS     = 30UL * 1000;
 
