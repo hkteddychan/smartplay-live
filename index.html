@@ -299,7 +299,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
       <div class="stats" id="s-stats"></div>
       <div class="table-wrap">
         <table id="s-table">
-          <thead><tr><th>運動</th><th>場地</th><th>設施</th><th>日期</th><th>時段</th><th>狀態</th><th>名額</th><th>放場時間</th><th>訂滿時間</th><th>再放</th></tr></thead>
+          <thead><tr><th>運動</th><th>場地</th><th>日期/時段</th><th>狀態</th><th>事件時間線</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -1010,33 +1010,42 @@ function sessionFilter() {
 function renderSessions() {
   if (!sessionsData) return;
   const rows = sessionFilter();
-  const STATUS_CN = { released: '🟢 放場中', taken: '🔴 已訂滿' };
   const SPORT_ICONS = { badminton: '🏸', basketball: '🏀', volleyball: '🏐', tennis: '🎾', 'turf-soccer-pitch': '⚽' };
-  $('#s-table tbody').innerHTML = rows.slice(0, 500).map(x => `
+  const EV = {
+    rel: (e) => `📈 ${e.t.slice(11)} 放場 ${e.c} 場`,
+    re:  (e) => `🔄 ${e.t.slice(11)} 再放 ${e.c} 場`,
+    chg: (e) => `📶 ${e.t.slice(11)} ${e.o}→${e.c} 場`,
+    ptake: (e) => `📉 ${e.t.slice(11)} 訂走 ${e.o - e.c} 場（剩 ${e.c}）`,
+    take: (e) => `🔴 ${e.t.slice(11)} 訂滿${e.alive != null ? ' · ⏱ 存活 ' + e.alive + ' 分鐘' : ''}`,
+  };
+  $('#s-table tbody').innerHTML = rows.slice(0, 500).map(x => {
+    const lastEv = x.events && x.events.length ? x.events[x.events.length - 1] : null;
+    const badge = x.status === 'taken' ? '🔴 已訂滿' : (x.status === 'released' ? '🟢 放場中' : 'ℹ️ 變動');
+    const tl = (x.events || []).map(e => EV[e.k] ? EV[e.k](e) : '').filter(Boolean).join('<br>');
+    return `
       <tr>
         <td>${SPORT_ICONS[x.sport] || ''} ${SPORTS[x.sport] ? SPORTS[x.sport].name : x.sport}</td>
-        <td>${x.v}</td>
-        <td>${x.loc || '—'}</td>
-        <td>${x.d.slice(5)} ${weekdayShortCN(x.d)}</td>
-        <td>${x.st}-${x.en}</td>
-        <td>${STATUS_CN[x.status] || x.status}</td>
-        <td class="courts ${x.status === 'taken' ? 'c0' : 'c3'}">${x.count}</td>
-        <td>${(x.released || '').slice(11) || '—'}</td>
-        <td>${(x.taken || '').slice(11) || '—'}</td>
-        <td>${x.reCount > 0 ? '×' + x.reCount : ''}</td>
-      </tr>`).join('');
+        <td>${x.v}<br><small>${x.loc || ''}</small></td>
+        <td>${x.d.slice(5)} ${weekdayShortCN(x.d)}<br><small>${x.st}-${x.en}</small></td>
+        <td>${badge}<br><small>再放 ×${x.reCount || 0}</small></td>
+        <td><small>${tl || '—'}</small></td>
+      </tr>`;
+  }).join('');
   const nRel = rows.filter(x => x.status === 'released').length;
   const nTaken = rows.filter(x => x.status === 'taken').length;
+  const alives = rows.map(x => x.alive).filter(v => v != null);
+  const avgAlive = alives.length ? Math.round(alives.reduce((a, b) => a + b, 0) / alives.length) : null;
   $('#s-stats').innerHTML = `
-    <div class="stat"><b>${rows.length}</b><span>記錄（14 日）</span></div>
+    <div class="stat"><b>${rows.length}</b><span>中途放場（14 日）</span></div>
     <div class="stat"><b style="color:#2ea043">${nRel}</b><span>放場中</span></div>
-    <div class="stat"><b style="color:#f85149">${nTaken}</b><span>已訂滿</span></div>`;
+    <div class="stat"><b style="color:#f85149">${nTaken}</b><span>已訂滿</span></div>
+    <div class="stat"><b style="color:#f0b429">${avgAlive != null ? avgAlive + ' 分' : '—'}</b><span>平均存活</span></div>`;
 }
 
 function exportSessions() {
   const rows = sessionFilter();
-  const hdrs = ['Sport','Venue','Location','Date','Start','End','Status','Count','ReleasedAt','TakenAt','ReReleases'];
-  const out = rows.map(x => [SPORTS[x.sport]?.name || x.sport, x.v, x.loc, x.d, x.st, x.en, x.status, x.count, x.released, x.taken, x.reCount]);
+  const hdrs = ['Sport','Venue','Location','Date','Start','End','Status','Count','ReleasedAt','TakenAt','AliveMin','ReReleases'];
+  const out = rows.map(x => [SPORTS[x.sport]?.name || x.sport, x.v, x.loc, x.d, x.st, x.en, x.status, x.count, x.released, x.taken, x.alive, x.reCount]);
   download(`smartplay-sessions-${new Date().toISOString().slice(0,10)}.csv`, toCSV(out, hdrs));
 }
 
