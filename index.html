@@ -297,6 +297,36 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
           <label>關鍵字</label>
           <input type="text" id="s-search" placeholder="場地名...">
         </div>
+        <div class="f-group">
+          <label>記錄由</label>
+          <input type="date" id="s-dfrom">
+        </div>
+        <div class="f-group">
+          <label>至</label>
+          <input type="date" id="s-dto">
+        </div>
+        <div class="f-group">
+          <label>地區</label>
+          <div class="dist-dd" id="s-dist-dd">
+            <button type="button" class="dist-dd-btn" id="s-dist-btn">全部地區 ▾</button>
+            <div class="dist-dd-panel" id="s-dist-panel" style="display:none">
+              <div class="dist-dd-actions">
+                <span id="s-dist-count" class="dist-dd-count"></span>
+                <button type="button" class="dist-dd-mini" id="s-dist-all">全部</button>
+                <button type="button" class="dist-dd-mini" id="s-dist-clear">清除</button>
+              </div>
+              <div class="dist-dd-list" id="s-dist-list"></div>
+            </div>
+          </div>
+        </div>
+        <div class="f-group">
+          <label>時段</label>
+          <div class="time-pills" id="s-time-pills">
+            <button type="button" class="pill active" data-p="am">早</button>
+            <button type="button" class="pill active" data-p="pm">午</button>
+            <button type="button" class="pill active" data-p="eve">晚</button>
+          </div>
+        </div>
         <button id="s-export">⬇️ 保存 CSV</button>
       </div>
       <div class="stats" id="s-stats"></div>
@@ -351,7 +381,8 @@ const SPORTS = {
   tennis: { icon: '🎾', name: '網球', color: '#a5d6ff' },
   'turf-soccer-pitch': { icon: '⚽', name: '足球場', color: '#2ea043' },
 };
-const all = {}; // sport -> array
+const all = {};
+const VENUE_DIST = {}; // sport -> array
 let mapObj = null;
 let currentSport = 'badminton';
 
@@ -384,7 +415,8 @@ const DATES = (() => {          // 7 days starting today (HKT)
 })();
 let selDates = new Set(DATES);                   // chips mode: default ALL 7 selected
 let selPeriods = new Set(['am', 'pm', 'eve']);   // default all selected
-let selDists = new Set();                        // 地區多選：空 = 全部
+let selDists = new Set();
+let sSelDists = new Set();   // 放場記錄 tab district 多選（要喺 loadFilters() 之前宣告）                        // 地區多選：空 = 全部
 
 // ---------- FILTER PERSISTENCE（reload 後還原 filter，唔好全部重設） ----------
 const FS_KEY = 'spl_filters_v1';
@@ -399,6 +431,10 @@ function saveFilters() {
       time: $('#f-time').value,
       only: $('#f-only').checked,
       aOnly: $('#a-only') ? $('#a-only').checked : true,
+      sDists: [...sSelDists],
+      sFrom: $('#s-dfrom') ? $('#s-dfrom').value : '',
+      sTo: $('#s-dto') ? $('#s-dto').value : '',
+      sPeriods: $('#s-time-pills') ? [...document.querySelectorAll('#s-time-pills .pill')].map(b => b.classList.contains('active')) : [true, true, true],
     }));
   } catch (e) { /* private mode 等 — 靜默 */ }
 }
@@ -418,6 +454,15 @@ function loadFilters() {
     $('#f-only').checked = (f.only !== false);
     if ($('#a-only')) $('#a-only').checked = (f.aOnly !== false);
     // 地區多選還原喺 initDistricts() 入面做（options 填好先 set）
+    // 放場記錄 filters 還原（dropdown options 填好後喺 initSDistDropdown→syncSDistUI set dists）
+    if (Array.isArray(f.sDists)) sSelDists = new Set(f.sDists);   // ALL_DISTS 嗰時未填，唔好 filter；initSDistDropdown 會對返清單
+    if ($('#s-dfrom') && f.sFrom) $('#s-dfrom').value = f.sFrom;
+    if ($('#s-dto') && f.sTo) $('#s-dto').value = f.sTo;
+    if ($('#s-time-pills') && Array.isArray(f.sPeriods) && f.sPeriods.length === 3) {
+      document.querySelectorAll('#s-time-pills .pill').forEach((b, i) => {
+        b.classList.toggle('active', f.sPeriods[i] !== false);
+      });
+    }
   } catch (e) { /* 壞 JSON — 當冇存過 */ }
 }
 // 攔截所有會觸發 render 嘅互動，順手 saveFilters（包一次就夠）
@@ -492,6 +537,11 @@ async function loadAll() {
     }
   });
   await Promise.all(promos);
+  // 場地 → 地區 map（放場記錄 district filter 用）
+  Object.values(all).forEach(arr => arr.forEach(x => {
+    if (x.Venue_Name_TC && x.District_Name_TC) VENUE_DIST[x.Venue_Name_TC.trim()] = x.District_Name_TC.trim();
+  }));
+  if (sessionsData) renderSessions();   // VENUE_DIST 齊咗，重繪放場記錄（district filter 先準）
   try {
     const metaR = await fetch(`data/meta.json?t=${Date.now()}`, { cache: 'no-store' });
     if (metaR.ok) {
@@ -505,6 +555,7 @@ async function loadAll() {
   initDistricts();
   initDateChips();
   initPeriodPills();
+  initSessionFilters();
   renderFacility();
 }
 
@@ -590,6 +641,56 @@ function initDistDropdown(sorted) {
   });
   $('#f-district-all').onclick = () => { selDists = new Set(ALL_DISTS); syncDistUI(); saveFilters(); renderFacility(); renderMap(); };
   $('#f-district-none').onclick = () => { selDists = new Set(); syncDistUI(); saveFilters(); renderFacility(); renderMap(); };
+}
+
+// ---------- 放場記錄 filters（Start/End date + District 多選 + 早午晚） ----------
+function sDistLabel() {
+  if (sSelDists.size === 0) return '全部地區';
+  if (sSelDists.size <= 2) return [...sSelDists].join('、');
+  return `已揀 ${sSelDists.size} 區`;
+}
+function syncSDistUI() {
+  $('#s-dist-btn').textContent = sDistLabel() + ' ▾';
+  $('#s-dist-count').textContent = sSelDists.size === 0 ? '全部 18 區' : `${sSelDists.size} / 18 區`;
+  document.querySelectorAll('#s-dist-list input[type=checkbox]').forEach(cb => {
+    cb.checked = sSelDists.has(cb.dataset.d);
+  });
+}
+function initSDistDropdown(sorted) {
+  const list = $('#s-dist-list');
+  list.innerHTML = '';
+  sorted.forEach(d => {
+    const lb = document.createElement('label');
+    lb.innerHTML = `<input type="checkbox" data-d="${d}"> ${d}`;
+    lb.querySelector('input').addEventListener('change', ev => {
+      if (ev.target.checked) sSelDists.add(d); else sSelDists.delete(d);
+      syncSDistUI(); saveFilters(); renderSessions();
+    });
+    list.appendChild(lb);
+  });
+  syncSDistUI();
+  $('#s-dist-btn').onclick = () => {
+    const p = $('#s-dist-panel');
+    p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  };
+  document.addEventListener('click', ev => {
+    if (!ev.target.closest('#s-dist-dd')) $('#s-dist-panel').style.display = 'none';
+  });
+  $('#s-dist-all').onclick = () => { sSelDists = new Set(ALL_DISTS); syncSDistUI(); saveFilters(); renderSessions(); };
+  $('#s-dist-clear').onclick = () => { sSelDists = new Set(); syncSDistUI(); saveFilters(); renderSessions(); };
+}
+function initSessionFilters() {
+  if (ALL_DISTS.length) initSDistDropdown(ALL_DISTS);
+  $('#s-time-pills').querySelectorAll('.pill').forEach(b => {
+    b.onclick = () => { b.classList.toggle('active'); saveFilters(); renderSessions(); };
+  });
+  ['#s-dfrom', '#s-dto'].forEach(sel => {
+    $(sel).addEventListener('change', () => { saveFilters(); renderSessions(); });
+  });
+  ['#s-sport', '#s-status', '#s-search'].forEach(sel => {
+    $(sel).addEventListener('change', () => { saveFilters(); renderSessions(); });
+    $(sel).addEventListener('input', () => { saveFilters(); renderSessions(); });
+  });
 }
 
 function facilityFilter() {
@@ -1002,10 +1103,28 @@ function sessionFilter() {
   const sport = $('#s-sport').value;
   const status = $('#s-status').value;
   const q = $('#s-search').value.trim().toLowerCase();
+  const dfrom = $('#s-dfrom').value;
+  const dto = $('#s-dto').value;
+  const periods = new Set([...document.querySelectorAll('#s-time-pills .pill.active')].map(b => b.dataset.p));
   return sessionsData.s.filter(x => {
     if (sport && x.sport !== sport) return false;
     if (status && x.status !== status) return false;
     if (q && !(x.v + ' ' + x.loc).toLowerCase().includes(q)) return false;
+    // 記錄時間 range（released 嗰日）
+    const rdate = (x.released || '').slice(0, 10);
+    if (dfrom && rdate && rdate < dfrom) return false;
+    if (dto && rdate && rdate > dto) return false;
+    // District 多選（OR）
+    if (sSelDists.size) {
+      const dist = VENUE_DIST[x.v] || '';
+      if (!dist || !sSelDists.has(dist)) return false;
+    }
+    // 早午晚（以場次開始時間 st 判定：早 <12:00、午 12-18、晚 >=18:00）
+    if (periods.size < 3 && x.st) {
+      const hh = parseInt(x.st, 10);
+      const p = hh < 12 ? 'am' : (hh < 18 ? 'pm' : 'eve');
+      if (!periods.has(p)) return false;
+    }
     return true;
   });
 }
@@ -1039,7 +1158,7 @@ function renderSessions() {
   const alives = rows.map(x => x.alive).filter(v => v != null);
   const avgAlive = alives.length ? Math.round(alives.reduce((a, b) => a + b, 0) / alives.length) : null;
   $('#s-stats').innerHTML = `
-    <div class="stat"><b>${rows.length}</b><span>中途放場（14 日）</span></div>
+    <div class="stat"><b>${rows.length}</b><span>中途放場（365 日）</span></div>
     <div class="stat"><b style="color:#2ea043">${nRel}</b><span>放場中</span></div>
     <div class="stat"><b style="color:#f85149">${nTaken}</b><span>已訂滿</span></div>
     <div class="stat"><b style="color:#f0b429">${avgAlive != null ? avgAlive + ' 分' : '—'}</b><span>平均存活</span></div>`;
@@ -1052,7 +1171,6 @@ function exportSessions() {
   download(`smartplay-sessions-${new Date().toISOString().slice(0,10)}.csv`, toCSV(out, hdrs));
 }
 
-['#s-sport','#s-status','#s-search'].forEach(s => $(s).addEventListener('input', renderSessions));
 $('#s-export').addEventListener('click', exportSessions);
 
 // ---------- EXPORT CSV ----------
