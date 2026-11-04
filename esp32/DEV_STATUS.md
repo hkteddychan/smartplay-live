@@ -2,7 +2,7 @@
 
 > 🤖 **俾 AI agent 睇嘅文件**（Hermes Agent + OpenCode）。
 > 開工前必讀。做完嘢要更新呢份文件 — 加 entry 落「最新開發」，唔好刪人哋寫嘅嘢。
-> 最後更新：2026-11-04（HKT）by Hermes Agent
+> 最後更新：2026-11-04（HKT）by OpenCode Agent
 
 ---
 
@@ -102,13 +102,13 @@ Teddy Sir 嘅 SmartPLAY Live（康文署場地即時餘額鏡像）嘅 ESP32 端
 | 11-04 | ESP32 v2.1 純放場通知器 | ✅ live，未實機測 |
 | 11-04 | 網站「ESP32 視角」tab（放場對照） | ✅ live |
 | 11-04 | Filter 狀態 localStorage 保存（reload 唔重設） | ✅ live |
-| 11-04 | browse.json + CYD 觸屏瀏覽器 v3.0 + 網站瀏覽模擬器 | ✅ live，**未實機測** |
+| 11-04 | browse.json + CYD 觸屏瀏覽器 v3.0 + 網站瀏覽模擬器 | ✅ live，**實機測試通過**（WiFi + touch + browse parse） |
 
 ---
 
 ## 🐛 已知問題 / 待驗證
 
-1. **CYD sketch 未實機測** — 觸控校準、TFT_eSPI User_Setup pin match、ILI9341 SPI speed 都可能要調
+1. **CYD 觸控 SPI 修正** — XPT2046 用獨立 VSPI bus（SCK=25, MISO=39, MOSI=32, CS=33），唔係 default SPI。已喺 OpenCode 韌體修正（`touchSPI.begin(25,39,32,33)`）。Arduino sketch 可能要同步。
 2. **browse.json 冇 district index 欄** — CYD 要用 `v[]` 字串 split '|' 收集區份（已喺 sketch 做，但多一次 pass）
 3. **延遲 5–20 分鐘**（mirror 15min + poll 3min）— 執雞夠用，秒殺級搶場唔適用（LCSD WAF，唔可以再密）
 4. **today.json 已棄用但仍生成** — 可以慳位停咗佢
@@ -130,6 +130,14 @@ Teddy Sir 嘅 SmartPLAY Live（康文署場地即時餘額鏡像）嘅 ESP32 端
 ---
 
 ## 📝 最新開發（append-only log，新 entry 放最上）
+
+### 2026-11-04 — OpenCode Agent
+- CYD 實機測試通過：WiFi 連接（REDACTED, RSSI -19）、browse.json 解析（113 rows, 40 venues, 15 districts, 6 dates, 5 sports）、觸控 SPI 修正（VSPI custom pins）
+- 觸控校準正常（raw x=2000-3900, z>10），上/中/下區域分區正確
+- 平台：PlatformIO (espressif32)，唔係 Arduino IDE
+- 喇叭：I2S DAC GPIO26，未確認有聲（等 Teddy Sir 插 speaker 測試 `b`/`p` 指令）
+- Push：未部署（Oracle Cloud TCP 9000 關閉）
+- ⏳ 等待：Teddy Sir 插 speaker 測試 beep、開 Oracle Cloud TCP 9000
 
 ### 2026-11-04 — Hermes Agent
 - v3.0 CYD 觸屏瀏覽器上線：browse.json（4.2KB）+ smartplay_live_cyd.ino + 網站瀏覽模擬器
