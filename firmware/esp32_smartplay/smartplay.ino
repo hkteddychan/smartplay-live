@@ -621,7 +621,7 @@ static void handleTouch() {
 
   if (g_page == PAGE_BROWSE) {
     // 極左上角細角落 → 返通知頁（避免同地區 chip 衝突）
-    if (x < 20 && y < 20) {
+    if (x < 16 && y < 16) {
       g_page = PAGE_NOTIFY;
       g_dirty = true;
       return;
@@ -730,7 +730,7 @@ static void handleSerial() {
     g_screen = SCR_ALERT;
     g_dirty = true;
   } else if (c == 'A') {
-    handleRelease("羽毛球", "九龍城區", "香港單車館", "主場", "2026-11-05", 1080, 1140, 1, 3);
+    handleRelease("羽毛球", "西貢區", "香港單車館", "主場", "2026-11-05", 1080, 1140, 1, 3);
     g_screen = SCR_ALERT;
     g_dirty = true;
     Serial.println("[debug] injected sample alert");
@@ -830,6 +830,14 @@ void loop() {
     g_screen = SCR_HOME;
     g_page = g_returnPage;
     g_unread = false;
+    g_dirty = true;
+  }
+
+  // 通知頁主畫面：每 5 秒刷新一次，讓「next poll」倒數保持更新
+  static unsigned long lastNotifyRedraw = 0;
+  if (g_page == PAGE_NOTIFY && g_screen == SCR_HOME &&
+      millis() - lastNotifyRedraw >= 5000UL) {
+    lastNotifyRedraw = millis();
     g_dirty = true;
   }
 
