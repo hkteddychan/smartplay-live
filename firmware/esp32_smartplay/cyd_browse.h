@@ -579,9 +579,7 @@ static void browseDrawHeader() {
     // play/pause chip
     tft.fillRect(188, 2, 38, 22, C_CARD);
     tft.drawRect(188, 2, 38, 22, C_DIM);
-    tft.setTextColor(paused ? C_WARN : C_GOOD, C_CARD);
-    tft.setTextDatum(TL_DATUM);
-    drawUTF8(paused ? String("暫停") : String("播放"), 192, 6, paused ? C_WARN : C_GOOD, C_CARD);
+    drawUTF8(paused ? String("⏸") : String("▶"), 200, 6, paused ? C_WARN : C_GOOD, C_CARD);
 
     // static hint
     tft.setTextColor(C_DIM, C_BAR);

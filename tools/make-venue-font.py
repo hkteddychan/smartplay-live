@@ -58,6 +58,7 @@ UI_STRINGS = (
     # v3.1 場地瀏覽器頁面用字
     "場地瀏覽區份選擇自動翻頁詳情關閉星期"
     "早午晚全部運動暫停播放"
+    "▶⏸"
     "抓取失敗JSON解析失敗無r陣列空資料呢個條件暫時冇可訂場地列取抓析行解陣子"
     "今日聽日明後月個時段冇返回通知頁"
     "載入中後端未準備新資料一二三四五六"
@@ -80,7 +81,7 @@ def fetch(name: str, offline: bool) -> dict:
     return json.loads(raw)
 
 
-def harvest(today: dict, eve: dict) -> set[str]:
+def harvest(today: dict, eve: dict, browse: dict = None, extra_docs: list = None) -> set[str]:
     """Every string that can reach the screen."""
     strings: set[str] = set()
 
@@ -95,6 +96,21 @@ def harvest(today: dict, eve: dict) -> set[str]:
             strings.add(c[0])   # date
             strings.add(c[1])   # venue
             strings.add(c[2])   # facility
+
+    # browse.json + per-sport 7d files (venue names + districts shown on browse page)
+    for doc in ([browse] if browse else []) + (extra_docs or []):
+        if not isinstance(doc, dict):
+            continue
+        # browse.json shape: top-level v/s; 7d shape: top-level v/s
+        strings.update(doc.get("v") or [])
+        strings.update(doc.get("s") or [])
+        # 7d uses venue/district arrays v/s already; browse uses v with "name|district"
+        for v in (doc.get("v") or []):
+            if isinstance(v, str) and "|" in v:
+                for part in v.split("|"):
+                    strings.add(part)
+        # browse.json also has d (date labels) — skip k (emoji sport icons, never rendered)
+        strings.update(doc.get("d") or [])
 
     strings.add(str(today.get("g", "")))
     strings.update(UI_STRINGS)
@@ -168,8 +184,21 @@ def main() -> None:
     today = fetch("today.json", args.offline)
     eve = fetch("changes-eve.json", args.offline)
 
-    strings = harvest(today, eve)
-    chars = {ch for s in strings for ch in s if ord(ch) > 0x7F}
+    browse = None
+    try:
+        browse = fetch("browse.json", args.offline)
+    except Exception as e:
+        print("browse fetch failed:", e)
+
+    extra_docs = []
+    for key in ("badminton", "basketball", "volleyball", "tennis", "turf-soccer-pitch"):
+        try:
+            extra_docs.append(fetch(f"{key}-7d.json", args.offline))
+        except Exception as e:
+            print(f"{key}-7d fetch failed:", e)
+
+    strings = harvest(today, eve, browse, extra_docs)
+    chars = {ch for s in strings for ch in s if 0x7F < ord(ch) <= 0xFFFF}
     cps = sorted(ord(c) for c in chars)
 
     font = ImageFont.truetype(FONT_PATH, CELL, index=FONT_INDEX)
