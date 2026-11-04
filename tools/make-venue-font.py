@@ -55,6 +55,10 @@ UI_STRINGS = (
     "已連線未連線只用失敗"
     "個新時段按一下畫面關閉"
     "重連推送收到"
+    # v3.1 場地瀏覽器頁面用字
+    "場地瀏覽區份選擇自動翻頁詳情關閉星期"
+    "今日聽日明後月個時段冇返回通知頁"
+    "載入中後端未準備新資料一二三四五六"
 )
 
 # Latin/ASCII punctuation the UI adds around feed strings.
