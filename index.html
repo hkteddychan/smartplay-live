@@ -569,12 +569,9 @@ function syncDistUI() {
 function initDistDropdown(sorted) {
   const list = $('#f-district-list');
   list.innerHTML = '';
-  // 每區場地數（顯示用）
-  const cnt = {};
-  Object.values(all).forEach(arr => arr.forEach(x => { if (x.Available_Date) cnt[x.District_Name_TC] = (cnt[x.District_Name_TC]||0)+1; }));
   sorted.forEach(d => {
     const lb = document.createElement('label');
-    lb.innerHTML = `<input type="checkbox" data-d="${d}"> ${d} <span class="cnt">${cnt[d]||0}</span>`;
+    lb.innerHTML = `<input type="checkbox" data-d="${d}"> ${d}`;
     lb.querySelector('input').addEventListener('change', ev => {
       if (ev.target.checked) selDists.add(d); else selDists.delete(d);
       syncDistUI(); saveFilters(); renderFacility();
