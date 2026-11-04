@@ -51,6 +51,8 @@ tr:hover td { background: rgba(88,166,255,.08); }
 .pill.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
 .date-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip { background: var(--card); border: 1px solid var(--line); padding: 5px 11px; border-radius: 16px; font-size: 13px; cursor: pointer; user-select: none; white-space: nowrap; }
+.f-check { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; padding-top: 18px; }
+.f-check input { accent-color: var(--green); cursor: pointer; }
 .dist-dd { position: relative; }
 .dist-dd-btn { background: var(--card); border: 1px solid var(--line); color: var(--text); padding: 7px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; min-width: 150px; text-align: left; }
 .dist-dd-btn:hover { border-color: var(--accent); }
@@ -265,12 +267,13 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
         <label>開始日期 ≥</label>
         <input type="date" id="a-date">
       </div>
+      <label class="f-check"><input type="checkbox" id="a-only"> 仍有餘額</label>
       <button id="a-export">⬇️ 保存 CSV</button>
     </div>
     <div class="stats" id="a-stats"></div>
     <div class="table-wrap">
       <table id="a-table">
-        <thead><tr><th>編號</th><th>活動名稱</th><th>類型</th><th>地區</th><th>開始</th><th>結束</th><th>時間</th><th>場地</th><th>費用</th><th>對象</th></tr></thead>
+        <thead><tr><th>編號</th><th>活動名稱</th><th>類型</th><th>地區</th><th>開始</th><th>結束</th><th>時間</th><th>場地</th><th>費用</th><th>餘額</th><th>對象</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -373,6 +376,7 @@ function saveFilters() {
       rangeFrom: $('#f-range-from').value,
       rangeTo: $('#f-range-to').value,
       only: $('#f-only').checked,
+      aOnly: $('#a-only') ? $('#a-only').checked : true,
     }));
   } catch (e) { /* private mode 等 — 靜默 */ }
 }
@@ -392,7 +396,8 @@ function loadFilters() {
     if (f.time) $('#f-time').value = f.time;
     if (f.rangeFrom) $('#f-range-from').value = f.rangeFrom;
     if (f.rangeTo) $('#f-range-to').value = f.rangeTo;
-    if (f.only === false) $('#f-only').checked = false;
+    $('#f-only').checked = (f.only !== false);
+    if ($('#a-only')) $('#a-only').checked = (f.aOnly !== false);
     // 地區多選還原喺 initDistricts() 入面做（options 填好先 set）
   } catch (e) { /* 壞 JSON — 當冇存過 */ }
 }
@@ -880,10 +885,12 @@ function activityFilter() {
   const dist = $('#a-district').value;
   const type = $('#a-type').value;
   const date = $('#a-date').value;
+  const only = $('#a-only').checked;
   return activityData.filter(x => {
     if (dist && x.TC_DISTRICT !== dist) return false;
     if (type && x.TC_ACT_TYPE_NAME !== type) return false;
     if (date && (!x.PGM_START_DATE || x.PGM_START_DATE < date)) return false;
+    if (only && (parseInt(x.PLACES_LEFT || '0') <= 0)) return false;
     if (q) {
       const hay = ((x.TC_PGM_NAME||'') + ' ' + (x.TC_VENUE||'') + ' ' + (x.EN_PGM_NAME||'')).toLowerCase();
       if (!hay.includes(q)) return false;
@@ -907,10 +914,13 @@ function renderActivity() {
       <td>${x.TC_DAY||''}<br>${x.PGM_START_TIME||''}-${x.PGM_END_TIME||''}</td>
       <td>${x.TC_VENUE||''}</td>
       <td>$${x.FEE !== undefined && x.FEE !== null ? x.FEE : '—'}</td>
+      <td class="courts ${parseInt(x.PLACES_LEFT||'0') > 0 ? 'c3' : 'c0'}">${x.PLACES_LEFT !== undefined && x.PLACES_LEFT !== null ? x.PLACES_LEFT + '/' + (x.QUOTA ?? '—') : '—'}</td>
       <td>${x.TC_TARGET_GRP||''}</td>`;
     tbody.appendChild(tr);
   });
-  $('#a-stats').innerHTML = `<div class="stat"><b>${rows.length}</b><span>符合活動${rows.length > 500 ? '（顯示首 500）' : ''}</span></div>`;
+  const nLeft = rows.filter(x => parseInt(x.PLACES_LEFT||'0') > 0).length;
+  $('#a-stats').innerHTML = `<div class="stat"><b>${rows.length}</b><span>符合活動${rows.length > 500 ? '（顯示首 500）' : ''}</span></div>
+    <div class="stat"><b style="color:#2ea043">${nLeft}</b><span>仍有餘額</span></div>`;
 }
 
 // ---------- MAP ----------
@@ -988,8 +998,8 @@ function exportFacility() {
 }
 function exportActivity() {
   const rows = activityFilter();
-  const hdrs = ['ActivityNo','Name','Type','District','Start','End','Day','Time','Venue','Fee','Target'];
-  const out = rows.map(x => [x.ACTIVITY_NO, x.TC_PGM_NAME, x.TC_ACT_TYPE_NAME, x.TC_DISTRICT, x.PGM_START_DATE, x.PGM_END_DATE, x.TC_DAY, x.PGM_START_TIME+'-'+x.PGM_END_TIME, x.TC_VENUE, x.FEE, x.TC_TARGET_GRP]);
+  const hdrs = ['ActivityNo','Name','Type','District','Start','End','Day','Time','Venue','Fee','PlacesLeft','Quota','Target'];
+  const out = rows.map(x => [x.ACTIVITY_NO, x.TC_PGM_NAME, x.TC_ACT_TYPE_NAME, x.TC_DISTRICT, x.PGM_START_DATE, x.PGM_END_DATE, x.TC_DAY, x.PGM_START_TIME+'-'+x.PGM_END_TIME, x.TC_VENUE, x.FEE, x.PLACES_LEFT, x.QUOTA, x.TC_TARGET_GRP]);
   download(`smartplay-activities-${new Date().toISOString().slice(0,10)}.csv`, toCSV(out, hdrs));
 }
 
@@ -1010,6 +1020,7 @@ $('#f-export').addEventListener('click', exportFacility);
 ['#c-sport','#c-kind','#c-search'].forEach(s => $(s).addEventListener('input', renderChanges));
 $('#c-export').addEventListener('click', exportChanges);
 ['#a-search','#a-district','#a-type','#a-date'].forEach(s => $(s).addEventListener('input', renderActivity));
+$('#a-only').addEventListener('change', () => { saveFilters(); renderActivity(); });
 $('#a-export').addEventListener('click', exportActivity);
 $('#m-only').addEventListener('change', renderMap);
 $('#m-refresh').addEventListener('click', renderMap);
