@@ -488,7 +488,6 @@ static void browseTick() {
 }
 
 static bool browseTouch(int x, int y) {
-    Serial.printf("[touch] x=%d y=%d overlay=%d\n", x, y, browseOverlay);
     static unsigned long lastTouch = 0;
     if (millis() - lastTouch < 300) return true;
     lastTouch = millis();
