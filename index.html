@@ -115,6 +115,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
     <button class="tab" data-tab="esp">🤖 ESP32 視角</button>
     <button class="tab" data-tab="activity">🏊 活動搜尋</button>
     <button class="tab" data-tab="map">🗺️ 地圖</button>
+      <button class="tab" data-tab="session">📜 放場記錄</button>
   </div>
 
   <!-- ============ FACILITY TAB ============ -->
@@ -144,14 +145,8 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
         <input type="text" id="f-search" placeholder="場地名 / 地址...">
       </div>
       <div class="f-group">
-        <label>日期 <span id="f-date-mode-toggle" style="cursor:pointer;color:var(--accent);font-size:12px">（切換範圍模式）</span></label>
+        <label>日期</label>
         <div class="date-chips" id="f-date-chips"></div>
-        <div id="f-date-range" style="display:none;gap:6px;align-items:center">
-          <input type="date" id="f-range-from" style="min-width:135px"> <span style="color:var(--muted)">至</span>
-          <input type="date" id="f-range-to" style="min-width:135px">
-        </div>
-      </div>
-      <div class="f-inline-row">
         <div class="f-group">
           <label>時段</label>
           <div class="date-chips" id="f-period-pills"></div>
@@ -170,7 +165,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
     <div class="stats" id="f-stats"></div>
     <div class="table-wrap">
       <table id="f-table">
-        <thead><tr><th>運動</th><th>地區</th><th>場地</th><th>設施</th><th>日期</th><th>時段</th><th>餘額</th></tr></thead>
+        <thead><tr><th>運動</th><th>地區</th><th>場地</th><th>設施</th><th>日期</th><th>時段</th><th>剩餘名額</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -273,7 +268,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
     <div class="stats" id="a-stats"></div>
     <div class="table-wrap">
       <table id="a-table">
-        <thead><tr><th>編號</th><th>活動名稱</th><th>類型</th><th>地區</th><th>開始</th><th>結束</th><th>時間</th><th>場地</th><th>費用</th><th>餘額</th><th>對象</th></tr></thead>
+        <thead><tr><th>編號</th><th>活動名稱</th><th>類型</th><th>地區</th><th>開始</th><th>結束</th><th>時間</th><th>場地</th><th>費用</th><th>剩餘名額</th><th>對象</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -281,7 +276,35 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
   </div>
 
   <!-- ============ MAP TAB ============ -->
-  <div class="panel" id="panel-map">
+  <div class="panel" id="panel-session">
+      <div class="filters">
+        <div class="f-group">
+          <label>運動</label>
+          <select id="s-sport"><option value="">全部運動</option></select>
+        </div>
+        <div class="f-group">
+          <label>狀態</label>
+          <select id="s-status">
+            <option value="">全部</option>
+            <option value="released">🟢 放場中</option>
+            <option value="taken">🔴 已訂滿</option>
+          </select>
+        </div>
+        <div class="f-group">
+          <label>關鍵字</label>
+          <input type="text" id="s-search" placeholder="場地名...">
+        </div>
+        <button id="s-export">⬇️ 保存 CSV</button>
+      </div>
+      <div class="stats" id="s-stats"></div>
+      <div class="table-wrap">
+        <table id="s-table">
+          <thead><tr><th>運動</th><th>場地</th><th>設施</th><th>日期</th><th>時段</th><th>狀態</th><th>名額</th><th>放場時間</th><th>訂滿時間</th><th>再放</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel" id="panel-map">
     <div class="filters">
       <div class="f-group">
         <label>運動類型</label>
@@ -356,7 +379,6 @@ const DATES = (() => {          // 7 days starting today (HKT)
   const t = hkToday();
   return Array.from({length: 7}, (_, i) => hkAddDays(t, i));
 })();
-let dateMode = 'chips';                          // 'chips' | 'range'
 let selDates = new Set(DATES);                   // chips mode: default ALL 7 selected
 let selPeriods = new Set(['am', 'pm', 'eve']);   // default all selected
 let selDists = new Set();                        // 地區多選：空 = 全部
@@ -367,14 +389,11 @@ function saveFilters() {
   try {
     localStorage.setItem(FS_KEY, JSON.stringify({
       sport: currentSport,
-      mode: dateMode,
       dates: [...selDates],
       periods: [...selPeriods],
       search: $('#f-search').value,
       dists: [...selDists],
       time: $('#f-time').value,
-      rangeFrom: $('#f-range-from').value,
-      rangeTo: $('#f-range-to').value,
       only: $('#f-only').checked,
       aOnly: $('#a-only') ? $('#a-only').checked : true,
     }));
@@ -385,7 +404,6 @@ function loadFilters() {
     const f = JSON.parse(localStorage.getItem(FS_KEY) || 'null');
     if (!f) return;
     if (SPORTS[f.sport]) currentSport = f.sport;
-    if (f.mode === 'chips' || f.mode === 'range') dateMode = f.mode;
     if (Array.isArray(f.dates)) selDates = new Set(f.dates.filter(d => DATES.includes(d)));
     if (selDates.size === 0) selDates = new Set(DATES);   // 過晒期就重設返全部
     if (Array.isArray(f.periods)) {
@@ -394,8 +412,6 @@ function loadFilters() {
     }
     if (f.search) $('#f-search').value = f.search;
     if (f.time) $('#f-time').value = f.time;
-    if (f.rangeFrom) $('#f-range-from').value = f.rangeFrom;
-    if (f.rangeTo) $('#f-range-to').value = f.rangeTo;
     $('#f-only').checked = (f.only !== false);
     if ($('#a-only')) $('#a-only').checked = (f.aOnly !== false);
     // 地區多選還原喺 initDistricts() 入面做（options 填好先 set）
@@ -404,7 +420,7 @@ function loadFilters() {
 // 攔截所有會觸發 render 嘅互動，順手 saveFilters（包一次就夠）
 ['#f-search','#f-time'].forEach(s => $(s).addEventListener('input', saveFilters));
 $('#f-only').addEventListener('change', saveFilters);
-['f-range-from', 'f-range-to'].forEach(id => $('#' + id).addEventListener('input', saveFilters));
+
 setInterval(saveFilters, 3000);   // 兜底：chips/pills/mode 點擊冇 hook，每 3 秒 snapshot 一次
 window.addEventListener('beforeunload', saveFilters);
 const PERIODS = [
@@ -428,16 +444,12 @@ function initDateChips() {
       if (selDates.has(iso)) selDates.delete(iso); else selDates.add(iso);
       c.classList.toggle('active');
       renderFacility();
+      renderMap();
     };
     wrap.appendChild(c);
   });
-  // range inputs: min = today, defaults = window edges
-  const from = $('#f-range-from'), to = $('#f-range-to');
-  [from, to].forEach(inp => inp.min = DATES[0]);
-  to.max = DATES[6];
-  if (!from.value) from.value = DATES[0];
-  if (!to.value) to.value = DATES[6];
 }
+
 function initPeriodPills() {
   const wrap = $('#f-period-pills');
   wrap.innerHTML = '';
@@ -451,20 +463,10 @@ function initPeriodPills() {
       if (selPeriods.has(p.k)) selPeriods.delete(p.k); else selPeriods.add(p.k);
       c.classList.toggle('active');
       renderFacility();
+      renderMap();
     };
     wrap.appendChild(c);
   });
-}
-// date mode toggle
-function setupDateModeToggle() {
-  $('#f-date-mode-toggle').onclick = () => {
-    dateMode = dateMode === 'chips' ? 'range' : 'chips';
-    $('#f-date-chips').style.display = dateMode === 'chips' ? 'flex' : 'none';
-    $('#f-date-range').style.display = dateMode === 'range' ? 'flex' : 'none';
-    $('#f-date-mode-toggle').textContent = dateMode === 'chips' ? '（切換範圍模式）' : '（切換多選模式）';
-    renderFacility();
-  };
-  ['f-range-from', 'f-range-to'].forEach(id => $('#' + id).addEventListener('input', renderFacility));
 }
 
 // ---------- LOAD DATA ----------
@@ -500,11 +502,6 @@ async function loadAll() {
   initDistricts();
   initDateChips();
   initPeriodPills();
-  setupDateModeToggle();
-  // 還原 date mode 顯示狀態
-  $('#f-date-chips').style.display = dateMode === 'chips' ? 'flex' : 'none';
-  $('#f-date-range').style.display = dateMode === 'range' ? 'flex' : 'none';
-  $('#f-date-mode-toggle').textContent = dateMode === 'chips' ? '（切換範圍模式）' : '（切換多選模式）';
   renderFacility();
 }
 
@@ -566,7 +563,9 @@ function syncDistUI() {
     cb.checked = selDists.has(cb.dataset.d);
   });
 }
+let ALL_DISTS = [];
 function initDistDropdown(sorted) {
+  ALL_DISTS = sorted;
   const list = $('#f-district-list');
   list.innerHTML = '';
   sorted.forEach(d => {
@@ -574,7 +573,7 @@ function initDistDropdown(sorted) {
     lb.innerHTML = `<input type="checkbox" data-d="${d}"> ${d}`;
     lb.querySelector('input').addEventListener('change', ev => {
       if (ev.target.checked) selDists.add(d); else selDists.delete(d);
-      syncDistUI(); saveFilters(); renderFacility();
+      syncDistUI(); saveFilters(); renderFacility(); renderMap();
     });
     list.appendChild(lb);
   });
@@ -586,8 +585,8 @@ function initDistDropdown(sorted) {
   document.addEventListener('click', ev => {
     if (!ev.target.closest('.dist-dd')) $('#f-district-panel').style.display = 'none';
   });
-  $('#f-district-all').onclick = () => { selDists = new Set(); syncDistUI(); saveFilters(); renderFacility(); };
-  $('#f-district-none').onclick = () => { selDists = new Set(); syncDistUI(); saveFilters(); renderFacility(); };
+  $('#f-district-all').onclick = () => { selDists = new Set(ALL_DISTS); syncDistUI(); saveFilters(); renderFacility(); renderMap(); };
+  $('#f-district-none').onclick = () => { selDists = new Set(); syncDistUI(); saveFilters(); renderFacility(); renderMap(); };
 }
 
 function facilityFilter() {
@@ -597,13 +596,7 @@ function facilityFilter() {
   const only = $('#f-only').checked;
   // active dates: chips mode = selected set; range mode = [from, to]
   let activeDates;
-  if (dateMode === 'range') {
-    const from = $('#f-range-from').value || DATES[0];
-    const to = $('#f-range-to').value || DATES[6];
-    activeDates = DATES.filter(d => d >= from && d <= to);
-  } else {
-    activeDates = DATES.filter(d => selDates.has(d));
-  }
+  activeDates = DATES.filter(d => selDates.has(d));
   const dateSet = new Set(activeDates);
   const activePeriods = PERIODS.filter(p => selPeriods.has(p.k));
   const rows = [];
@@ -931,12 +924,22 @@ function courtColor(n) {
 function renderMap() {
   const date = $('#m-date').value;
   const only = $('#m-only').checked;
+  const time = $('#f-time').value || '00:00';
+  const activePeriods = PERIODS.filter(p => selPeriods.has(p.k));
   const arr = all[currentSport] || [];
   const byVenue = {};
   arr.forEach(x => {
     if (date && x.Available_Date !== date) return;
+    if (selDists.size > 0 && !selDists.has(x.District_Name_TC)) return;
     const c = parseInt(x.Available_Courts || '0');
     if (only && c <= 0) return;
+    // period + start-time filters（同設施 tab 一致）
+    if (activePeriods.length < PERIODS.length) {
+      const [hh, mm] = x.Session_Start_Time.split(':').map(Number);
+      const sm = hh * 60 + mm;
+      if (!activePeriods.some(p => sm >= p.from && sm < p.to)) return;
+    }
+    if (x.Session_Start_Time < time) return;
     const lat = parseFloat(x.Venue_Latitude), lng = parseFloat(x.Venue_Longitude);
     if (!lat || !lng) return;
     const key = x.Venue_Name_TC + '|' + lat + '|' + lng;
@@ -970,6 +973,75 @@ function renderMap() {
     }).bindPopup(`<b>${s.icon} ${v.name}</b><br>${v.dist}<br>可訂時段 ${v.count} 個 / 共 ${v.total} 場<br><small>${v.sessions.join('<br>')}</small>`).addTo(mapObj);
   });
 }
+
+
+// ---------- SESSION HISTORY（放場記錄 14 日） ----------
+let sessionsData = null;
+
+async function loadSessions() {
+  const sel = $('#s-sport');
+  if (sel.options.length <= 1) {
+    Object.keys(SPORTS).forEach(k => sel.add(new Option(SPORTS[k].icon + ' ' + SPORTS[k].name, k)));
+  }
+  try {
+    const r = await fetch(`esp32/sessions.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status);
+    sessionsData = await r.json();
+    renderSessions();
+  } catch (e) {
+    console.warn('⚠️ sessions.json 載入失敗: ' + e.message);
+    sessionsData = { g: null, s: [] };
+  }
+}
+
+function sessionFilter() {
+  if (!sessionsData) return [];
+  const sport = $('#s-sport').value;
+  const status = $('#s-status').value;
+  const q = $('#s-search').value.trim().toLowerCase();
+  return sessionsData.s.filter(x => {
+    if (sport && x.sport !== sport) return false;
+    if (status && x.status !== status) return false;
+    if (q && !(x.v + ' ' + x.loc).toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function renderSessions() {
+  if (!sessionsData) return;
+  const rows = sessionFilter();
+  const STATUS_CN = { released: '🟢 放場中', taken: '🔴 已訂滿' };
+  const SPORT_ICONS = { badminton: '🏸', basketball: '🏀', volleyball: '🏐', tennis: '🎾', 'turf-soccer-pitch': '⚽' };
+  $('#s-table tbody').innerHTML = rows.slice(0, 500).map(x => `
+      <tr>
+        <td>${SPORT_ICONS[x.sport] || ''} ${SPORTS[x.sport] ? SPORTS[x.sport].name : x.sport}</td>
+        <td>${x.v}</td>
+        <td>${x.loc || '—'}</td>
+        <td>${x.d.slice(5)} ${weekdayShortCN(x.d)}</td>
+        <td>${x.st}-${x.en}</td>
+        <td>${STATUS_CN[x.status] || x.status}</td>
+        <td class="courts ${x.status === 'taken' ? 'c0' : 'c3'}">${x.count}</td>
+        <td>${(x.released || '').slice(11) || '—'}</td>
+        <td>${(x.taken || '').slice(11) || '—'}</td>
+        <td>${x.reCount > 0 ? '×' + x.reCount : ''}</td>
+      </tr>`).join('');
+  const nRel = rows.filter(x => x.status === 'released').length;
+  const nTaken = rows.filter(x => x.status === 'taken').length;
+  $('#s-stats').innerHTML = `
+    <div class="stat"><b>${rows.length}</b><span>記錄（14 日）</span></div>
+    <div class="stat"><b style="color:#2ea043">${nRel}</b><span>放場中</span></div>
+    <div class="stat"><b style="color:#f85149">${nTaken}</b><span>已訂滿</span></div>`;
+}
+
+function exportSessions() {
+  const rows = sessionFilter();
+  const hdrs = ['Sport','Venue','Location','Date','Start','End','Status','Count','ReleasedAt','TakenAt','ReReleases'];
+  const out = rows.map(x => [SPORTS[x.sport]?.name || x.sport, x.v, x.loc, x.d, x.st, x.en, x.status, x.count, x.released, x.taken, x.reCount]);
+  download(`smartplay-sessions-${new Date().toISOString().slice(0,10)}.csv`, toCSV(out, hdrs));
+}
+
+['#s-sport','#s-status','#s-search'].forEach(s => $(s).addEventListener('input', renderSessions));
+$('#s-export').addEventListener('click', exportSessions);
 
 // ---------- EXPORT CSV ----------
 function toCSV(rows, headers) {
@@ -1010,8 +1082,9 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
   if (b.dataset.tab === 'activity' && activityData.length === 0) loadActivity();
   if (b.dataset.tab === 'changes' && changesData === null) loadChanges();
   if (b.dataset.tab === 'esp' && espEve === null) loadEspFeeds();
+  if (b.dataset.tab === 'session' && sessionsData === null) loadSessions();
 });
-['#f-search','#f-time'].forEach(s => $(s).addEventListener('input', renderFacility));
+['#f-search','#f-time'].forEach(s => $(s).addEventListener('input', () => { renderFacility(); renderMap(); }));
 $('#f-only').addEventListener('change', renderFacility);
 $('#f-export').addEventListener('click', exportFacility);
 ['#c-sport','#c-kind','#c-search'].forEach(s => $(s).addEventListener('input', renderChanges));
