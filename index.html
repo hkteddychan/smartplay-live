@@ -1014,7 +1014,7 @@ function renderCyds() {
     <div class="stat"><b>${cydStatus ? (cydStatus.rows || 0) : 0}</b><span>符合場次</span></div>
     <div class="stat"><b>${cydHistory ? cydHistory.n : 0}</b><span>歷史記錄</span></div>
     ${cydStatus && cydStatus.rssi ? `<div class="stat"><b>${cydStatus.rssi} dBm</b><span>WiFi 訊號</span></div>` : ''}
-    ${cydStatus && cydStatus.fw ? `<div class="stat"><b style="font-size:13px">v${cydStatus.fw}</b><span>韌體</span></div>` : ''}`;
+    ${cydStatus && cydStatus.fw ? `<div class="stat"><b style="font-size:13px">${cydStatus.fw}</b><span>韌體</span></div>` : ''}`;
 
   // 屏重演 — 用 CYD 上報嘅 filter 套返落 browse.json（同 CYD drawPage 同一數據源）
   const body = $('#ec-body'), hdr = $('#ec-hdr'), foot = $('#ec-foot');
