@@ -260,7 +260,7 @@ static bool browseParseSport(const char *body, int sportIdx) {
     if (sportIdx >= 0 && sportIdx < BR_N_SPORTS)
         browseCopy(sportIcons[0], sizeof(sportIcons[0]), BR_SPORT_ICONS[sportIdx]);
     else
-        browseCopy(sportIcons[0], sizeof(sportIcons[0]), "🏃");
+        browseCopy(sportIcons[0], sizeof(sportIcons[0]), "全");
 
     const char *pr = brFindValue(body, "r");
     if (!pr || *pr != '[') {
@@ -615,10 +615,8 @@ static void browseDrawBody() {
         if (r.d < nDates) line1 += String(dateLabels[r.d]) + " ";
         line1 += String(venueDists[r.v]) + " ";
         if (r.v < nVenues) line1 += String(venueNames[r.v]);
-        // available marker
-        tft.setTextColor(C_GOOD, (i % 2 == 0) ? C_BG : C_CARD);
-        tft.setTextDatum(TL_DATUM);
-        tft.drawString("●", 4, ry + 2, 2);
+        // available marker (filled circle, no font dependency)
+        tft.fillCircle(10, ry + 10, 4, C_GOOD);
         drawUTF8(fitUTF8(line1, 296), 20, ry + 2, C_TEXT, (i % 2 == 0) ? C_BG : C_CARD);
 
         char tm[24];
@@ -652,7 +650,7 @@ static void browseDrawFooter() {
              curDistrict + 1, nDistricts, curPage + 1, tp, n);
     tft.drawString(buf, 6, y + 3, 1);
     tft.setTextDatum(TR_DATUM);
-    tft.drawString("●可訂 地區/運動/時段/播放", 314, y + 3, 1);
+    tft.drawString("可訂 地區/運動/時段/播放", 314, y + 3, 1);
     tft.setTextDatum(TL_DATUM);
 }
 
