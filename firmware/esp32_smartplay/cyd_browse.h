@@ -28,6 +28,7 @@ static const char *BR_SPORT_KEYS[]  = {"badminton","basketball","volleyball","te
 static const char *BR_SPORT_NAMES[] = {"羽毛球","籃球","排球","網球","草地足球"};
 static const char *BR_SPORT_ICONS[] = {"🏸","🏀","🏐","🎾","⚽"};
 static const int BR_N_SPORTS = 5;
+static const char *BR_SPORT_TEXT_ICONS[] = {"羽","籃","排","網","足"};
 
 struct BRow { uint8_t v, k, d; uint16_t sm, em, courts; };
 
@@ -487,6 +488,7 @@ static void browseTick() {
 }
 
 static bool browseTouch(int x, int y) {
+    Serial.printf("[touch] x=%d y=%d overlay=%d\n", x, y, browseOverlay);
     static unsigned long lastTouch = 0;
     if (millis() - lastTouch < 300) return true;
     lastTouch = millis();
@@ -538,8 +540,8 @@ static const char *timePeriodLabel(int tp) {
 }
 
 static const char *sportIconOf(int sport) {
-    if (sport < 0) return "🏆";
-    if (sport < BR_N_SPORTS) return BR_SPORT_ICONS[sport];
+    if (sport < 0) return "全";
+    if (sport < BR_N_SPORTS) return BR_SPORT_TEXT_ICONS[sport];
     return "?";
 }
 
@@ -550,18 +552,22 @@ static void browseDrawHeader() {
     tft.drawString("<", 4, 6, 2);
     if (curDistrict < nDistricts) {
         tft.fillRect(24, 2, 72, 22, C_CARD);
-        drawUTF8(String(districts[curDistrict]), 28, 6, C_TEXT, C_CARD);
+        drawUTF8(String("區") + String(districts[curDistrict]), 26, 6, C_TEXT, C_CARD);
     }
     tft.fillRect(98, 2, 48, 22, C_CARD);
     tft.setTextColor(C_ACCENT, C_CARD);
     tft.setTextDatum(TL_DATUM);
-    tft.drawString(sportIconOf(curSport), 102, 6, 2);
+    tft.drawString(String("運") + String(sportIconOf(curSport)), 100, 6, 2);
     tft.fillRect(148, 2, 38, 22, C_CARD);
-    tft.setTextColor(C_TEXT, C_CARD);
-    tft.drawString(timePeriodLabel(curTimePeriod), 156, 6, 2);
+    tft.setTextColor(paused ? C_WARN : C_GOOD, C_CARD);
+    // time chip color by period
+    uint16_t tcol = (curTimePeriod==0)?C_ACCENT:(curTimePeriod==1)?C_WARN:C_GOOD;
+    tft.setTextColor(tcol, C_CARD);
+    tft.drawString(String("時") + String(timePeriodLabel(curTimePeriod)), 150, 6, 2);
     tft.fillRect(188, 2, 38, 22, C_CARD);
-    tft.setTextColor(C_TEXT, C_CARD);
-    tft.drawString(paused ? "II" : ">", 200, 6, 2);
+    tft.setTextColor(paused ? C_WARN : C_GOOD, C_CARD);
+    tft.setTextDatum(TL_DATUM);
+    tft.drawString(paused ? "暫停" : "播放", 190, 6, 2);
     tft.setTextColor(C_DIM, C_BAR);
     tft.setTextDatum(TL_DATUM);
     tft.drawString("全部日子", 232, 6, 2);
@@ -589,7 +595,7 @@ static void browseDrawBody() {
     int y = BROWSE_HEADER_H;
     if (n == 0) {
         tft.fillRect(0, y, 320, 240 - y - BROWSE_FOOTER_H, C_BG);
-        String none = "呢個條件冇場";
+        String none = "呢個條件暫時冇可訂場地";
         drawUTF8(none, (320 - measureUTF8(none)) / 2, y + 80, C_DIM, C_BG);
         return;
     }
@@ -609,15 +615,19 @@ static void browseDrawBody() {
         if (r.d < nDates) line1 += String(dateLabels[r.d]) + " ";
         line1 += String(venueDists[r.v]) + " ";
         if (r.v < nVenues) line1 += String(venueNames[r.v]);
-        drawUTF8(fitUTF8(line1, 312), 4, ry + 2, C_TEXT, (i % 2 == 0) ? C_BG : C_CARD);
+        // available marker
+        tft.setTextColor(C_GOOD, (i % 2 == 0) ? C_BG : C_CARD);
+        tft.setTextDatum(TL_DATUM);
+        tft.drawString("●", 4, ry + 2, 2);
+        drawUTF8(fitUTF8(line1, 296), 20, ry + 2, C_TEXT, (i % 2 == 0) ? C_BG : C_CARD);
 
         char tm[24];
         snprintf(tm, sizeof(tm), "%02d:%02d-%02d:%02d  %d場",
                  r.sm / 60, r.sm % 60, r.em / 60, r.em % 60, r.courts);
-        if (r.k < nSports) {
+        if (r.k < nSports && r.k < BR_N_SPORTS) {
             tft.setTextColor(C_ACCENT, (i % 2 == 0) ? C_BG : C_CARD);
             tft.setTextDatum(TL_DATUM);
-            tft.drawString(sportIcons[r.k], 4, ry + 22, 2);
+            tft.drawString(BR_SPORT_TEXT_ICONS[r.k], 4, ry + 22, 2);
         }
         tft.setTextColor(C_GOOD, (i % 2 == 0) ? C_BG : C_CARD);
         tft.setTextDatum(TL_DATUM);
@@ -642,7 +652,7 @@ static void browseDrawFooter() {
              curDistrict + 1, nDistricts, curPage + 1, tp, n);
     tft.drawString(buf, 6, y + 3, 1);
     tft.setTextDatum(TR_DATUM);
-    tft.drawString("撳頂部切換選項", 314, y + 3, 1);
+    tft.drawString("●可訂 地區/運動/時段/播放", 314, y + 3, 1);
     tft.setTextDatum(TL_DATUM);
 }
 
@@ -663,10 +673,10 @@ static void browseDrawOverlay() {
         tft.drawRect(60, 36, 200, 170, C_DIM);
         drawUTF8(String("選擇運動"), 68, 40, C_TEXT, C_CARD);
         uint16_t fg0 = (curSport == -1) ? C_ACCENT : C_TEXT;
-        drawUTF8(String("🏆 全部運動"), 68, 62, fg0, C_CARD);
+        drawUTF8(String("全部運動"), 68, 62, fg0, C_CARD);
         for (int i = 0; i < BR_N_SPORTS; i++) {
             uint16_t fg = (curSport == i) ? C_ACCENT : C_TEXT;
-            String lbl = String(BR_SPORT_ICONS[i]) + " " + String(BR_SPORT_NAMES[i]);
+            String lbl = String(BR_SPORT_TEXT_ICONS[i]) + " " + String(BR_SPORT_NAMES[i]);
             drawUTF8(lbl, 68, 84 + i * 22, fg, C_CARD);
         }
     }
