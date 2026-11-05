@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SmartPLAY Live — 康文署場地即時餘額</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&display=swap" rel="stylesheet">
@@ -117,7 +116,6 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
     <button class="tab" data-tab="changes">🔔 最新改變</button>
     <button class="tab" data-tab="esp">🤖 ESP32 視角</button>
     <button class="tab" data-tab="activity">🏊 活動搜尋</button>
-    <button class="tab" data-tab="map">🗺️ 地圖</button>
       <button class="tab" data-tab="session">📜 放場記錄</button>
   </div>
 
@@ -317,7 +315,6 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
     <div class="hint">💡 全港康體活動搜尋（名額/報名以官方為準）。</div>
   </div>
 
-  <!-- ============ MAP TAB ============ -->
   <div class="panel" id="panel-session">
       <div class="filters">
         <div class="f-group">
@@ -376,30 +373,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
         </table>
       </div>
     </div>
-    <div class="panel" id="panel-map">
-    <div class="filters">
-      <div class="f-group">
-        <label>運動類型</label>
-        <div class="sport-pills" id="map-sport-pills"></div>
-      </div>
-      <div class="f-group">
-        <label>日期</label>
-        <input type="date" id="m-date">
-      </div>
-      <div class="f-group">
-        <label>&nbsp;</label>
-        <label><input type="checkbox" id="m-only" checked> 淨係顯示有餘額</label>
-      </div>
-      <div class="f-group">
-        <label>&nbsp;</label>
-        <button class="secondary" id="m-refresh">🔄 重繪地圖</button>
-      </div>
-    </div>
-    <div id="map"></div>
-    <div class="hint">💡 每個圓點 = 一個場地；顏色 = 當日可訂場次數量。點入去睇時段詳情。</div>
-  </div>
-
-  <footer>
+    <footer>
     📊 數據來源：<a href="https://data.smartplay.lcsd.gov.hk" style="color:var(--accent)">LCSD SmartPLAY 開放數據</a>（每 2 分鐘鏡像）· 由 Teddy Sir 製作 · <span id="foot-time"></span>
     <br>⚠️ 餘額以官方 App 最終確認作準，本網站僅供參考。
   </footer>
@@ -411,7 +385,6 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
   <button class="dismiss" id="ub-dismiss">✕</button>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const SPORTS = {
   badminton: { icon: '🏸', name: '羽毛球', color: '#58a6ff' },
@@ -422,7 +395,6 @@ const SPORTS = {
 };
 const all = {};
 const VENUE_DIST = {}; // sport -> array
-let mapObj = null;
 let currentSport = 'badminton';
 
 const $ = s => document.querySelector(s);
@@ -531,7 +503,6 @@ function initDateChips() {
       if (selDates.has(iso)) selDates.delete(iso); else selDates.add(iso);
       c.classList.toggle('active');
       renderFacility();
-      renderMap();
     };
     wrap.appendChild(c);
   });
@@ -550,7 +521,6 @@ function initPeriodPills() {
       if (selPeriods.has(p.k)) selPeriods.delete(p.k); else selPeriods.add(p.k);
       c.classList.toggle('active');
       renderFacility();
-      renderMap();
     };
     wrap.appendChild(c);
   });
@@ -611,12 +581,7 @@ function initSports() {
         document.querySelectorAll(wrapId + ' .pill').forEach(p => p.classList.remove('active'));
         b.classList.add('active');
         currentSport = k;
-        if (wrapId === '#sport-pills') {
-          $('#map-sport-pills .pill').forEach ? 0 : 0;
-          document.querySelectorAll('#map-sport-pills .pill').forEach(p => p.classList.toggle('active', p.getAttribute('data-k') === k));
-        } else {
-          document.querySelectorAll('#sport-pills .pill').forEach(p => p.classList.toggle('active', p.getAttribute('data-k') === k));
-        }
+        document.querySelectorAll('#sport-pills .pill').forEach(p => p.classList.toggle('active', p.getAttribute('data-k') === k));
         renderFacility();
       };
       b.setAttribute('data-k', k);
@@ -624,7 +589,6 @@ function initSports() {
     });
   };
   mk('#sport-pills');
-  mk('#map-sport-pills');
 }
 
 // ---------- FILTERS ----------
@@ -666,7 +630,7 @@ function initDistDropdown(sorted) {
     lb.innerHTML = `<input type="checkbox" data-d="${d}"> ${d}`;
     lb.querySelector('input').addEventListener('change', ev => {
       if (ev.target.checked) selDists.add(d); else selDists.delete(d);
-      syncDistUI(); saveFilters(); renderFacility(); renderMap();
+      syncDistUI(); saveFilters(); renderFacility();
     });
     list.appendChild(lb);
   });
@@ -678,8 +642,8 @@ function initDistDropdown(sorted) {
   document.addEventListener('click', ev => {
     if (!ev.target.closest('.dist-dd')) $('#f-district-panel').style.display = 'none';
   });
-  $('#f-district-all').onclick = () => { selDists = new Set(ALL_DISTS); syncDistUI(); saveFilters(); renderFacility(); renderMap(); };
-  $('#f-district-none').onclick = () => { selDists = new Set(); syncDistUI(); saveFilters(); renderFacility(); renderMap(); };
+  $('#f-district-all').onclick = () => { selDists = new Set(ALL_DISTS); syncDistUI(); saveFilters(); renderFacility(); };
+  $('#f-district-none').onclick = () => { selDists = new Set(); syncDistUI(); saveFilters(); renderFacility(); };
 }
 
 // ---------- 放場記錄 filters（Start/End date + District 多選 + 早午晚） ----------
@@ -1170,68 +1134,6 @@ function renderActivity() {
     <div class="stat"><b style="color:#f0b429">${nFcfs}</b><span>⚡現可先到先得報名</span></div>`;
 }
 
-// ---------- MAP ----------
-function courtColor(n) {
-  if (n <= 0) return '#f85149';
-  if (n <= 2) return '#f0b429';
-  if (n <= 5) return '#a5d6ff';
-  return '#2ea043';
-}
-
-function renderMap() {
-  const date = $('#m-date').value;
-  const only = $('#m-only').checked;
-  const time = $('#f-time').value || '00:00';
-  const activePeriods = PERIODS.filter(p => selPeriods.has(p.k));
-  const arr = all[currentSport] || [];
-  const byVenue = {};
-  arr.forEach(x => {
-    if (date && x.Available_Date !== date) return;
-    if (selDists.size > 0 && !selDists.has(x.District_Name_TC)) return;
-    const c = parseInt(x.Available_Courts || '0');
-    if (only && c <= 0) return;
-    // period + start-time filters（同設施 tab 一致）
-    if (activePeriods.length < PERIODS.length) {
-      const [hh, mm] = x.Session_Start_Time.split(':').map(Number);
-      const sm = hh * 60 + mm;
-      if (!activePeriods.some(p => sm >= p.from && sm < p.to)) return;
-    }
-    if (x.Session_Start_Time < time) return;
-    const lat = parseFloat(x.Venue_Latitude), lng = parseFloat(x.Venue_Longitude);
-    if (!lat || !lng) return;
-    const key = x.Venue_Name_TC + '|' + lat + '|' + lng;
-    if (!byVenue[key]) {
-      byVenue[key] = { name: x.Venue_Name_TC, dist: x.District_Name_TC, lat, lng, total: 0, count: 0, sessions: [] };
-    }
-    byVenue[key].total += c;
-    byVenue[key].count += 1;
-    if (byVenue[key].sessions.length < 8) {
-      byVenue[key].sessions.push(`${x.Session_Start_Time}-${x.Session_End_Time} (${c}場)`);
-    }
-  });
-
-  if (!mapObj) {
-    mapObj = L.map('map').setView([22.35, 114.15], 11);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap', maxZoom: 19
-    }).addTo(mapObj);
-    const mDate = $('#m-date');
-    mDate.min = hkToday();
-    if (!mDate.value) mDate.value = hkToday();
-  }
-  mapObj.eachLayer(l => { if (l instanceof L.CircleMarker) mapObj.removeLayer(l); });
-
-  const s = SPORTS[currentSport];
-  Object.values(byVenue).forEach(v => {
-    L.circleMarker([v.lat, v.lng], {
-      radius: 8 + Math.min(v.total * 2, 22),
-      color: '#0e1117', weight: 1,
-      fillColor: courtColor(v.total), fillOpacity: 0.8
-    }).bindPopup(`<b>${s.icon} ${v.name}</b><br>${v.dist}<br>可訂時段 ${v.count} 個 / 共 ${v.total} 場<br><small>${v.sessions.join('<br>')}</small>`).addTo(mapObj);
-  });
-}
-
-
 // ---------- SESSION HISTORY（放場記錄 14 日） ----------
 let sessionsData = null;
 
@@ -1365,25 +1267,20 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
   document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
   b.classList.add('active');
   document.getElementById('panel-' + b.dataset.tab).classList.add('active');
-  if (b.dataset.tab === 'map') setTimeout(renderMap, 50);
   if (b.dataset.tab === 'activity' && activityData.length === 0) loadActivity();
   if (b.dataset.tab === 'changes' && changesData === null) loadChanges();
   if (b.dataset.tab === 'esp' && espEve === null) loadEspFeeds();
   if (b.dataset.tab === 'esp') loadCyds();
   if (b.dataset.tab === 'session' && sessionsData === null) loadSessions();
 });
-['#f-search','#f-time'].forEach(s => $(s).addEventListener('input', () => { renderFacility(); renderMap(); }));
+['#f-search','#f-time'].forEach(s => $(s).addEventListener('input', () => { renderFacility(); }));
 $('#f-only').addEventListener('change', renderFacility);
 $('#f-export').addEventListener('click', exportFacility);
 ['#c-sport','#c-kind','#c-search'].forEach(s => $(s).addEventListener('input', renderChanges));
 $('#c-export').addEventListener('click', exportChanges);
 ['#a-search','#a-district','#a-type','#a-date'].forEach(s => $(s).addEventListener('input', renderActivity));
 $('#a-only').addEventListener('change', () => { saveFilters(); renderActivity(); });
-$('#a-fcfs').addEventListener('change', () => { saveFilters(); renderActivity(); });
 $('#a-export').addEventListener('click', exportActivity);
-$('#m-only').addEventListener('change', renderMap);
-$('#m-refresh').addEventListener('click', renderMap);
-$('#m-date').addEventListener('change', renderMap);
 
 // ---------- NEW-DATA POLL（meta.json version check + update banner） ----------
 let myMetaUtc = null;          // page load 時嘅版本
