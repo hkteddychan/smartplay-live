@@ -14,7 +14,8 @@ tools/pgo_sessions/
 *.bak
 *.bak2
 
-# editor / OS
+# secrets (WiFi credentials)
+firmware/esp32_smartplay/secrets.h
 .vscode/
 .idea/
 Thumbs.db
