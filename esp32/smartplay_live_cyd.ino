@@ -50,6 +50,7 @@
 #include <TFT_eSPI.h>
 #include <XPT2046_Touchscreen.h>
 #include <HTTPUpdate.h>
+#include <WiFiClientSecure.h>
 
 // ---------------- OTA ----------------
 // 開機 + 每 6 小時 GET firmware.json；版本新過 FIRMWARE_VERSION → 自動下載 .bin 更新 + reboot
@@ -342,7 +343,7 @@ void processEveChanges(const String& body) {
   JsonDocument doc;
   if (deserializeJson(doc, body)) return;
   const char* gen = doc["g"] | "";
-  if (gen == lastEveVersion) return;
+  if (String(gen) == lastEveVersion) return;
   bool firstRun = !baselined;
   lastEveVersion = gen;
   baselined = true;
