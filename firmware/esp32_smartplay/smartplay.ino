@@ -250,7 +250,7 @@ bool httpGet(const char *url, String &out) {
     // plain http — a TLS client would fail the handshake
     if (!http.begin(url)) return false;
   }
-  http.setTimeout(20000);
+  http.setTimeout(30000);
   http.setUserAgent("SmartPlayLive-ESP32/3.0");
   int code = http.GET();
   if (code != 200) {
@@ -259,22 +259,35 @@ bool httpGet(const char *url, String &out) {
     return false;
   }
   int len = http.getSize();
+  Serial.printf("[HTTP] %s -> code=%d size=%d\n", url, code, len);
   out = "";
-  if (len > 0) out.reserve(len);
+  if (len > 0 && !out.reserve(len)) {
+    Serial.println("[HTTP] reserve FAILED");
+  }
   WiFiClient *stream = http.getStreamPtr();
   uint8_t buf[1024];
-  while (http.connected() && (len > 0 || len == -1)) {
+  http.setReuse(false);
+  unsigned long lastData = millis();
+  while (len > 0 || len == -1) {
     size_t avail = stream->available();
     if (avail) {
-      int c = stream->readBytes(buf, avail > sizeof(buf) ? sizeof(buf) : avail);
-      out.concat((char *)buf, c);
-      if (len > 0) len -= c;
+      size_t toRead = avail > sizeof(buf) ? sizeof(buf) : avail;
+      int c = stream->readBytes(buf, toRead);
+      if (c > 0) {
+        out.concat((char *)buf, c);
+        if (len > 0) len -= c;
+        lastData = millis();
+      }
     } else {
+      if (!http.connected()) {
+        if (millis() - lastData > 5000) break;
+      }
       delay(2);
     }
   }
   http.end();
-  return true;
+  Serial.printf("[HTTP] got %u bytes (remaining len=%d)\n", (unsigned)out.length(), len);
+  return out.length() > 0;
 }
 
 /* ---------------- 放場處理（poll 路径） ---------------- */
@@ -352,15 +365,35 @@ static String g_eveBody;
 
 static void pollEve() {
   if (!g_venueMapLoaded) loadVenueMap();
-  if (!httpGet(FEED_EVE, g_eveBody)) {
-    Serial.println("[eve] fetch FAILED");
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[eve] WiFi not connected");
     g_pollFails++;
     g_dirty = true;
     return;
   }
 
+  HTTPClient http;
+  if (strncmp(FEED_EVE, "https://", 8) == 0) {
+    g_sec.setInsecure();
+    if (!http.begin(g_sec, FEED_EVE)) { Serial.println("[eve] begin FAILED"); g_pollFails++; g_dirty=true; return; }
+  } else {
+    if (!http.begin(FEED_EVE)) { Serial.println("[eve] begin FAILED"); g_pollFails++; g_dirty=true; return; }
+  }
+  http.setTimeout(30000);
+  int code = http.GET();
+  if (code != 200) {
+    Serial.printf("[eve] HTTP %d\n", code);
+    http.end();
+    g_pollFails++;
+    g_dirty = true;
+    return;
+  }
+  Serial.printf("[eve] HTTP 200, streaming parse...\n");
+
   JsonDocument doc;
-  DeserializationError err = deserializeJson(doc, g_eveBody);
+  DeserializationError err = deserializeJson(doc, http.getStream());
+  http.end();
   if (err) {
     Serial.printf("[eve] parse error: %s\n", err.c_str());
     doc.clear();
@@ -428,12 +461,19 @@ static void loadVenueMap() {
     return;
   }
   JsonDocument doc;
-  if (deserializeJson(doc, g_todayBody)) {
+  DeserializationError err = deserializeJson(doc, g_todayBody);
+  if (err) {
+    Serial.printf("[venue] parse error: %s (size=%u)\n", err.c_str(), (unsigned)g_todayBody.length());
+    doc.clear();
+    return;
+  }
+  JsonObject sports = doc["sports"].as<JsonObject>();
+  if (sports.isNull()) {
+    Serial.println("[venue] no sports object");
     doc.clear();
     return;
   }
   g_venueCount = 0;
-  JsonObject sports = doc["sports"].as<JsonObject>();
   for (JsonPair kv : sports) {
     JsonObject sp = kv.value().as<JsonObject>();
     JsonArray venues = sp["v"].as<JsonArray>();
@@ -449,6 +489,7 @@ static void loadVenueMap() {
     }
   }
   doc.clear();
+  g_todayBody = "";   // free memory after venue map loaded
   g_venueMapLoaded = true;
   Serial.printf("[venue] map loaded: %d venues, heap %u\n", g_venueCount, (unsigned)ESP.getFreeHeap());
 }
