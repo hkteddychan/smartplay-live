@@ -1,8 +1,7 @@
 {
-  "version": "1.1",
-  "bin": "https://github.com/hkteddychan/smartplay-live/releases/download/v1.1/cyd-firmware-v1.1.bin",
-  "md5": "466073150aa066008d0f4666596ee575",
-  "size": 1400848,
-  "released": "2026-11-05",
-  "notes": "自動 OTA Pull 上線 — 每小時檢查"
+  "version": "1.2",
+  "bin": "https://github.com/hkteddychan/smartplay-live/releases/download/v1.2/cyd-firmware-v1.2.bin",
+  "md5": "f0476ad03095d4062a204e2df57f6d64",
+  "size": 1413280,
+  "note": "放場記錄頁 + 局部重繪優化"
 }
