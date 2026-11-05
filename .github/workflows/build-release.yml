@@ -112,10 +112,13 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           MD5="${{ needs.build.outputs.fw_info.md5 }}"
           SIZE="${{ needs.build.outputs.fw_info.size }}"
+          # Host binary on GitHub Pages (ESP32 cannot download from github.com)
+          mkdir -p esp32
+          cp ./release/firmware.bin esp32/firmware.bin
           cat > esp32/ota.json <<EOF
           {
            "version": "$VERSION",
-           "bin": "https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}/firmware.bin",
+           "bin": "https://hkteddychan.github.io/smartplay-live/esp32/firmware.bin",
            "md5": "$MD5",
            "size": $SIZE,
            "note": "Auto-built by GitHub Actions"
@@ -123,6 +126,6 @@ jobs:
           EOF
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add esp32/ota.json
+          git add esp32/ota.json esp32/firmware.bin
           git commit -m "⬆️ OTA manifest $VERSION (auto-build)"
           git push

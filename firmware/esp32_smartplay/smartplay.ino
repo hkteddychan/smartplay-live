@@ -31,6 +31,7 @@
 #include <TFT_eSPI.h>
 #include <XPT2046_Touchscreen.h>
 #include <SPI.h>
+#include <Preferences.h>
 #include <time.h>
 
 #include "venue_font.h"
@@ -210,10 +211,48 @@ static String venueDistrict(const char *venue) {
 #define WIFI_SSID_2 "Teddy Pixel"
 #define WIFI_PASS_2 "teddychan"
 #endif
+// ---- NVS WiFi credential storage ----
+// On first boot, compiled defaults are stored in NVS.
+// Subsequent boots read from NVS (allows credentials to be updated without reflash).
+static Preferences wifiPrefs;
+static char nvsSsid1[32] = WIFI_SSID_1;
+static char nvsPass1[64] = WIFI_PASS_1;
+static char nvsSsid2[32] = WIFI_SSID_2;
+static char nvsPass2[64] = WIFI_PASS_2;
+
+static void loadWifiCredsFromNVS() {
+    wifiPrefs.begin("wifi", true);
+    String s1 = wifiPrefs.getString("ssid1", WIFI_SSID_1);
+    String p1 = wifiPrefs.getString("pass1", WIFI_PASS_1);
+    String s2 = wifiPrefs.getString("ssid2", WIFI_SSID_2);
+    String p2 = wifiPrefs.getString("pass2", WIFI_PASS_2);
+    bool initialized = wifiPrefs.getBool("init", false);
+    wifiPrefs.end();
+    strncpy(nvsSsid1, s1.c_str(), sizeof(nvsSsid1) - 1);
+    nvsSsid1[sizeof(nvsSsid1) - 1] = 0;
+    strncpy(nvsPass1, p1.c_str(), sizeof(nvsPass1) - 1);
+    nvsPass1[sizeof(nvsPass1) - 1] = 0;
+    strncpy(nvsSsid2, s2.c_str(), sizeof(nvsSsid2) - 1);
+    nvsSsid2[sizeof(nvsSsid2) - 1] = 0;
+    strncpy(nvsPass2, p2.c_str(), sizeof(nvsPass2) - 1);
+    nvsPass2[sizeof(nvsPass2) - 1] = 0;
+    if (!initialized) {
+        // First boot: store compiled defaults to NVS
+        wifiPrefs.begin("wifi", false);
+        wifiPrefs.putString("ssid1", WIFI_SSID_1);
+        wifiPrefs.putString("pass1", WIFI_PASS_1);
+        wifiPrefs.putString("ssid2", WIFI_SSID_2);
+        wifiPrefs.putString("pass2", WIFI_PASS_2);
+        wifiPrefs.putBool("init", true);
+        wifiPrefs.end();
+        Serial.println("[WiFi] NVS first-boot migration done");
+    }
+    Serial.printf("[WiFi] creds from NVS: %s / %s\n", nvsSsid1, nvsSsid2);
+}
 struct WifiNet { const char *ssid; const char *pass; };
 static const WifiNet WIFI_NETS[] = {
-    {WIFI_SSID_1, WIFI_PASS_1},
-    {WIFI_SSID_2, WIFI_PASS_2},
+    {nvsSsid1, nvsPass1},
+    {nvsSsid2, nvsPass2},
 };
 static const int N_WIFI_NETS = sizeof(WIFI_NETS) / sizeof(WIFI_NETS[0]);
 static char g_wifiSsid[32] = "";
@@ -405,6 +444,7 @@ static void pollEve() {
   }
   http.setTimeout(30000);
   int code = http.GET();
+  esp_task_wdt_reset();
   if (code != 200) {
     Serial.printf("[eve] HTTP %d\n", code);
     http.end();
@@ -414,6 +454,7 @@ static void pollEve() {
   }
   Serial.printf("[eve] HTTP 200, streaming parse...\n");
 
+  esp_task_wdt_reset();
   JsonDocument doc;
   DeserializationError err = deserializeJson(doc, http.getStream());
   http.end();
@@ -483,6 +524,7 @@ static void loadVenueMap() {
     Serial.println("[venue] fetch FAILED");
     return;
   }
+  esp_task_wdt_reset();
   JsonDocument doc;
   DeserializationError err = deserializeJson(doc, g_todayBody);
   if (err) {
@@ -498,6 +540,7 @@ static void loadVenueMap() {
   }
   g_venueCount = 0;
   for (JsonPair kv : sports) {
+    esp_task_wdt_reset();
     JsonObject sp = kv.value().as<JsonObject>();
     JsonArray venues = sp["v"].as<JsonArray>();
     JsonArray districts = sp["s"].as<JsonArray>();
@@ -990,7 +1033,9 @@ static void handleSerial() {
     loadVenueMap();
     pollEve();
     browseFetch();
-  } else if (c == 's') {
+  } else if (c == 'o') {
+    Serial.println("[OTA] force check triggered");
+    otaPullCheck(true); else if (c == 's') {
     if (curSport == -1) curSport = 0;
     else if (curSport >= 4) curSport = -1;
     else curSport++;
@@ -1101,7 +1146,12 @@ void setup() {
   Serial.printf("[REPORT] firmware %s, endpoint OK\n", g_reportFw);
   // OTA rollback: mark current app as valid (cancel rollback)
   esp_ota_mark_app_valid_cancel_rollback();
-  // Watchdog: register loopTask (framework already init'd TWDT)
+  // Load WiFi creds from NVS (first-boot migration from compiled defaults)
+  loadWifiCredsFromNVS();
+  // Watchdog: deinit framework's default TWDT (5s), reinit with 60s, then register loopTask
+  esp_task_wdt_deinit();
+  esp_task_wdt_config_t wdt_config = { .timeout_ms = 60000, .idle_core_mask = 0, .trigger_panic = true };
+  esp_task_wdt_init(&wdt_config);
   esp_task_wdt_add(NULL);
   connectWiFi();
   // ---- OTA (over-the-air) 更新 ----
