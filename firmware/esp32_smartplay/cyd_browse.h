@@ -3,6 +3,18 @@
 //  Venue browser data layer + UI for the SmartPLAY CYD firmware.
 // ===========================================================================
 #include <Arduino.h>
+
+// ---------- v1.2：分區重繪（避免每次 fillScreen → 閃爍）----------
+// dirty flags：只有變咗嗰區先重畫
+static bool g_browseDirtyHeader = true;
+static bool g_browseDirtyBody = true;
+static bool g_browseDirtyFooter = true;
+
+static void browseMarkHeader() { g_browseDirtyHeader = true; }
+static void browseMarkBody()   { g_browseDirtyBody = true; }
+static void browseMarkFooter() { g_browseDirtyFooter = true; }
+static void browseMarkAll()    { g_browseDirtyHeader = g_browseDirtyBody = g_browseDirtyFooter = true; }
+
 #include <ArduinoJson.h>
 #include <Preferences.h>
 #include <time.h>
@@ -410,6 +422,8 @@ static int browseFilteredRows(int *out, int maxOut) {
 }
 
 static void browseStepDistrict(int delta) {
+    browseMarkAll();
+
     if (nDistricts <= 0) return;
     int d = curDistrict + delta;
     while (d < 0) d += nDistricts;
@@ -428,6 +442,8 @@ static void browseSetDistrict(int idx) {
 }
 
 static void browseCycleDate() {
+    browseMarkAll();
+
     curDate = (curDate + 1) % (nDates + 1);
     curPage = 0;
     lastPageAt = millis();
@@ -435,6 +451,10 @@ static void browseCycleDate() {
 }
 
 static void browseCycleTimePeriod() {
+    browseMarkHeader();
+    browseMarkBody();
+    browseMarkFooter();
+
     curTimePeriod = (curTimePeriod + 1) % 3;
     curPage = 0;
     lastPageAt = millis();
@@ -442,6 +462,8 @@ static void browseCycleTimePeriod() {
 }
 
 static void browseSetSport(int sport) {
+    browseMarkAll();
+
     if (sport != -1 && (sport < 0 || sport >= BR_N_SPORTS)) return;
     if (sport == curSport) { browseOverlay = 0; return; }
     curSport = sport;
@@ -455,6 +477,8 @@ static void browseSetSport(int sport) {
 }
 
 static void browseCycleSec() {
+    browseMarkFooter();
+
     if (pageSec == 5) pageSec = 3;
     else if (pageSec == 3) pageSec = 8;
     else if (pageSec == 8) pageSec = 10;
@@ -464,6 +488,9 @@ static void browseCycleSec() {
 }
 
 static void browseToggleAuto() {
+    browseMarkHeader();
+    browseMarkFooter();
+
     autoPage = !autoPage;
     paused = !autoPage;
     lastPageAt = millis();
@@ -471,6 +498,9 @@ static void browseToggleAuto() {
 }
 
 static void browseTogglePaused() {
+    browseMarkHeader();
+    browseMarkFooter();
+
     paused = !paused;
     if (!paused) autoPage = true;
     else autoPage = false;
@@ -479,6 +509,8 @@ static void browseTogglePaused() {
 }
 
 static void browseSwipe(int dx, int dy) {
+    browseMarkAll();
+
     if (abs(dx) >= abs(dy)) {
         if (dx > 40) {
             if (curPage > 0) curPage--;
@@ -758,13 +790,18 @@ static void browseDrawOverlay() {
 }
 
 static void browseDraw() {
-    tft.fillScreen(C_BG);
-    browseDrawHeader();
-    browseDrawBody();
-    browseDrawFooter();
+    if (g_browseDirtyHeader) { browseDrawHeader(); g_browseDirtyHeader = false; }
+    if (g_browseDirtyBody) {
+        // body 區域先清（唔清成個屏）— 避免 header/footer 重閃
+        tft.fillRect(0, BROWSE_HEADER_H, 320, 240 - BROWSE_HEADER_H - BROWSE_FOOTER_H, C_BG);
+        browseDrawBody();
+        g_browseDirtyBody = false;
+    }
+    if (g_browseDirtyFooter) { browseDrawFooter(); g_browseDirtyFooter = false; }
     if (browseOverlay) browseDrawOverlay();
 }
 
+// 標記某區需要重畫
 static void browseDrawCurrent() {
     browseDraw();
 }
