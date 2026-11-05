@@ -62,15 +62,19 @@ jobs:
       - name: Build notifier (ESP32 Dev Module)
         run: |
           mkdir -p dist
+          mkdir -p build/notifier
+          cp esp32/smartplay_live_esp32.ino build/notifier/notifier.ino
           arduino-cli compile --fqbn esp32:esp32:esp32:PartitionScheme=min_spiffs \
-            --output-dir dist esp32/smartplay_live_esp32.ino --warnings none
-          cp dist/smartplay_live_esp32.ino.bin dist/notifier.bin
+            --output-dir dist build/notifier --warnings none
+          cp dist/notifier.bin dist/notifier.bin
 
       - name: Build CYD (ESP32 Dev Module)
         run: |
+          mkdir -p build/cyd
+          cp esp32/smartplay_live_cyd.ino build/cyd/cyd.ino
           arduino-cli compile --fqbn esp32:esp32:esp32:PartitionScheme=min_spiffs \
-            --output-dir dist esp32/smartplay_live_cyd.ino --warnings none
-          cp dist/smartplay_live_cyd.ino.bin dist/cyd.bin
+            --output-dir dist build/cyd --warnings none
+          cp dist/cyd.ino.bin dist/cyd.bin
 
       - name: Read versions from sketches
         id: ver
