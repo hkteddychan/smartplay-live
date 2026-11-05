@@ -24,6 +24,14 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include <HTTPUpdate.h>
+
+// ---------------- OTA ----------------
+// 開機 + 每 6 小時 GET firmware.json；版本新過 FIRMWARE_VERSION → 自動下載 .bin 更新 + reboot
+const char* FIRMWARE_VERSION = "2.2.0";
+const char* URL_FIRMWARE = "https://hkteddychan.github.io/smartplay-live/esp32/firmware.json";
+const unsigned long OTA_CHECK_MS = 6UL * 3600 * 1000;   // 6 小時 check 一次
+unsigned long lastOtaCheck = 0;
 
 const char* WIFI_SSID = "YOUR_WIFI_SSID";
 const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
@@ -156,6 +164,37 @@ void processEveChanges(const String& body) {
   }
 }
 
+// ================= OTA =================
+void checkOTA() {
+  HTTPClient http;
+  http.begin(URL_FIRMWARE);
+  http.setTimeout(10000);
+  http.setUserAgent("SmartPlayLive-ESP32-OTA");
+  int code = http.GET();
+  if (code != 200) { http.end(); return; }
+  String body = http.getString();
+  http.end();
+  JsonDocument doc;
+  if (deserializeJson(doc, body)) return;
+  const char* latest = doc["notifier_v"] | "";
+  const char* binUrl = doc["notifier_bin"] | "";
+  if (!latest[0] || !binUrl[0]) return;
+  if (strcmp(latest, FIRMWARE_VERSION) == 0) {
+    Serial.printf("[OTA] up-to-date (%s)\n", latest);
+    return;
+  }
+  Serial.printf("[OTA] %s -> %s, updating...\n", FIRMWARE_VERSION, latest);
+  WiFiClientSecure client;
+  client.setInsecure();   // GitHub Pages 用 public CA — 節省記憶體唔驗 cert store
+  httpUpdate.rebootOnUpdate(true);
+  HTTPUpdateResult r = httpUpdate.update(client, binUrl);
+  switch (r) {
+    case HTTP_UPDATE_FAILED:      Serial.printf("[OTA] failed: %s\n", httpUpdate.getLastErrorString().c_str()); break;
+    case HTTP_UPDATE_NO_UPDATES:  Serial.println("[OTA] no update"); break;
+    case HTTP_UPDATE_OK:          Serial.println("[OTA] OK — rebooting"); break;  // 唔會到，rebootOnUpdate
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   delay(300);
@@ -164,11 +203,17 @@ void setup() {
   Serial.println("\n[SmartPLAY Live ESP32] boot v2.2 — 放場通知器（release-only）");
   Serial.println("feed: changes-eve.json | poll: 3min | beep on: 📈放場/🆕新時段");
   connectWiFi();
+  checkOTA();     // 開機 check OTA
+  lastOtaCheck = millis();
   lastPoll = 0;   // 立即 poll 第一次（baseline）
 }
 
 void loop() {
   unsigned long now = millis();
+  if (WiFi.status() == WL_CONNECTED && now - lastOtaCheck >= OTA_CHECK_MS) {
+    lastOtaCheck = now;
+    checkOTA();
+  }
   if (now - lastPoll >= EVE_POLL_MS) {
     lastPoll = now;
     if (WiFi.status() != WL_CONNECTED) connectWiFi();

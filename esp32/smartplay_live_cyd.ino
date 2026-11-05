@@ -49,6 +49,14 @@
 #include <Preferences.h>
 #include <TFT_eSPI.h>
 #include <XPT2046_Touchscreen.h>
+#include <HTTPUpdate.h>
+
+// ---------------- OTA ----------------
+// 開機 + 每 6 小時 GET firmware.json；版本新過 FIRMWARE_VERSION → 自動下載 .bin 更新 + reboot
+const char* FIRMWARE_VERSION = "3.3.0";
+const char* URL_FIRMWARE = "https://hkteddychan.github.io/smartplay-live/esp32/firmware.json";
+const unsigned long OTA_CHECK_MS = 6UL * 3600 * 1000;
+unsigned long lastOtaCheck = 0;
 
 // ---------------- CONFIG ----------------
 const char* WIFI_SSID = "YOUR_WIFI_SSID";
@@ -355,6 +363,47 @@ void processEveChanges(const String& body) {
   }
 }
 
+// ================= OTA =================
+void otaScreen(const char* msg) {
+  tft.fillRect(0, 296, 240, 24, TFT_BLACK);
+  tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+  tft.setTextDatum(TL_DATUM);
+  tft.drawString(msg, 8, 302, 2);
+}
+
+void checkOTA() {
+  HTTPClient http;
+  http.begin(URL_FIRMWARE);
+  http.setTimeout(10000);
+  http.setUserAgent("SmartPlayLive-CYD-OTA");
+  int code = http.GET();
+  if (code != 200) { http.end(); return; }
+  String body = http.getString();
+  http.end();
+  JsonDocument doc;
+  if (deserializeJson(doc, body)) return;
+  const char* latest = doc["cyd_v"] | "";
+  const char* binUrl = doc["cyd_bin"] | "";
+  if (!latest[0] || !binUrl[0]) return;
+  if (strcmp(latest, FIRMWARE_VERSION) == 0) {
+    Serial.printf("[OTA] up-to-date (%s)\n", latest);
+    return;
+  }
+  Serial.printf("[OTA] %s -> %s, updating...\n", FIRMWARE_VERSION, latest);
+  otaScreen("OTA updating...");
+  WiFiClientSecure client;
+  client.setInsecure();
+  httpUpdate.rebootOnUpdate(true);
+  HTTPUpdateResult r = httpUpdate.update(client, binUrl);
+  switch (r) {
+    case HTTP_UPDATE_FAILED:      otaScreen("OTA failed"); Serial.printf("[OTA] failed: %s\n", httpUpdate.getLastErrorString().c_str()); break;
+    case HTTP_UPDATE_NO_UPDATES:  otaScreen("OTA no update"); break;
+    case HTTP_UPDATE_OK:          break;  // rebooting
+  }
+  delay(3000);
+  drawPage();   // 還原屏
+}
+
 // ================= Setup / Loop =================
 void setup() {
   Serial.begin(115200);
@@ -373,6 +422,8 @@ void setup() {
 
   loadPrefs();
   connectWiFi();
+  checkOTA();     // 開機 check OTA
+  lastOtaCheck = millis();
   lastPageAt = millis();
 }
 
@@ -397,6 +448,12 @@ void loop() {
     lastEvePoll = now;
     String body;
     if (httpGetString(URL_CHANGES_EVE, body)) processEveChanges(body);
+  }
+
+  // OTA check（每 6 小時）
+  if (wifiOk && now - lastOtaCheck >= OTA_CHECK_MS) {
+    lastOtaCheck = now;
+    checkOTA();
   }
 
   // 屏狀態上報（每 3 分鐘）
