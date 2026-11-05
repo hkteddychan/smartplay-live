@@ -10,7 +10,7 @@
 - 每個**功能里程碑**（新 tab、新 feed schema、firmware 大改、UX 大改）→ 打 `vX.Y` tag + GitHub Release
 - firmware 有變 → release asset 附 `cyd-firmware-vX.Y.bin`（OTA 直下載）
 - patch（bug fix 級）→ `vX.Y.Z`
-- 現有：`v1.0`（2026-11-05 baseline）
+- 現有：`v1.0`（baseline）、`v1.1`（自動 OTA pull）、`v1.2`（放場記錄頁 + 局部重繪）
 
 ### Branch 工作流
 - 大改動（新頁面 / feed schema 改 / firmware 重構）→ `feature/<name>` branch
@@ -33,7 +33,29 @@ LCSD API → CF Worker (*/2 cron) → commit main
 - ESP32 = `esp32/*.json` @ main HEAD（CYD 每 poll 拉最新）
 
 ## Firmware OTA 流程
+
+### A. 手動 push（需同一區域網）
 1. 改 firmware → `pio run -d firmware/esp32_smartplay`
-2. 測試 → OTA push（espota.py / ota_update.py）
-3. 穩定 → tag + release 附 bin
-4. 板子 hostname `smartplay-cyd`，密碼 `smartplay`，port 3232
+2. 測試 → `python ota_update.py`（espota.py / ArduinoOTA，port 3232）
+3. 板子 hostname `smartplay-cyd`，密碼 `smartplay`
+
+### B. 自動 pull（遠端，唔使喺屋企）⭐ 推薦
+板子每 `OTA_CHECK_INTERVAL_MS`（預設 1 小時）自動：
+1. GET `esp32/ota.json` → `{version, bin, md5, size}`
+2. 版本比較 → 有新版就從 GitHub Release 下載 bin
+3. MD5 驗證 → 寫入備用分區 → 重啟
+4. 連續失敗 3 次 → 暫停 24 小時（防壞 manifest）
+
+**發新版步驟：**
+1. `pio run` → 新 bin
+2. 建 GitHub Release `vX.Y` + 附 `cyd-firmware-vX.Y.bin`
+3. 更新 `esp32/ota.json` 的 `version` / `md5` / `bin` URL
+4. 板子下一個 poll 週期自動升級（畫面顯示「自動更新中」）
+
+**⚠️ `esp32/ota.json` 唔好手動改錯 MD5** — 錯 MD5 會令板子連續失敗 3 次然後靜默 24 小時。
+
+## 放場記錄頁（CYD）
+- 數據源：`esp32/notif.json`（由 worker 從 `esp32/notif-state.json` 生成）
+- Worker 每次發 Telegram 放場通知 → 同時寫入 notif-state（保留 60 批）
+- `notif.json` 只出最近 30 批、每批頭 8 個放場（輕量，CYD 一次過載入）
+- CYD UI：通知頁底部「記錄」tab → 批次列表 → 撳卡入批次詳情
