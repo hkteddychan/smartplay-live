@@ -43,6 +43,9 @@ jobs:
           #include "User_Setups/Setup_SmartPlayCYD.h"
           EOF
           cat > "$LIBDIR/User_Setups/Setup_SmartPlayCYD.h" <<'EOF'
+          #ifndef USER_SETUP_LOADED
+          #define USER_SETUP_LOADED
+          #endif
           #define ILI9341_DRIVER
           #define TFT_MISO 12
           #define TFT_MOSI 13
