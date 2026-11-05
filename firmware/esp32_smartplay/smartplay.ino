@@ -93,7 +93,7 @@ struct Alert {
 };
 
 #define MAX_ALERTS 4
-#define MAX_VENUES 240
+#define MAX_VENUES 160
 
 static Alert g_alerts[MAX_ALERTS];
 static int g_alertCount = 0;
