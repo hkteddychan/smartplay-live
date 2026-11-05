@@ -36,6 +36,7 @@
 #include "cyd_text.h"
 #include "cyd_audio.h"
 #include "cyd_browse.h"
+#include "cyd_notify.h"
 #include "cyd_ota_pull.h"
 
 TFT_eSPI tft = TFT_eSPI();
@@ -112,10 +113,15 @@ static int g_pollFails = 0;
 static bool g_timeValid = false;
 static int g_hour = 0, g_min = 0;
 static bool g_unread = false;
+// 📜 記錄 chip flash（touch 回饋用局部重繪）
+static bool g_histChipFlash = false;
+static unsigned long g_histFlashUntil = 0;
+static bool g_homeFullDrawn = false;   // 首繪用全頁，之後只局部更新
+static bool g_homeNeedsFull = true;    // true = 要全頁重繪；false = 只局部刷新
 
 /* ---------------- screen state ---------------- */
 enum Screen { SCR_HOME, SCR_ALERT };
-enum Page { PAGE_NOTIFY, PAGE_BROWSE };
+enum Page { PAGE_NOTIFY, PAGE_BROWSE, PAGE_HISTORY };
 static Screen g_screen = SCR_HOME;
 static Page g_page = PAGE_NOTIFY;
 static Page g_returnPage = PAGE_NOTIFY;   // 警報蓋住邊個頁，收完返返去
@@ -446,6 +452,24 @@ static void loadVenueMap() {
   Serial.printf("[venue] map loaded: %d venues, heap %u\n", g_venueCount, (unsigned)ESP.getFreeHeap());
 }
 
+// ---------- OTA 屏幕提示（覆蓋 cyd_ota_pull.h 嘅 weak 版本）----------
+void otaScreenMsg(const char *line1, const char *line2) {
+  Serial.printf("[OTA-SCREEN] %s | %s\n", line1 ? line1 : "", line2 ? line2 : "");
+  tft.fillScreen(C_BG);
+  tft.fillRect(0, 0, SCR_W, 40, C_ACCENT);
+  drawUTF8(String("OTA UPDATE"), 8, 10, C_BG, C_ACCENT);
+  tft.setTextColor(C_TEXT, C_BG);
+  tft.setTextDatum(TL_DATUM);
+  if (line1 && *line1) {
+    int w = measureUTF8(String(line1));
+    drawUTF8(String(line1), (SCR_W - w) / 2, 90, C_TEXT, C_BG);
+  }
+  if (line2 && *line2) {
+    int w2 = measureUTF8(String(line2));
+    drawUTF8(String(line2), (SCR_W - w2) / 2, 120, C_DIM, C_BG);
+  }
+}
+
 /* ---------------- beep ---------------- */
 static void beep() {
   bool ok = audioTone((AudioPath)BEEP_PATH, BEEP_FREQ, BEEP_MS, BEEP_AMP);
@@ -491,7 +515,7 @@ static void drawHome() {
   drawUTF8(String("放場通知器"), 6, 7, C_TEXT, C_BAR);
   if (g_unread) tft.fillCircle(SCR_W - 86, 15, 5, C_GOOD);
 
-  // 大字">
+  // 大字
   String big = "等待放場中";
   int bw = measureUTF8(big);
   drawUTF8(big, (SCR_W - bw) / 2, BODY_Y + 26, C_TEXT, C_BG);
@@ -501,8 +525,8 @@ static void drawHome() {
   drawUTF8(sub, (SCR_W - sw) / 2, BODY_Y + 50, C_DIM, C_BG);
 
   // status lines
-  int y = BODY_Y + 84;
   char line[64];
+  int y = BODY_Y + 84;
   tft.setTextColor(C_DIM, C_BG);
   tft.setTextDatum(TL_DATUM);
   tft.drawString("last poll", 8, y, 2);
@@ -513,11 +537,7 @@ static void drawHome() {
   y += 22;
   tft.setTextColor(C_DIM, C_BG);
   tft.drawString("next poll", 8, y, 2);
-  unsigned long since = millis() - g_lastEvePoll;
-  unsigned long waitMs = g_evePollInterval - (since % g_evePollInterval);
-  snprintf(line, sizeof(line), "%lus", waitMs / 1000);
   tft.setTextColor(C_TEXT, C_BG);
-  tft.drawString(line, 92, y, 2);
 
   y += 22;
   tft.setTextColor(C_DIM, C_BG);
@@ -528,9 +548,7 @@ static void drawHome() {
   y += 22;
   tft.setTextColor(C_DIM, C_BG);
   tft.drawString("releases", 8, y, 2);
-  snprintf(line, sizeof(line), "%d", g_releaseTotal);
   tft.setTextColor(C_GOOD, C_BG);
-  tft.drawString(line, 92, y, 2);
 
   // footer
   String left = String("WiFi ") + g_wifiSsid;
@@ -546,6 +564,8 @@ static void drawHome() {
   drawUTF8(String("通知"), 232, SCR_H - FOOTER_H + 4, C_DIM, C_BAR);
   tft.setTextColor(C_ACCENT, C_BAR);
   drawUTF8(String("瀏覽"), 282, SCR_H - FOOTER_H + 4, C_ACCENT, C_BAR);
+  // 📜 記錄 tab
+  drawHistChip();
 
   // audio probe banner
   if (g_probeText.length()) {
@@ -554,7 +574,57 @@ static void drawHome() {
     tft.fillRect(bx - 8, BODY_Y + 40, w + 16, 24, C_WARN);
     drawUTF8(g_probeText, bx, BODY_Y + 44, C_BG, C_WARN);
   }
+
+  g_homeFullDrawn = true;
 }
+
+// ---------- v1.2：局部重繪（唔再每次 fillScreen） ----------
+// 只更新「last poll / next poll / feed / releases」四行數值
+static void drawHomeStatusRows() {
+  if (!g_homeFullDrawn) return;
+  char line[64];
+  int y = BODY_Y + 84;
+
+  // last poll
+  fmtClock(g_lastPollAt, line, sizeof(line));
+  tft.fillRect(92, y, 120, 17, C_BG);
+  tft.setTextColor(C_TEXT, C_BG);
+  tft.setTextDatum(TL_DATUM);
+  tft.drawString(line, 92, y, 2);
+
+  // next poll（倒數秒數會變 → 每次只清呢個小區域）
+  y += 22;
+  unsigned long since = millis() - g_lastEvePoll;
+  unsigned long waitMs = g_evePollInterval - (since % g_evePollInterval);
+  snprintf(line, sizeof(line), "%lus", waitMs / 1000);
+  tft.fillRect(92, y, 120, 17, C_BG);
+  tft.setTextColor(C_TEXT, C_BG);
+  tft.drawString(line, 92, y, 2);
+
+  // feed
+  y += 22;
+  tft.fillRect(92, y, 120, 17, C_BG);
+  tft.setTextColor(C_TEXT, C_BG);
+  tft.drawString(g_feedGen, 92, y, 2);
+
+  // releases
+  y += 22;
+  snprintf(line, sizeof(line), "%d", g_releaseTotal);
+  tft.fillRect(92, y, 120, 17, C_BG);
+  tft.setTextColor(C_GOOD, C_BG);
+  tft.drawString(line, 92, y, 2);
+}
+
+// 📜 記錄 tab 局部重繪（底部導覽列，touch 回饋用）
+static void drawHistChip() {
+  bool hf = (g_histChipFlash && millis() < g_histFlashUntil);
+  int ty = SCR_H - FOOTER_H + 4;
+  uint16_t fg = hf ? C_BG : (g_page == PAGE_HISTORY ? C_ACCENT : C_DIM);
+  uint16_t bg = hf ? C_ACCENT : C_BAR;
+  tft.fillRect(178, SCR_H - FOOTER_H, 50, FOOTER_H, bg);
+  drawUTF8(String("記錄"), 182, ty, fg, bg);
+}
+
 
 static void drawAlert() {
   tft.fillScreen(C_BG);
@@ -623,6 +693,19 @@ static void processTap(int x, int y) {
     g_screen = SCR_HOME;
     g_page = g_returnPage;
     g_unread = false;
+    g_homeNeedsFull = true;
+    g_dirty = true;
+    return;
+  }
+
+  // 📜 底部「記錄」tab（要喺底部導覽之前判斷，否則會被通知/瀏覽攞走）
+  if (g_page == PAGE_NOTIFY && x >= 176 && x <= 230 && y >= SCR_H - FOOTER_H) {
+    g_histChipFlash = true;
+    g_histFlashUntil = millis() + 220;
+    g_page = PAGE_HISTORY;
+    nhDetailBatch = -1;
+    nhScroll = 0;
+    if (!nhLoaded && !nhFetching) nhFetch();
     g_dirty = true;
     return;
   }
@@ -630,7 +713,7 @@ static void processTap(int x, int y) {
   // 底部 Tab 導航
   if (y >= SCR_H - FOOTER_H) {
     if (x < SCR_W / 2) {
-      g_page = PAGE_NOTIFY;
+      if (g_page != PAGE_NOTIFY) { g_page = PAGE_NOTIFY; g_homeNeedsFull = true; }
     } else {
       g_page = PAGE_BROWSE;
       browseReset();
@@ -640,10 +723,23 @@ static void processTap(int x, int y) {
     return;
   }
 
+  if (g_page == PAGE_HISTORY) {
+    nhTouch(x, y);
+    if (nhWantExit) {
+      g_page = PAGE_NOTIFY;
+      g_homeNeedsFull = true;
+      nhDetailBatch = -1;
+      nhScroll = 0;
+    }
+    g_dirty = true;
+    return;
+  }
+
   if (g_page == PAGE_BROWSE) {
     // 極左上角細角落 → 返通知頁（避免同地區 chip 衝突）
     if (x < 16 && y < 16) {
       g_page = PAGE_NOTIFY;
+      g_homeNeedsFull = true;
       g_dirty = true;
       return;
     }
@@ -688,6 +784,9 @@ static void handleTouch() {
         if (g_page == PAGE_BROWSE && g_screen == SCR_HOME) {
           browseSwipe(dx, dy);
           g_dirty = true;
+        } else if (g_page == PAGE_HISTORY && g_screen == SCR_HOME) {
+          nhSwipe(dx, dy);
+          g_dirty = true;
         }
       } else {
         processTap(tStartX, tStartY);
@@ -718,7 +817,20 @@ static void updateClock() {
     g_hour = lt.tm_hour;
     g_min = lt.tm_min;
     g_timeValid = true;
-    g_dirty = true;
+    // v1.2：時鐘只喺 header 右上角 → 局部重畫 header（唔成頁）
+    if (g_page == PAGE_NOTIFY && g_screen == SCR_HOME && g_homeFullDrawn) {
+      if (g_timeValid) {
+        char buf[8];
+        snprintf(buf, sizeof(buf), "%02d:%02d", g_hour, g_min);
+        tft.fillRect(SCR_W - 60, 2, 56, 26, C_BAR);
+        tft.setTextColor(C_TEXT, C_BAR);
+        tft.setTextDatum(TR_DATUM);
+        tft.drawString(buf, SCR_W - 8, 7, 2);
+        tft.setTextDatum(TL_DATUM);
+      }
+    } else {
+      g_dirty = true;
+    }
   }
 }
 
@@ -854,13 +966,20 @@ void setup() {
   // ---- OTA (over-the-air) 更新 ----
   ArduinoOTA.setHostname("smartplay-cyd");
   ArduinoOTA.setPassword("smartplay");
-  ArduinoOTA.onStart([]() { Serial.println("[OTA] start"); });
-  ArduinoOTA.onEnd([]() { Serial.println("[OTA] end"); });
+  ArduinoOTA.onStart([]() {
+    Serial.println("[OTA] start");
+    otaScreenMsg("更新中…", "ArduinoOTA");
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("[OTA] end");
+    otaScreenMsg("更新完成", "重新啟動中");
+  });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
     Serial.printf("[OTA] %u%%\r", (progress * 100) / total);
   });
   ArduinoOTA.onError([](ota_error_t error) {
     Serial.printf("[OTA] error %u\n", error);
+    otaScreenMsg("更新失敗", "請用 USB 救板");
   });
   ArduinoOTA.begin();
   Serial.printf("[OTA] ready, IP=%s, hostname=smartplay-cyd, password=smartplay\n",
@@ -898,6 +1017,8 @@ void loop() {
   if (browseFlashUntil && millis() >= browseFlashUntil) {
     browseFlashUntil = 0;
     browseFlashChip = -1;
+    // v1.2：只重畫 header（局部），唔成頁 fillScreen
+    if (g_page == PAGE_BROWSE && g_screen == SCR_HOME) browseMarkHeader();
     g_dirty = true;
   }
   updateClock();
@@ -912,27 +1033,50 @@ void loop() {
     }
   }
 
+  // 📜 記錄 chip flash 到期 → 局部重繪 chip（唔成頁重畫）
+  if (g_histChipFlash && millis() >= g_histFlashUntil) {
+    g_histChipFlash = false;
+    if (g_page == PAGE_NOTIFY && g_screen == SCR_HOME) drawHistChip();
+  }
+
+  // 📜 放場記錄頁：首次未載入就背景拉 + 每 5 分鐘更新
+  if (!nhLoaded && !nhFetching && WiFi.status() == WL_CONNECTED &&
+      millis() > 10000UL) {
+    nhFetch();
+  } else if (nhLoaded && g_page == PAGE_HISTORY &&
+             millis() - nhLastFetch >= 5UL * 60UL * 1000UL) {
+    nhFetch();
+    g_dirty = true;
+  }
+
   // 警報畫面自動返回（通知已經響過，唔好霸住個位）
   if (g_screen == SCR_ALERT && millis() - g_alertAt > 120000) {
     g_screen = SCR_HOME;
     g_page = g_returnPage;
     g_unread = false;
+    g_homeNeedsFull = true;
     g_dirty = true;
   }
 
-  // 通知頁主畫面：每 5 秒刷新一次，讓「next poll」倒數保持更新
+  // 通知頁主畫面：每 5 秒只局部更新四行狀態（唔再 fillScreen → 冇閃爍）
   static unsigned long lastNotifyRedraw = 0;
   if (g_page == PAGE_NOTIFY && g_screen == SCR_HOME &&
       millis() - lastNotifyRedraw >= 5000UL) {
     lastNotifyRedraw = millis();
-    g_dirty = true;
+    drawHomeStatusRows();
   }
 
   if (g_dirty) {
     g_dirty = false;
     if (g_screen == SCR_ALERT && g_alertCount > 0) drawAlert();
     else if (g_page == PAGE_BROWSE) browseDrawCurrent();
-    else drawHome();
+    else if (g_page == PAGE_HISTORY) {
+      if (nhDetailBatch >= 0) nhDrawDetail(); else nhDrawList();
+    }
+    else {
+      if (g_homeNeedsFull || !g_homeFullDrawn) { drawHome(); g_homeFullDrawn = true; g_homeNeedsFull = false; }
+      else drawHomeStatusRows();
+    }
   }
 
   delay(100);
