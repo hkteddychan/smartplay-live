@@ -34,6 +34,7 @@ jobs:
         run: |
           arduino-cli lib install "ArduinoJson"
           arduino-cli lib install "XPT2046_Touchscreen"
+          arduino-cli lib install "TFT_eSPI"
 
       - name: TFT_eSPI user setup (CYD)
         run: |
