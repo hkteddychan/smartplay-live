@@ -1379,6 +1379,7 @@ $('#f-export').addEventListener('click', exportFacility);
 $('#c-export').addEventListener('click', exportChanges);
 ['#a-search','#a-district','#a-type','#a-date'].forEach(s => $(s).addEventListener('input', renderActivity));
 $('#a-only').addEventListener('change', () => { saveFilters(); renderActivity(); });
+$('#a-fcfs').addEventListener('change', () => { saveFilters(); renderActivity(); });
 $('#a-export').addEventListener('click', exportActivity);
 $('#m-only').addEventListener('change', renderMap);
 $('#m-refresh').addEventListener('click', renderMap);
