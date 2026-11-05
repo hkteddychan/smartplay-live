@@ -161,6 +161,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
         <label>&nbsp;</label>
         <label><input type="checkbox" id="f-only" checked> 淨係顯示有餘額</label>
       </div>
+      <button class="secondary" id="f-refresh">🔄 更新</button>
       <button id="f-export">⬇️ 保存 CSV</button>
     </div>
     <div class="stats" id="f-stats"></div>
@@ -194,6 +195,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
         <label>關鍵字</label>
         <input type="text" id="c-search" placeholder="場地名...">
       </div>
+      <button class="secondary" id="c-refresh">🔄 更新</button>
       <button id="c-export">⬇️ 保存 CSV</button>
     </div>
     <div class="stats" id="c-stats"></div>
@@ -303,6 +305,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
       </div>
       <label class="f-check"><input type="checkbox" id="a-only"> 仍有餘額</label>
       <label class="f-check"><input type="checkbox" id="a-fcfs"> ⚡可先到先得報名</label>
+      <button class="secondary" id="a-refresh">🔄 更新</button>
       <button id="a-export">⬇️ 保存 CSV</button>
     </div>
     <div class="stats" id="a-stats"></div>
@@ -327,6 +330,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
             <option value="">全部</option>
             <option value="released">🟢 放場中</option>
             <option value="taken">🔴 已訂滿</option>
+            <option value="expired">⚪ 已過期</option>
           </select>
         </div>
         <div class="f-group">
@@ -363,6 +367,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
             <button type="button" class="pill active" data-p="eve">晚</button>
           </div>
         </div>
+        <button class="secondary" id="s-refresh">🔄 更新</button>
         <button id="s-export">⬇️ 保存 CSV</button>
       </div>
       <div class="stats" id="s-stats"></div>
@@ -593,6 +598,7 @@ function initSports() {
 
 // ---------- FILTERS ----------
 function initDistricts() {
+  if ($('#a-district').options.length > 1) return;  // 已初始化 — refresh 重入唔重複 + filter 保留
   const dists = new Set();
   Object.values(all).forEach(arr => arr.forEach(x => dists.add(x.District_Name_TC)));
   const sorted = [...dists].sort();
@@ -772,12 +778,14 @@ async function loadChanges() {
   } catch (e) {
     changesData = { g: null, prev: {}, sports: {} };
   }
-  // sport dropdown
+  // sport dropdown（只 build 一次 — 重複 load 唔會加重复 options，filter 值保留）
   const sel = $('#c-sport');
-  Object.keys(SPORTS).forEach(k => {
-    if (changesData.sports && changesData.sports[k] !== undefined)
-      sel.add(new Option(SPORTS[k].icon + ' ' + SPORTS[k].name, k));
-  });
+  if (sel.options.length <= 1) {
+    Object.keys(SPORTS).forEach(k => {
+      if (changesData.sports && changesData.sports[k] !== undefined)
+        sel.add(new Option(SPORTS[k].icon + ' ' + SPORTS[k].name, k));
+    });
+  }
   renderChanges();
 }
 
@@ -1059,7 +1067,9 @@ async function loadActivity() {
     if (x.TC_ACT_TYPE_NAME) types.add(x.TC_ACT_TYPE_NAME);
   });
   const tSel = $('#a-type');
-  [...types].sort().forEach(t => tSel.add(new Option(t, t)));
+  if (tSel.options.length <= 1) {
+    [...types].sort().forEach(t => tSel.add(new Option(t, t)));
+  }
   const aDate = $('#a-date');
   aDate.min = hkToday();
   if (!aDate.value) aDate.value = hkToday();
@@ -1163,7 +1173,8 @@ function sessionFilter() {
   const periods = new Set([...document.querySelectorAll('#s-time-pills .pill.active')].map(b => b.dataset.p));
   return sessionsData.s.filter(x => {
     if (sport && x.sport !== sport) return false;
-    if (status && x.status !== status) return false;
+    if (status === 'expired') { if (!(x.status === 'released' && x.d && x.d < hkToday())) return false; }
+    else if (status && x.status !== status) return false;
     if (q && !(x.v + ' ' + x.loc).toLowerCase().includes(q)) return false;
     // 記錄時間 range（released 嗰日）
     const rdate = (x.released || '').slice(0, 10);
@@ -1231,6 +1242,7 @@ function exportSessions() {
 }
 
 $('#s-export').addEventListener('click', exportSessions);
+$('#s-refresh').addEventListener('click', async e => { e.target.textContent = '⏳ 拉緊...'; await loadSessions(); e.target.textContent = '🔄 更新'; });
 
 // ---------- EXPORT CSV ----------
 function toCSV(rows, headers) {
@@ -1276,11 +1288,14 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
 ['#f-search','#f-time'].forEach(s => $(s).addEventListener('input', () => { renderFacility(); }));
 $('#f-only').addEventListener('change', renderFacility);
 $('#f-export').addEventListener('click', exportFacility);
+$('#f-refresh').addEventListener('click', async e => { e.target.textContent = '⏳ 拉緊...'; await loadAll(); e.target.textContent = '🔄 更新'; });
 ['#c-sport','#c-kind','#c-search'].forEach(s => $(s).addEventListener('input', renderChanges));
+$('#c-refresh').addEventListener('click', loadChanges);
 $('#c-export').addEventListener('click', exportChanges);
 ['#a-search','#a-district','#a-type','#a-date'].forEach(s => $(s).addEventListener('input', renderActivity));
 $('#a-only').addEventListener('change', () => { saveFilters(); renderActivity(); });
 $('#a-export').addEventListener('click', exportActivity);
+$('#a-refresh').addEventListener('click', async e => { e.target.textContent = '⏳ 拉緊...'; await loadActivity(); e.target.textContent = '🔄 更新'; });
 
 // ---------- NEW-DATA POLL（meta.json version check + update banner） ----------
 let myMetaUtc = null;          // page load 時嘅版本
