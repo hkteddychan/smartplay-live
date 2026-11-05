@@ -26,8 +26,8 @@ static void browseMarkAll()    { g_browseDirtyHeader = g_browseDirtyBody = g_bro
 #define BROWSE_HEADER_H 26
 #define BROWSE_FOOTER_H 14
 
-#define BROWSE_MAX_VENUES 256
-#define BROWSE_MAX_ROWS 2048
+#define BROWSE_MAX_VENUES 128
+#define BROWSE_MAX_ROWS 1024
 #define BROWSE_MAX_DISTRICTS 32
 #define BROWSE_MAX_DATES 10
 #define BROWSE_MAX_SPORTS 8
