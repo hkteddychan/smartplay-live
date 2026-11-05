@@ -23,6 +23,8 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <ArduinoOTA.h>
+#include <esp_ota_ops.h>
+#include <esp_task_wdt.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -187,11 +189,31 @@ static String venueDistrict(const char *venue) {
   return String("");
 }
 
-/* ---------------- WiFi Plan A: multi-network auto-detect ---------------- */
+/* ---------------- WiFi credentials (from secrets.h or defaults) ---------------- */
+#if __has_include("secrets.h")
+#include "secrets.h"
+#ifndef WIFI_SSID_1
+#define WIFI_SSID_1 "REDACTED"
+#endif
+#ifndef WIFI_PASS_1
+#define WIFI_PASS_1 "REDACTED"
+#endif
+#ifndef WIFI_SSID_2
+#define WIFI_SSID_2 "REDACTED"
+#endif
+#ifndef WIFI_PASS_2
+#define WIFI_PASS_2 "teddychan"
+#endif
+#else
+#define WIFI_SSID_1 "REDACTED"
+#define WIFI_PASS_1 "REDACTED"
+#define WIFI_SSID_2 "REDACTED"
+#define WIFI_PASS_2 "teddychan"
+#endif
 struct WifiNet { const char *ssid; const char *pass; };
 static const WifiNet WIFI_NETS[] = {
-    {"REDACTED", "REDACTED"},
-    {"REDACTED", "teddychan"},
+    {WIFI_SSID_1, WIFI_PASS_1},
+    {WIFI_SSID_2, WIFI_PASS_2},
 };
 static const int N_WIFI_NETS = sizeof(WIFI_NETS) / sizeof(WIFI_NETS[0]);
 static char g_wifiSsid[32] = "";
@@ -222,6 +244,7 @@ static void connectWiFi() {
         unsigned long t0 = millis();
         while (WiFi.status() != WL_CONNECTED && millis() - t0 < 15000) {
             delay(400);
+         esp_task_wdt_reset();
             Serial.print(".");
         }
         Serial.println();
@@ -1062,7 +1085,13 @@ void setup() {
   tft.setRotation(1);  // 320x240 landscape
   tft.fillScreen(C_BG);
   tft.setTextDatum(TL_DATUM);
-
+  // Boot splash
+  tft.fillRect(0, 0, 320, 40, C_ACCENT);
+  drawUTF8(String("SmartPLAY Live"), 8, 10, C_BG, C_ACCENT);
+  tft.setTextColor(C_TEXT, C_BG);
+  tft.setTextDatum(TL_DATUM);
+  drawUTF8(String("CYD v3.3"), 8, 50, C_DIM, C_BG);
+  drawUTF8(String("連接中..."), 8, 70, C_DIM, C_BG);
   // CYD 觸控用獨立 VSPI bus：SCK=25, MISO=39, MOSI=32, CS=33
   touchSPI.begin(25, 39, 32, 33);
   ts.begin(touchSPI);
@@ -1070,6 +1099,10 @@ void setup() {
 
   Serial.println("\n[SmartPLAY Live CYD] boot v3.3 — 放場通知器 + 狀態回報");
   Serial.printf("[REPORT] firmware %s, endpoint OK\n", g_reportFw);
+  // OTA rollback: mark current app as valid (cancel rollback)
+  esp_ota_mark_app_valid_cancel_rollback();
+  // Watchdog: register loopTask (framework already init'd TWDT)
+  esp_task_wdt_add(NULL);
   connectWiFi();
   // ---- OTA (over-the-air) 更新 ----
   ArduinoOTA.setHostname("smartplay-cyd");
@@ -1191,5 +1224,6 @@ void loop() {
     }
   }
 
+  esp_task_wdt_reset();
   delay(100);
 }

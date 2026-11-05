@@ -1,0 +1,128 @@
+name: Build and Release ESP32 Firmware
+
+on:
+  push:
+    branches: [feature/browse-page, main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Firmware version (e.g., 1.3.2)'
+        required: true
+        default: '1.3.2'
+
+env:
+  FIRMWARE_DIR: firmware/esp32_smartplay
+  PLATFORMIO_CORE_DIR: ${{ github.workspace }}/.platformio
+
+jobs:
+  build:
+    name: Build ESP32 Firmware
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ${{ env.PLATFORMIO_CORE_DIR }}
+          key: ${{ runner.os }}-platformio-${{ hashFiles('**/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-platformio-
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build firmware
+        working-directory: ${{ env.FIRMWARE_DIR }}
+        run: pio run
+
+      - name: Compute MD5 and size
+        id: fw_info
+        run: |
+          BIN="${{ env.FIRMWARE_DIR }}/.pio/build/esp32-cyd-smartplay/firmware.bin"
+          echo "size=$(stat -c%s $BIN)" >> $GITHUB_OUTPUT
+          echo "md5=$(md5sum $BIN | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+          echo "path=$BIN" >> $GITHUB_OUTPUT
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cyd-firmware
+          path: ${{ env.FIRMWARE_DIR }}/.pio/build/esp32-cyd-smartplay/firmware.bin
+          retention-days: 30
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cyd-firmware
+          path: ./release
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./release/firmware.bin
+          name: ${{ github.ref_name }}
+          body: |
+            ESP32-CYD SmartPLAY Live firmware ${{ github.ref_name }}
+
+            Build: GitHub Actions
+            Size: ${{ needs.build.outputs.fw_info.size }} bytes
+            MD5: ${{ needs.build.outputs.fw_info.md5 }}
+
+            OTA: devices will auto-pull if OTA_FW_VERSION < ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-manifest:
+    name: Update OTA Manifest
+    needs: [build, release]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update ota.json
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          MD5="${{ needs.build.outputs.fw_info.md5 }}"
+          SIZE="${{ needs.build.outputs.fw_info.size }}"
+          cat > esp32/ota.json <<EOF
+          {
+           "version": "$VERSION",
+           "bin": "https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}/firmware.bin",
+           "md5": "$MD5",
+           "size": $SIZE,
+           "note": "Auto-built by GitHub Actions"
+          }
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add esp32/ota.json
+          git commit -m "⬆️ OTA manifest $VERSION (auto-build)"
+          git push
