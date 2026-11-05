@@ -37,7 +37,7 @@ static const int NH_CARD_Y0  = NH_HEADER_H + 4;
 static const int NH_LIST_H   = NH_ROWS * NH_CARD_H;
 static const int NH_FOOT_Y   = NH_CARD_Y0 + NH_LIST_H;
 
-#define NH_MAX_BATCH 12
+#define NH_MAX_BATCH 5
 #define NH_MAX_REL   6
 
 struct NRel {
