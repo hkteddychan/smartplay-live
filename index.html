@@ -1052,19 +1052,22 @@ async function loadCyds(force) {
 function renderCyds() {
   const hasData = !!(cydStatus && cydStatus.ts);
   const staleMin = hasData ? (Date.now() - new Date(cydStatus.ts).getTime()) / 60000 : Infinity;
-  const online = staleMin < 10;
+  const online = staleMin < 15;   // v1.3 每 5 分鐘報告一次，15 分鐘門檻容錯
   $('#ec-stats').innerHTML = `
     <div class="stat"><b style="color:${hasData ? (online ? '#2ea043' : '#f85149') : 'var(--muted)'}">${hasData ? (online ? '🟢 在線' : '🔴 離線 ' + Math.round(staleMin) + ' 分') : '— 未有報告'}</b><span>連線狀態</span></div>
     <div class="stat"><b>${cydStatus ? (cydStatus.district || '—') : '—'}</b><span>目前區份</span></div>
     <div class="stat"><b>${cydStatus ? (cydStatus.rows || 0) : 0}</b><span>符合場次</span></div>
     <div class="stat"><b>${cydHistory ? cydHistory.n : 0}</b><span>歷史記錄</span></div>
     ${cydStatus && cydStatus.rssi ? `<div class="stat"><b>${cydStatus.rssi} dBm</b><span>WiFi 訊號</span></div>` : ''}
-    ${cydStatus && cydStatus.fw ? `<div class="stat"><b style="font-size:13px">${cydStatus.fw}</b><span>韌體</span></div>` : ''}`;
+    ${cydStatus && cydStatus.fw ? `<div class="stat"><b style="font-size:13px;color:${online ? '#2ea043' : 'var(--muted)'}">${cydStatus.fw}</b><span>韌體版本</span></div>` : ''}
+    ${cydStatus && cydStatus.up ? `<div class="stat"><b>${Math.floor(cydStatus.up/60)} 分</b><span>板子運行</span></div>` : ''}
+    ${cydStatus && cydStatus.heap ? `<div class="stat"><b>${Math.round(cydStatus.heap/1024)} KB</b><span>可用記憶體</span></div>` : ''}
+    ${cydStatus && cydStatus.g ? `<div class="stat"><b style="font-size:13px">${cydStatus.g.slice(11,16)}</b><span>上次報告</span></div>` : ''}`;
 
   // 屏重演 — 用 CYD 上報嘅 filter 套返落 browse.json（同 CYD drawPage 同一數據源）
   const body = $('#ec-body'), hdr = $('#ec-hdr'), foot = $('#ec-foot');
   if (!hasData) {
-    body.innerHTML = '<div style="color:#555;text-align:center;margin-top:40%">未有報告<br><small style="color:#444">等 ESP32 v3.3 首次上線報告</small></div>';
+    body.innerHTML = '<div style="color:#555;text-align:center;margin-top:40%">未有報告<br><small style="color:#444">等 ESP32 v1.3 首次上線報告</small></div>';
     hdr.innerHTML = '<span>—</span><span></span>';
     foot.innerHTML = '<span></span><span></span>';
   } else {
