@@ -202,6 +202,7 @@ void drawPage() {
   int rowIdx[12];
   int n = rowsFor(curDistrict, curDate, rowIdx, 12);
   int totalPages = (n + 3) / 4; if (totalPages < 1) totalPages = 1;
+  int page = curPage % totalPages;
 
   tft.fillScreen(TFT_BLACK);
   // header
@@ -219,7 +220,6 @@ void drawPage() {
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
     tft.drawString("呢個時段冇場", 20, 140, 2);
   } else {
-    int page = curPage % totalPages;
     for (int i = 0; i < 4; i++) {
       int ri = page * 4 + i;
       if (ri >= n) break;
