@@ -1,0 +1,110 @@
+name: ESP32 OTA Build
+
+# 兩塊板嘅 firmware 自動編譯：
+#   - smartplay_live_esp32.ino（notifier）
+#   - smartplay_live_cyd.ino（CYD 觸屏）
+# 改 esp32/*.ino push → arduino-cli 編譯 → .bin 上傳 GitHub Release（tag esp32-fw）+
+# 更新 esp32/firmware.json（OTA manifest）→ 板開機/每 6 小時自動 check 更新
+#
+# CYD 用 TFT_eSPI — User_Setup 透過覆寫 User_Setup_Select.h 注入（boards.txt 自訂 flag -DTFT_...）
+
+on:
+  push:
+    paths:
+      - 'esp32/*.ino'
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install arduino-cli
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
+
+      - name: Install libs
+        run: |
+          arduino-cli lib install "ArduinoJson"
+          arduino-cli lib install "XPT2046_Touchscreen"
+
+      - name: TFT_eSPI user setup (CYD)
+        run: |
+          LIBDIR=$(arduino-cli config get directories.user)/libraries/TFT_eSPI
+          cat > "$LIBDIR/User_Setup_Select.h" <<'EOF'
+          #include "User_Setups/Setup_SmartPlayCYD.h"
+          EOF
+          cat > "$LIBDIR/User_Setups/Setup_SmartPlayCYD.h" <<'EOF'
+          #define ILI9341_DRIVER
+          #define TFT_MISO 12
+          #define TFT_MOSI 13
+          #define TFT_SCLK 14
+          #define TFT_CS   15
+          #define TFT_DC    2
+          #define TFT_RST  -1
+          #define TFT_BL   21
+          #define TOUCH_CS 33
+          #define LOAD_GLCD
+          #define LOAD_FONT2
+          #define LOAD_FONT4
+          #define LOAD_GFXFF
+          #define SMOOTH_FONT
+          EOF
+
+      - name: Build notifier (ESP32 Dev Module)
+        run: |
+          mkdir -p dist
+          arduino-cli compile --fqbn esp32:esp32:esp32:PartitionScheme=min_spiffs \
+            --output-dir dist esp32/smartplay_live_esp32.ino --warnings none
+          cp dist/smartplay_live_esp32.ino.bin dist/notifier.bin
+
+      - name: Build CYD (ESP32 Dev Module)
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:esp32:PartitionScheme=min_spiffs \
+            --output-dir dist esp32/smartplay_live_cyd.ino --warnings none
+          cp dist/smartplay_live_cyd.ino.bin dist/cyd.bin
+
+      - name: Read versions from sketches
+        id: ver
+        run: |
+          NV=$(grep -oP 'FIRMWARE_VERSION = "\K[^"]+' esp32/smartplay_live_esp32.ino)
+          CV=$(grep -oP 'FIRMWARE_VERSION = "\K[^"]+' esp32/smartplay_live_cyd.ino)
+          echo "notifier=$NV" >> $GITHUB_OUTPUT
+          echo "cyd=$CV" >> $GITHUB_OUTPUT
+
+      - name: Upload to Release (tag esp32-fw, rolling)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: esp32-fw
+          name: ESP32 Firmware (rolling)
+          files: dist/notifier.bin,dist/cyd.bin
+          make_latest: false
+          overwrite_files: true
+
+      - name: Commit firmware.json (OTA manifest)
+        run: |
+          TS=$(date -u +'%Y-%m-%d %H:%M')
+          REPO="hkteddychan/smartplay-live"
+          BASE="https://github.com/$REPO/releases/download/esp32-fw"
+          cat > esp32/firmware.json <<EOF
+          {
+            "notifier_v": "${{ steps.ver.outputs.notifier }}",
+            "notifier_bin": "$BASE/notifier.bin",
+            "cyd_v": "${{ steps.ver.outputs.cyd }}",
+            "cyd_bin": "$BASE/cyd.bin",
+            "built": "$TS UTC"
+          }
+          EOF
+          git config user.name "Teddy Sir"
+          git config user.email "hkteddychan@users.noreply.github.com"
+          git add esp32/firmware.json
+          git commit -m "🤖 OTA manifest: notifier ${{ steps.ver.outputs.notifier }} / cyd ${{ steps.ver.outputs.cyd }}" || echo "no change"
+          git pull --rebase origin main || true
+          git push origin main
