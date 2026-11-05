@@ -961,7 +961,7 @@ void setup() {
   ts.begin(touchSPI);
   ts.setRotation(1);
 
-  Serial.println("\n[SmartPLAY Live CYD] boot v3.1-OTA-PULL — 放場通知器");
+  Serial.println("\n[SmartPLAY Live CYD] boot v3.2-HISTORY — 放場通知器");
   connectWiFi();
   // ---- OTA (over-the-air) 更新 ----
   ArduinoOTA.setHostname("smartplay-cyd");
