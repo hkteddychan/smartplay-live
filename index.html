@@ -545,7 +545,7 @@ function initPeriodPills() {
 }
 
 // ---------- LOAD DATA ----------
-const loadedSports = new Set();   // 懶載入：已拉嘅運動
+var loadedSports = new Set();   // 懶載入：已拉嘅運動（var — hoisted 防 TDZ）
 async function loadSportData(k) {
   if (loadedSports.has(k)) return;
   try {
