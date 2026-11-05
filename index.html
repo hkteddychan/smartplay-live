@@ -886,8 +886,8 @@ let espBrowse = null;
 async function loadEspFeeds() {
   $('#e-refresh').textContent = '⏳ 拉緊...';
   const [eve, browse] = await Promise.all([
-    fetch('esp32/changes-eve.json', { cache: 'no-store' }).then(r => r.json()).catch(() => null),
-    fetch('esp32/browse.json', { cache: 'no-store' }).then(r => r.json()).catch(() => null),
+    fetch(`esp32/changes-eve.json?t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()).catch(() => null),
+    fetch(`esp32/browse.json?t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()).catch(() => null),
   ]);
   espEve = eve; espBrowse = browse;
   $('#e-refresh').textContent = '🔄 重新拉 ESP32 feed';
@@ -997,7 +997,7 @@ async function loadCyds(force) {
       fetch(`esp32/status.json?t=${t}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`esp32/status-history.json?t=${t}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
     ];
-    if (!espBrowse) pulls.push(fetch('esp32/browse.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null));
+    if (!espBrowse) pulls.push(fetch(`esp32/browse.json?t=${Date.now()}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null));
     const [sR, hR, bR] = await Promise.all(pulls);
     cydStatus = sR; cydHistory = hR;
     if (bR) espBrowse = bR;
@@ -1362,7 +1362,7 @@ const POLL_MS = 2 * 60 * 1000; // 2 分鐘
 async function pollMeta() {
   if (document.hidden) return;                       // 背景 tab 慳資源
   try {
-    const r = await fetch('data/meta.json', { cache: 'no-store' });
+    const r = await fetch(`data/meta.json?t=${Date.now()}`, { cache: 'no-store' });
     if (!r.ok) return;
     const meta = await r.json();
     if (!meta.generated_utc) return;
@@ -1379,7 +1379,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) poll
 $('#ub-refresh').onclick = () => location.reload();
 $('#ub-dismiss').onclick = () => {
   // 記低目前最新版本，同一版本唔再煩
-  fetch('data/meta.json', { cache: 'no-store' }).then(r => r.json()).then(m => { dismissedUtc = m.generated_utc; }).catch(() => {});
+  fetch(`data/meta.json?t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()).then(m => { dismissedUtc = m.generated_utc; }).catch(() => {});
   $('#update-banner').classList.remove('show');
 };
 
