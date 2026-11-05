@@ -25,6 +25,7 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <HTTPUpdate.h>
+#include <WiFiClientSecure.h>
 
 // ---------------- OTA ----------------
 // 開機 + 每 6 小時 GET firmware.json；版本新過 FIRMWARE_VERSION → 自動下載 .bin 更新 + reboot
@@ -119,7 +120,7 @@ void processEveChanges(const String& body) {
     return;
   }
   const char* gen = doc["g"] | "";
-  if (gen == lastEveVersion) {          // 版本冇變 — 咩都唔使做
+  if (String(gen) == lastEveVersion) {          // 版本冇變 — 咩都唔使做
     Serial.println("[EVE] no change");
     return;
   }
@@ -137,7 +138,7 @@ void processEveChanges(const String& body) {
   }
   for (JsonPair kv : sports) {
     const char* sportName = kv.key().c_str();
-    for (JsonArray c : kv.value()) {
+    for (JsonArray c : kv.value().as<JsonArray>()) {
       // c = [date, venue, loc, startMin, endMin, kind, oldC, newC]
       const char* date  = c[0] | "?";
       const char* venue = c[1] | "?";
