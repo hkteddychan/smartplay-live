@@ -1111,6 +1111,7 @@ function activityFilter() {
     if (dist && x.TC_DISTRICT !== dist) return false;
     if (type && x.TC_ACT_TYPE_NAME !== type) return false;
     if (date && (!x.PGM_START_DATE || x.PGM_START_DATE < date)) return false;
+    if (date && x.PGM_END_DATE && x.PGM_END_DATE < date) return false;  // 已完結活動唔顯示
     if (only && (parseInt(x.PLACES_LEFT || '0') <= 0)) return false;
     if (q) {
       const hay = ((x.TC_PGM_NAME||'') + ' ' + (x.TC_VENUE||'') + ' ' + (x.EN_PGM_NAME||'')).toLowerCase();
@@ -1269,7 +1270,9 @@ function renderSessions() {
   };
   $('#s-table tbody').innerHTML = rows.slice(0, 500).map(x => {
     const lastEv = x.events && x.events.length ? x.events[x.events.length - 1] : null;
-    const badge = x.status === 'taken' ? '🔴 已訂滿' : (x.status === 'released' ? '🟢 放場中' : 'ℹ️ 變動');
+    const expired = x.d && x.d < hkToday();
+    const badge = x.status === 'taken' ? '🔴 已訂滿'
+      : (x.status === 'released' ? (expired ? '⚪ 放場中（已過期）' : '🟢 放場中') : 'ℹ️ 變動');
     const tl = (x.events || []).map(e => EV[e.k] ? EV[e.k](e) : '').filter(Boolean).join('<br>');
     return `
       <tr>
@@ -1280,13 +1283,15 @@ function renderSessions() {
         <td><small>${tl || '—'}</small></td>
       </tr>`;
   }).join('');
-  const nRel = rows.filter(x => x.status === 'released').length;
+  const today = hkToday();
+  const nRel = rows.filter(x => x.status === 'released' && x.d >= today).length;
+  const nRelExp = rows.filter(x => x.status === 'released' && x.d < today).length;
   const nTaken = rows.filter(x => x.status === 'taken').length;
   const alives = rows.map(x => x.alive).filter(v => v != null);
   const avgAlive = alives.length ? Math.round(alives.reduce((a, b) => a + b, 0) / alives.length) : null;
   $('#s-stats').innerHTML = `
     <div class="stat"><b>${rows.length}</b><span>中途放場（365 日）</span></div>
-    <div class="stat"><b style="color:#2ea043">${nRel}</b><span>放場中</span></div>
+    <div class="stat"><b style="color:#2ea043">${nRel}</b><span>放場中${nRelExp ? ` · 另 ${nRelExp} 過期` : ''}</span></div>
     <div class="stat"><b style="color:#f85149">${nTaken}</b><span>已訂滿</span></div>
     <div class="stat"><b style="color:#f0b429">${avgAlive != null ? avgAlive + ' 分' : '—'}</b><span>平均存活</span></div>`;
 }
