@@ -1,7 +1,7 @@
 {
   "version": "1.2",
   "bin": "https://github.com/hkteddychan/smartplay-live/releases/download/v1.2/cyd-firmware-v1.2.bin",
-  "md5": "f0476ad03095d4062a204e2df57f6d64",
+  "md5": "68ecdaa3140a01cc152978f7428f7d05",
   "size": 1413280,
-  "note": "放場記錄頁 + 局部重繪優化"
+  "note": "放場記錄頁 + 局部重繪優化（保留最近 5 批）"
 }
