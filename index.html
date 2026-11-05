@@ -400,6 +400,36 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
 </div>
 
 <script>
+// ---------- CLICK-TO-SORT（4 個 table 通用） ----------
+const sortState = {}; // tableId -> {key, dir}
+function cmpVal(a, b) {
+  const na = parseFloat(a), nb = parseFloat(b);
+  if (!isNaN(na) && !isNaN(nb) && String(a).trim() !== '' && String(b).trim() !== '') return na - nb;
+  return String(a).localeCompare(String(b), 'zh-HK');
+}
+function applySort(rows, tableId, keyFn) {
+  const st = sortState[tableId];
+  if (!st || !st.key) return rows;
+  const s = [...rows].sort((x, y) => cmpVal(keyFn(st.key, x), keyFn(st.key, y)));
+  return st.dir === 'desc' ? s.reverse() : s;
+}
+function bindSort(tableSel, renderFn, keyFn, defKey, defDir) {
+  const table = $(tableSel);
+  table.querySelectorAll('th').forEach((th, i) => {
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      const st = sortState[tableSel] = sortState[tableSel] || {};
+      const key = th.dataset.sk || ('c' + i);
+      if (st.key === key) st.dir = st.dir === 'asc' ? 'desc' : 'asc';
+      else { st.key = key; st.dir = th.dataset.sd || 'asc'; }
+      table.querySelectorAll('th').forEach(t => t.textContent = t.textContent.replace(/ [▲▼]$/, ''));
+      th.textContent = th.textContent + (st.dir === 'asc' ? ' ▲' : ' ▼');
+      renderFn();
+    });
+  });
+  sortState[tableSel] = { key: defKey, dir: defDir };
+}
+
 const SPORTS = {
   badminton: { icon: '🏸', name: '羽毛球', color: '#58a6ff' },
   basketball: { icon: '🏀', name: '籃球', color: '#f0883e' },
@@ -545,7 +575,7 @@ function initPeriodPills() {
 }
 
 // ---------- LOAD DATA ----------
-var loadedSports = new Set();   // 懶載入：已拉嘅運動（var — hoisted 防 TDZ）
+const loadedSports = new Set();   // 懶載入：已拉嘅運動
 async function loadSportData(k) {
   if (loadedSports.has(k)) return;
   try {
@@ -805,36 +835,6 @@ function renderFacility() {
 // ---------- CHANGES（最新改變） ----------
 let changesData = null;   // {g, prev:{sport:ts}, sports:{sport:[[date,venue,loc,startMin,endMin,kind,old,new],...]}}
 
-
-// ---------- CLICK-TO-SORT（4 個 table 通用） ----------
-const sortState = {}; // tableId -> {key, dir}
-function cmpVal(a, b) {
-  const na = parseFloat(a), nb = parseFloat(b);
-  if (!isNaN(na) && !isNaN(nb) && String(a).trim() !== '' && String(b).trim() !== '') return na - nb;
-  return String(a).localeCompare(String(b), 'zh-HK');
-}
-function applySort(rows, tableId, keyFn) {
-  const st = sortState[tableId];
-  if (!st || !st.key) return rows;
-  const s = [...rows].sort((x, y) => cmpVal(keyFn(st.key, x), keyFn(st.key, y)));
-  return st.dir === 'desc' ? s.reverse() : s;
-}
-function bindSort(tableSel, renderFn, keyFn, defKey, defDir) {
-  const table = $(tableSel);
-  table.querySelectorAll('th').forEach((th, i) => {
-    th.style.cursor = 'pointer';
-    th.addEventListener('click', () => {
-      const st = sortState[tableSel] = sortState[tableSel] || {};
-      const key = th.dataset.sk || ('c' + i);
-      if (st.key === key) st.dir = st.dir === 'asc' ? 'desc' : 'asc';
-      else { st.key = key; st.dir = th.dataset.sd || 'asc'; }
-      table.querySelectorAll('th').forEach(t => t.textContent = t.textContent.replace(/ [▲▼]$/, ''));
-      th.textContent = th.textContent + (st.dir === 'asc' ? ' ▲' : ' ▼');
-      renderFn();
-    });
-  });
-  sortState[tableSel] = { key: defKey, dir: defDir };
-}
 
 function fmtMin(m) { return String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0'); }
 
