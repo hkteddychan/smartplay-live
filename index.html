@@ -304,7 +304,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
         <input type="date" id="a-date">
       </div>
       <label class="f-check"><input type="checkbox" id="a-only"> 仍有餘額</label>
-      <label class="f-check"><input type="checkbox" id="a-fcfs"> ⚡ 現可先到先得報名</label>
+      <label class="f-check"><input type="checkbox" id="a-fcfs"> ⚡可先到先得報名</label>
       <button id="a-export">⬇️ 保存 CSV</button>
     </div>
     <div class="stats" id="a-stats"></div>
@@ -1109,16 +1109,23 @@ function activityFilter() {
   const date = $('#a-date').value;
   const only = $('#a-only').checked;
   const fcfs = $('#a-fcfs').checked;
-  const todayStr = hkToday();
+  const today = hkToday();
   return activityData.filter(x => {
+    if (fcfs) {
+      // 現可先到先得報名 = FCFS/WALKIN + 今日喺報名期內 + 報名期未結束
+      const em = x.ENROL_METHOD || '';
+      if (em !== 'FCFS' && em !== 'WALKIN') return false;
+      const es = x.ENROL_START_DATE || '';
+      const ee = x.ENROL_END_DATE || '';
+      if (es && es > today) return false;       // 未開始
+      if (ee && ee < today) return false;       // 已截止
+      if (!ee && em === 'FCFS') return false;   // FCFS 無截止日 = 資料異常，唔算
+    }
     if (dist && x.TC_DISTRICT !== dist) return false;
     if (type && x.TC_ACT_TYPE_NAME !== type) return false;
     if (date && (!x.PGM_START_DATE || x.PGM_START_DATE < date)) return false;
     if (date && x.PGM_END_DATE && x.PGM_END_DATE < date) return false;  // 已完結活動唔顯示
     if (only && (parseInt(x.PLACES_LEFT || '0') <= 0)) return false;
-    // ⚡ 現可先到先得報名：FCFS/WALKIN + 報名期已開始 + 有餘額
-    if (fcfs && !(('FCFS' === x.ENROL_METHOD || 'WALKIN' === x.ENROL_METHOD)
-        && (x.ENROL_START_DATE || '') <= todayStr && parseInt(x.PLACES_LEFT || '0') > 0)) return false;
     if (q) {
       const hay = ((x.TC_PGM_NAME||'') + ' ' + (x.TC_VENUE||'') + ' ' + (x.EN_PGM_NAME||'')).toLowerCase();
       if (!hay.includes(q)) return false;
@@ -1142,17 +1149,25 @@ function renderActivity() {
       <td>${x.TC_DAY||''}<br>${x.PGM_START_TIME||''}-${x.PGM_END_TIME||''}</td>
       <td>${x.TC_VENUE||''}</td>
       <td>$${x.FEE !== undefined && x.FEE !== null ? x.FEE : '—'}</td>
-      <td class="courts ${parseInt(x.PLACES_LEFT||'0') > 0 ? 'c3' : 'c0'}">${x.PLACES_LEFT !== undefined && x.PLACES_LEFT !== null ? x.PLACES_LEFT + '/' + (x.QUOTA ?? '—') : '—'}<br><small style="color:#8b949e">${x.ENROL_METHOD === 'FCFS' ? '⚡ 先到先得' : x.ENROL_METHOD === 'WALKIN' ? '🚶 即場報名' : '🎲 抽籤'}</small></td>
+      <td class="courts ${parseInt(x.PLACES_LEFT||'0') > 0 ? 'c3' : 'c0'}">${x.PLACES_LEFT !== undefined && x.PLACES_LEFT !== null ? x.PLACES_LEFT + '/' + (x.QUOTA ?? '—') : '—'}</td>
       <td>${x.TC_TARGET_GRP||''}</td>`;
     tbody.appendChild(tr);
   });
   const nLeft = rows.filter(x => parseInt(x.PLACES_LEFT||'0') > 0).length;
-  const t = hkToday();
-  const nFcfs = rows.filter(x => ('FCFS' === x.ENROL_METHOD || 'WALKIN' === x.ENROL_METHOD)
-    && (x.ENROL_START_DATE || '') <= t && parseInt(x.PLACES_LEFT || '0') > 0).length;
+  const today = hkToday();
+  const nFcfs = activityData.filter(x => {
+    const em = x.ENROL_METHOD || '';
+    if (em !== 'FCFS' && em !== 'WALKIN') return false;
+    const es = x.ENROL_START_DATE || '';
+    const ee = x.ENROL_END_DATE || '';
+    if (es && es > today) return false;
+    if (ee && ee < today) return false;
+    if (!ee && em === 'FCFS') return false;
+    return true;
+  }).length;
   $('#a-stats').innerHTML = `<div class="stat"><b>${rows.length}</b><span>符合活動${rows.length > 500 ? '（顯示首 500）' : ''}</span></div>
     <div class="stat"><b style="color:#2ea043">${nLeft}</b><span>仍有餘額</span></div>
-    <div class="stat"><b style="color:#f0b429">${nFcfs}</b><span>⚡ 現可先到先得</span></div>`;
+    <div class="stat"><b style="color:#f0b429">${nFcfs}</b><span>⚡現可先到先得報名</span></div>`;
 }
 
 // ---------- MAP ----------
