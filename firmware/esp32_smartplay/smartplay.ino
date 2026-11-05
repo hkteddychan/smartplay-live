@@ -36,6 +36,7 @@
 #include "cyd_text.h"
 #include "cyd_audio.h"
 #include "cyd_browse.h"
+#include "cyd_ota_pull.h"
 
 TFT_eSPI tft = TFT_eSPI();
 
@@ -848,7 +849,7 @@ void setup() {
   ts.begin(touchSPI);
   ts.setRotation(1);
 
-  Serial.println("\n[SmartPLAY Live CYD] boot v3.0-OTA — 放場通知器");
+  Serial.println("\n[SmartPLAY Live CYD] boot v3.1-OTA-PULL — 放場通知器");
   connectWiFi();
   // ---- OTA (over-the-air) 更新 ----
   ArduinoOTA.setHostname("smartplay-cyd");
@@ -875,6 +876,9 @@ void setup() {
   browseInit();
   browseFetch();
   g_dirty = true;
+
+  // OTA pull：開機 45 秒後做第一次遠端版本檢查
+  g_lastOtaCheck = millis() - OTA_CHECK_INTERVAL_MS + 45000UL;
 }
 
 void loop() {
@@ -889,6 +893,7 @@ void loop() {
 
   handleSerial();
   ArduinoOTA.handle();
+  otaPullCheck();
   handleTouch();
   if (browseFlashUntil && millis() >= browseFlashUntil) {
     browseFlashUntil = 0;
