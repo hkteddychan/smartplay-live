@@ -261,8 +261,9 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
       <div class="f-group">
         <label>歷史時段</label>
         <select id="ec-range">
+          <option value="10" selected>最近 10 條</option>
           <option value="6">最近 6 小時</option>
-          <option value="12" selected>最近 12 小時</option>
+          <option value="12">最近 12 小時</option>
           <option value="24">最近 24 小時</option>
           <option value="0">全部</option>
         </select>
@@ -1101,7 +1102,8 @@ function renderCyds() {
   const rangeH = parseInt($('#ec-range').value);
   const now = Date.now();
   let h = (cydHistory && cydHistory.h) || [];
-  if (rangeH > 0) h = h.filter(x => now - new Date(x.ts).getTime() <= rangeH * 3600 * 1000);
+  if (rangeH === 10) h = h.slice(-10);   // 最近 10 條上報
+  else if (rangeH > 0) h = h.filter(x => now - new Date(x.ts).getTime() <= rangeH * 3600 * 1000);
   const tb = $('#ec-table tbody');
   tb.innerHTML = h.length === 0
     ? '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px">冇記錄</td></tr>'
