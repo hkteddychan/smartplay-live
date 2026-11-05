@@ -26,9 +26,8 @@ static bool g_otaPaused = false;      // 連續失敗冷靜期
 static unsigned long g_otaPauseUntil = 0;
 
 // ---- 屏幕提示（可選 — 由主 ino 提供回調避免循環依賴）----
-__attribute__((weak)) void otaScreenMsg(const char* line1, const char* line2) {
-  Serial.printf("[OTA-PULL] %s | %s\n", line1, line2);
-}
+// 屏幕提示由 smartplay.ino 提供實作（見 OTA 提示畫面）
+__attribute__((weak)) void otaScreenMsg(const char* line1, const char* line2);
 
 static int versionCmp(const char* a, const char* b) {
   int va = 0, vb = 0;
@@ -105,7 +104,7 @@ static bool otaDownloadAndFlash(const char* binUrl, const char* expectMd5) {
         lastPct = written * 100 / total;
         char l2[24];
         snprintf(l2, sizeof(l2), "下載 %d%%", (int)lastPct);
-        otaScreenMsg("⬆️ 自動更新中", l2);
+        otaScreenMsg("自動更新中", l2);
       }
     } else if (millis() - last > 20000) {
       Serial.println("[OTA-PULL] stream 逾時");
@@ -164,7 +163,7 @@ static void otaPullCheck(bool force = false) {
     return;
   }
   Serial.printf("[OTA-PULL] 有新版 %s（本機 %s）— 開始更新\n", ver, OTA_FW_VERSION);
-  otaScreenMsg("⬆️ 自動更新中", "下載韌體...");
+  otaScreenMsg("自動更新中", "下載韌體...");
   if (otaDownloadAndFlash(bin, md5)) {
     otaSuccess();
     delay(500);
