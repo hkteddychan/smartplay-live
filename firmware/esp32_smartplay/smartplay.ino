@@ -38,6 +38,7 @@
 #include "cyd_browse.h"
 #include "cyd_notify.h"
 #include "cyd_ota_pull.h"
+#include "cyd_report.h"
 
 TFT_eSPI tft = TFT_eSPI();
 
@@ -477,8 +478,73 @@ static void beep() {
 }
 
 /* ---------------- drawing ---------------- */
+// ---------------------------------------------------------------------------
+// 狀態收集（smartplay.ino 實作）—— 把當前畫面狀態填入 ReportState
+// 俾 cyd_report.h 用。
+// ---------------------------------------------------------------------------
+void reportCollectState(ReportState &st) {
+  st.district = "";
+  st.date = "";
+  st.page = 0;
+  st.pages = 1;
+  st.rows = 0;
+  st.line = "";
+
+  if (g_page == PAGE_BROWSE) {
+    // 瀏覽頁：區 / 日期 / 頁碼 / 行數
+    if (curDistrict >= 0 && curDistrict < nDistricts && districts[curDistrict][0]) {
+      st.district = districts[curDistrict];
+    }
+    if (curDate >= 0 && curDate < nDates && dateLabels[curDate][0]) {
+      st.date = dateLabels[curDate];
+    } else {
+      st.date = "全部日子";
+    }
+    int idx[64];
+    int n = browseFilteredRows(idx, 64);
+    st.rows = n;
+    st.pages = (n + BROWSE_ROWS_PER_PAGE - 1) / BROWSE_ROWS_PER_PAGE;
+    if (st.pages < 1) st.pages = 1;
+    st.page = curPage;
+    // 第一行顯示內容：日期 + 區 + 場地
+    static char lineBuf[56];
+    lineBuf[0] = 0;
+    if (n > 0) {
+      int ri = curPage * BROWSE_ROWS_PER_PAGE;
+      if (ri < n) {
+        BRow &r = browses[idx[ri]];
+        const char *dn = (r.d < nDates) ? dateLabels[r.d] : "";
+        const char *ds = (r.v < nVenues) ? venueDists[r.v] : "";
+        const char *vn = (r.v < nVenues) ? venueNames[r.v] : "";
+        snprintf(lineBuf, sizeof(lineBuf), "%s %s %s", dn, ds, vn);
+      }
+    }
+    st.line = lineBuf;
+  } else {
+    // 通知頁：顯示最後一次放場
+    st.district = g_alertCount > 0 ? g_alerts[0].district : "";
+    st.date = g_alertCount > 0 ? g_alerts[0].date : "全部日子";
+    st.rows = g_releaseTotal;
+    st.pages = 1;
+    st.page = 0;
+    static char lineBuf[56];
+    lineBuf[0] = 0;
+    if (g_alertCount > 0) {
+      snprintf(lineBuf, sizeof(lineBuf), "%s %s", g_alerts[0].sport, g_alerts[0].date);
+    }
+    st.line = lineBuf;
+  }
+}
+
 static void drawHeader(uint16_t barColor, uint16_t fg) {
   tft.fillRect(0, 0, SCR_W, HEADER_H, barColor);
+  // 版本號（v1.3+）—— 用 build flag OTA_FW_VERSION，同 OTA manifest 永遠一致。
+  // 放喺標題右邊、clock 左邊（clock 喺 x=SCR_W-8，wifi bars 喺 x=SCR_W-74）。
+  tft.setTextColor(C_DIM, barColor);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextSize(1);
+  tft.drawString(g_reportFw, 150, 10, 1);
+  tft.setTextSize(2);
   if (g_timeValid) {
     char buf[8];
     snprintf(buf, sizeof(buf), "%02d:%02d", g_hour, g_min);
@@ -961,7 +1027,8 @@ void setup() {
   ts.begin(touchSPI);
   ts.setRotation(1);
 
-  Serial.println("\n[SmartPLAY Live CYD] boot v3.2-HISTORY — 放場通知器");
+  Serial.println("\n[SmartPLAY Live CYD] boot v3.3 — 放場通知器 + 狀態回報");
+  Serial.printf("[REPORT] firmware %s, endpoint OK\n", g_reportFw);
   connectWiFi();
   // ---- OTA (over-the-air) 更新 ----
   ArduinoOTA.setHostname("smartplay-cyd");
@@ -998,6 +1065,9 @@ void setup() {
 
   // OTA pull：開機 45 秒後做第一次遠端版本檢查
   g_lastOtaCheck = millis() - OTA_CHECK_INTERVAL_MS + 45000UL;
+
+  // v1.3：狀態回報初始化（開機 30 秒後做第一次 POST）
+  reportInit();
 }
 
 void loop() {
@@ -1013,6 +1083,7 @@ void loop() {
   handleSerial();
   ArduinoOTA.handle();
   otaPullCheck();
+  reportTick();
   handleTouch();
   if (browseFlashUntil && millis() >= browseFlashUntil) {
     browseFlashUntil = 0;
