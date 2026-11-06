@@ -23,15 +23,12 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <ArduinoOTA.h>
-#include <esp_ota_ops.h>
-#include <esp_task_wdt.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <TFT_eSPI.h>
 #include <XPT2046_Touchscreen.h>
 #include <SPI.h>
-#include <Preferences.h>
 #include <time.h>
 
 #include "venue_font.h"
@@ -96,7 +93,7 @@ struct Alert {
 };
 
 #define MAX_ALERTS 4
-#define MAX_VENUES 160
+#define MAX_VENUES 240
 
 static Alert g_alerts[MAX_ALERTS];
 static int g_alertCount = 0;
@@ -190,69 +187,11 @@ static String venueDistrict(const char *venue) {
   return String("");
 }
 
-/* ---------------- WiFi credentials (from secrets.h or defaults) ---------------- */
-#if __has_include("secrets.h")
-#include "secrets.h"
-#ifndef WIFI_SSID_1
-#define WIFI_SSID_1 "Tidy Home"
-#endif
-#ifndef WIFI_PASS_1
-#define WIFI_PASS_1 "97470738"
-#endif
-#ifndef WIFI_SSID_2
-#define WIFI_SSID_2 "Teddy Pixel"
-#endif
-#ifndef WIFI_PASS_2
-#define WIFI_PASS_2 "teddychan"
-#endif
-#else
-#define WIFI_SSID_1 "Tidy Home"
-#define WIFI_PASS_1 "97470738"
-#define WIFI_SSID_2 "Teddy Pixel"
-#define WIFI_PASS_2 "teddychan"
-#endif
-// ---- NVS WiFi credential storage ----
-// On first boot, compiled defaults are stored in NVS.
-// Subsequent boots read from NVS (allows credentials to be updated without reflash).
-static Preferences wifiPrefs;
-static char nvsSsid1[32] = WIFI_SSID_1;
-static char nvsPass1[64] = WIFI_PASS_1;
-static char nvsSsid2[32] = WIFI_SSID_2;
-static char nvsPass2[64] = WIFI_PASS_2;
-
-static void loadWifiCredsFromNVS() {
-    wifiPrefs.begin("wifi", true);
-    String s1 = wifiPrefs.getString("ssid1", WIFI_SSID_1);
-    String p1 = wifiPrefs.getString("pass1", WIFI_PASS_1);
-    String s2 = wifiPrefs.getString("ssid2", WIFI_SSID_2);
-    String p2 = wifiPrefs.getString("pass2", WIFI_PASS_2);
-    bool initialized = wifiPrefs.getBool("init", false);
-    wifiPrefs.end();
-    strncpy(nvsSsid1, s1.c_str(), sizeof(nvsSsid1) - 1);
-    nvsSsid1[sizeof(nvsSsid1) - 1] = 0;
-    strncpy(nvsPass1, p1.c_str(), sizeof(nvsPass1) - 1);
-    nvsPass1[sizeof(nvsPass1) - 1] = 0;
-    strncpy(nvsSsid2, s2.c_str(), sizeof(nvsSsid2) - 1);
-    nvsSsid2[sizeof(nvsSsid2) - 1] = 0;
-    strncpy(nvsPass2, p2.c_str(), sizeof(nvsPass2) - 1);
-    nvsPass2[sizeof(nvsPass2) - 1] = 0;
-    if (!initialized) {
-        // First boot: store compiled defaults to NVS
-        wifiPrefs.begin("wifi", false);
-        wifiPrefs.putString("ssid1", WIFI_SSID_1);
-        wifiPrefs.putString("pass1", WIFI_PASS_1);
-        wifiPrefs.putString("ssid2", WIFI_SSID_2);
-        wifiPrefs.putString("pass2", WIFI_PASS_2);
-        wifiPrefs.putBool("init", true);
-        wifiPrefs.end();
-        Serial.println("[WiFi] NVS first-boot migration done");
-    }
-    Serial.printf("[WiFi] creds from NVS: %s / %s\n", nvsSsid1, nvsSsid2);
-}
+/* ---------------- WiFi Plan A: multi-network auto-detect ---------------- */
 struct WifiNet { const char *ssid; const char *pass; };
 static const WifiNet WIFI_NETS[] = {
-    {nvsSsid1, nvsPass1},
-    {nvsSsid2, nvsPass2},
+    {"Tidy Home", "97470738"},
+    {"Teddy Pixel", "teddychan"},
 };
 static const int N_WIFI_NETS = sizeof(WIFI_NETS) / sizeof(WIFI_NETS[0]);
 static char g_wifiSsid[32] = "";
@@ -283,7 +222,6 @@ static void connectWiFi() {
         unsigned long t0 = millis();
         while (WiFi.status() != WL_CONNECTED && millis() - t0 < 15000) {
             delay(400);
-         esp_task_wdt_reset();
             Serial.print(".");
         }
         Serial.println();
@@ -444,7 +382,6 @@ static void pollEve() {
   }
   http.setTimeout(30000);
   int code = http.GET();
-  esp_task_wdt_reset();
   if (code != 200) {
     Serial.printf("[eve] HTTP %d\n", code);
     http.end();
@@ -454,7 +391,6 @@ static void pollEve() {
   }
   Serial.printf("[eve] HTTP 200, streaming parse...\n");
 
-  esp_task_wdt_reset();
   JsonDocument doc;
   DeserializationError err = deserializeJson(doc, http.getStream());
   http.end();
@@ -524,7 +460,6 @@ static void loadVenueMap() {
     Serial.println("[venue] fetch FAILED");
     return;
   }
-  esp_task_wdt_reset();
   JsonDocument doc;
   DeserializationError err = deserializeJson(doc, g_todayBody);
   if (err) {
@@ -540,7 +475,6 @@ static void loadVenueMap() {
   }
   g_venueCount = 0;
   for (JsonPair kv : sports) {
-    esp_task_wdt_reset();
     JsonObject sp = kv.value().as<JsonObject>();
     JsonArray venues = sp["v"].as<JsonArray>();
     JsonArray districts = sp["s"].as<JsonArray>();
@@ -645,13 +579,6 @@ void reportCollectState(ReportState &st) {
 
 static void drawHeader(uint16_t barColor, uint16_t fg) {
   tft.fillRect(0, 0, SCR_W, HEADER_H, barColor);
-  // 版本號（v1.3+）—— 用 build flag OTA_FW_VERSION，同 OTA manifest 永遠一致。
-  // 放喺標題右邊、clock 左邊（clock 喺 x=SCR_W-8，wifi bars 喺 x=SCR_W-74）。
-  tft.setTextColor(C_DIM, barColor);
-  tft.setTextDatum(TL_DATUM);
-  tft.setTextSize(1);
-  tft.drawString(g_reportFw, 150, 10, 1);
-  tft.setTextSize(2);
   if (g_timeValid) {
     char buf[8];
     snprintf(buf, sizeof(buf), "%02d:%02d", g_hour, g_min);
@@ -678,7 +605,8 @@ static void drawFooter(const String &left, const String &right) {
   drawUTF8(right, SCR_W - 6 - w, SCR_H - FOOTER_H + 4, C_DIM, C_BAR);
 }
 
-// 主畫面：等待放場 + 狀態
+// 主畫面 v1.3.2（方案 B：極簡大字 + 兩張 stat 卡）
+// 文字寬度全部預先量過（CJK=16px/ASCII=12px @size2; 卡 148px, pad 10, 最長 value 124px）
 static void drawHome() {
   tft.fillScreen(C_BG);
   drawHeader(C_BAR, C_TEXT);
@@ -688,40 +616,40 @@ static void drawHome() {
   drawUTF8(String("放場通知器"), 6, 7, C_TEXT, C_BAR);
   if (g_unread) tft.fillCircle(SCR_W - 86, 15, 5, C_GOOD);
 
-  // 大字
+  // 中央大字 + 副題（置中，量過：大字 96px、副題 244px）
   String big = "等待放場中";
   int bw = measureUTF8(big);
-  drawUTF8(big, (SCR_W - bw) / 2, BODY_Y + 26, C_TEXT, C_BG);
+  drawUTF8(big, (SCR_W - bw) / 2, BODY_Y + 36, C_TEXT, C_BG);
 
-  String sub = "晚上 6 點後 · 餘額增加或新時段";
+  String sub = "晚上6點後 · 餘額增加或新時段";
   int sw = measureUTF8(sub);
-  drawUTF8(sub, (SCR_W - sw) / 2, BODY_Y + 50, C_DIM, C_BG);
+  drawUTF8(sub, (SCR_W - sw) / 2, BODY_Y + 72, C_DIM, C_BG);
 
-  // status lines
-  char line[64];
-  int y = BODY_Y + 84;
-  tft.setTextColor(C_DIM, C_BG);
-  tft.setTextDatum(TL_DATUM);
-  tft.drawString("last poll", 8, y, 2);
-  fmtClock(g_lastPollAt, line, sizeof(line));
-  tft.setTextColor(C_TEXT, C_BG);
-  tft.drawString(line, 92, y, 2);
+  // 狀態行：綠點 + 「系統正常 · 每2分鐘檢查」(行總寬 214px, 起 x=53)
+  int dotX = (SCR_W - 214) / 2;
+  tft.fillCircle(dotX + 6, BODY_Y + 104, 6, C_GOOD);
+  String st = "系統正常 · 每2分鐘檢查";
+  drawUTF8(st, dotX + 18, BODY_Y + 98, C_DIM, C_BG);
 
-  y += 22;
-  tft.setTextColor(C_DIM, C_BG);
-  tft.drawString("next poll", 8, y, 2);
-  tft.setTextColor(C_TEXT, C_BG);
+  // 兩張 stat 卡（166..204）：文字收喺卡內
+  char line[48];
+  // 卡 1: Feed·累計
+  tft.fillRoundRect(8, 166, 148, 38, 8, C_CARD);
+  drawUTF8(String("Feed·累計"), 18, 169, C_DIM, C_CARD);
+  // feed gen "2026-11-06 08:27" → 取 "MM-DD HH:MM"（中文「批」=16px；08:27·18批=116px < 128 ✓）
+  const char *g = g_feedGen;
+  char fv[24];
+  if (g[0] && strlen(g) >= 16) snprintf(fv, sizeof(fv), "%.5s·%d批", g + 5, g_releaseTotal);
+  else snprintf(fv, sizeof(fv), "--:--·%d批", g_releaseTotal);
+  drawUTF8(String(fv), 18, 185, C_TEXT, C_CARD);
 
-  y += 22;
-  tft.setTextColor(C_DIM, C_BG);
-  tft.drawString("feed", 8, y, 2);
-  tft.setTextColor(C_TEXT, C_BG);
-  tft.drawString(g_feedGen, 92, y, 2);
-
-  y += 22;
-  tft.setTextColor(C_DIM, C_BG);
-  tft.drawString("releases", 8, y, 2);
-  tft.setTextColor(C_GOOD, C_BG);
+  // 卡 2: 訊號·運行
+  tft.fillRoundRect(164, 166, 148, 38, 8, C_CARD);
+  drawUTF8(String("訊號·運行"), 174, 169, C_DIM, C_CARD);
+  // "-53dB·3.4h" = 124px ✓
+  snprintf(line, sizeof(line), "%ddB·%luh", (int)WiFi.RSSI(),
+           (unsigned long)((millis() / 3600000UL) % 100));
+  drawUTF8(String(line), 174, 185, C_TEXT, C_CARD);
 
   // footer
   String left = String("WiFi ") + g_wifiSsid;
@@ -753,39 +681,24 @@ static void drawHome() {
 
 // ---------- v1.2：局部重繪（唔再每次 fillScreen） ----------
 // 只更新「last poll / next poll / feed / releases」四行數值
+// v1.3.2（方案 B）局部重繪：只更新兩張 stat 卡嘅 value 行（卡內清 128x16 區域再畫）
 static void drawHomeStatusRows() {
   if (!g_homeFullDrawn) return;
-  char line[64];
-  int y = BODY_Y + 84;
+  char line[48];
 
-  // last poll
-  fmtClock(g_lastPollAt, line, sizeof(line));
-  tft.fillRect(92, y, 120, 17, C_BG);
-  tft.setTextColor(C_TEXT, C_BG);
-  tft.setTextDatum(TL_DATUM);
-  tft.drawString(line, 92, y, 2);
+  // 卡 1 value: "MM-DD HH:MM·N批"（量過 ≤116px，卡內 pad 10）
+  const char *g = g_feedGen;
+  char fv[24];
+  if (g[0] && strlen(g) >= 16) snprintf(fv, sizeof(fv), "%.5s·%d批", g + 5, g_releaseTotal);
+  else snprintf(fv, sizeof(fv), "--:--·%d批", g_releaseTotal);
+  tft.fillRect(18, 185, 128, 17, C_CARD);
+  drawUTF8(String(fv), 18, 185, C_TEXT, C_CARD);
 
-  // next poll（倒數秒數會變 → 每次只清呢個小區域）
-  y += 22;
-  unsigned long since = millis() - g_lastEvePoll;
-  unsigned long waitMs = g_evePollInterval - (since % g_evePollInterval);
-  snprintf(line, sizeof(line), "%lus", waitMs / 1000);
-  tft.fillRect(92, y, 120, 17, C_BG);
-  tft.setTextColor(C_TEXT, C_BG);
-  tft.drawString(line, 92, y, 2);
-
-  // feed
-  y += 22;
-  tft.fillRect(92, y, 120, 17, C_BG);
-  tft.setTextColor(C_TEXT, C_BG);
-  tft.drawString(g_feedGen, 92, y, 2);
-
-  // releases
-  y += 22;
-  snprintf(line, sizeof(line), "%d", g_releaseTotal);
-  tft.fillRect(92, y, 120, 17, C_BG);
-  tft.setTextColor(C_GOOD, C_BG);
-  tft.drawString(line, 92, y, 2);
+  // 卡 2 value: "RSSIdB·Uh"
+  snprintf(line, sizeof(line), "%ddB·%luh", (int)WiFi.RSSI(),
+           (unsigned long)((millis() / 3600000UL) % 100));
+  tft.fillRect(174, 185, 128, 17, C_CARD);
+  drawUTF8(String(line), 174, 185, C_TEXT, C_CARD);
 }
 
 // 📜 記錄 tab 局部重繪（底部導覽列，touch 回饋用）
@@ -1033,9 +946,7 @@ static void handleSerial() {
     loadVenueMap();
     pollEve();
     browseFetch();
-  } else if (c == 'o') {
-    Serial.println("[OTA] force check triggered");
-    otaPullCheck(true); else if (c == 's') {
+  } else if (c == 's') {
     if (curSport == -1) curSport = 0;
     else if (curSport >= 4) curSport = -1;
     else curSport++;
@@ -1130,13 +1041,7 @@ void setup() {
   tft.setRotation(1);  // 320x240 landscape
   tft.fillScreen(C_BG);
   tft.setTextDatum(TL_DATUM);
-  // Boot splash
-  tft.fillRect(0, 0, 320, 40, C_ACCENT);
-  drawUTF8(String("SmartPLAY Live"), 8, 10, C_BG, C_ACCENT);
-  tft.setTextColor(C_TEXT, C_BG);
-  tft.setTextDatum(TL_DATUM);
-  drawUTF8(String("CYD v3.3"), 8, 50, C_DIM, C_BG);
-  drawUTF8(String("連接中..."), 8, 70, C_DIM, C_BG);
+
   // CYD 觸控用獨立 VSPI bus：SCK=25, MISO=39, MOSI=32, CS=33
   touchSPI.begin(25, 39, 32, 33);
   ts.begin(touchSPI);
@@ -1144,15 +1049,19 @@ void setup() {
 
   Serial.println("\n[SmartPLAY Live CYD] boot v3.3 — 放場通知器 + 狀態回報");
   Serial.printf("[REPORT] firmware %s, endpoint OK\n", g_reportFw);
-  // OTA rollback: mark current app as valid (cancel rollback)
-  esp_ota_mark_app_valid_cancel_rollback();
-  // Load WiFi creds from NVS (first-boot migration from compiled defaults)
-  loadWifiCredsFromNVS();
-  // Watchdog: deinit framework's default TWDT (5s), reinit with 60s, then register loopTask
-  esp_task_wdt_deinit();
-  esp_task_wdt_config_t wdt_config = { .timeout_ms = 60000, .idle_core_mask = 0, .trigger_panic = true };
-  esp_task_wdt_init(&wdt_config);
-  esp_task_wdt_add(NULL);
+  // 開機 splash：細字版本號 2 秒（唔影響日常 UI）
+  tft.fillScreen(C_BG);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(TFT_WHITE, C_BG);
+  tft.setTextSize(2);
+  tft.drawString("SmartPLAY Live", 160, 100, 2);
+  tft.setTextColor(C_DIM, C_BG);
+  tft.setTextSize(1);
+  tft.drawString(g_reportFw, 160, 126, 2);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextSize(2);
+  delay(2000);
+  tft.fillScreen(C_BG);
   connectWiFi();
   // ---- OTA (over-the-air) 更新 ----
   ArduinoOTA.setHostname("smartplay-cyd");
@@ -1274,6 +1183,5 @@ void loop() {
     }
   }
 
-  esp_task_wdt_reset();
   delay(100);
 }
