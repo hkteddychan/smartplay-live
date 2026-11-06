@@ -127,6 +127,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
     <button class="tab" data-tab="esp">🤖 ESP32 視角</button>
     <button class="tab" data-tab="activity">🏊 活動搜尋</button>
       <button class="tab" data-tab="session">📜 放場記錄</button>
+      <button class="tab" data-tab="analyze">📊 放場分析</button>
   </div>
 
   <!-- ============ FACILITY TAB ============ -->
@@ -373,6 +374,68 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
         </table>
       </div>
     </div>
+
+  <div class="panel" id="panel-analyze">
+    <h2 style="margin-top:0">📊 放場分析</h2>
+    <div class="hint" style="margin-bottom:14px">分析最近 <b id="an-window">—</b> 嘅放場記錄 · 數據每 2 分鐘更新 · <button id="an-refresh" class="btn" style="padding:4px 10px;font-size:12px">🔄 重新分析</button></div>
+
+    <!-- 6️⃣ 每日摘要卡 -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px" id="an-summary"></div>
+
+    <!-- 1️⃣ 五大排名 -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:18px">
+      <div class="card" style="padding:14px">
+        <h3 style="margin:0 0 10px;font-size:14px">🏆 體育館放場排行 Top 10</h3>
+        <div id="an-venues"></div>
+      </div>
+      <div class="card" style="padding:14px">
+        <h3 style="margin:0 0 10px;font-size:14px">🏸 運動分佈</h3>
+        <div id="an-sports"></div>
+      </div>
+      <div class="card" style="padding:14px">
+        <h3 style="margin:0 0 10px;font-size:14px">⏰ 熱門放場時段 Top 8</h3>
+        <div id="an-slots"></div>
+      </div>
+    </div>
+
+    <!-- 2️⃣ 執雞雷達 + 4️⃣ 執雞視窗 -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:18px">
+      <div class="card" style="padding:14px">
+        <h3 style="margin:0 0 6px;font-size:14px">🎯 執雞雷達 — 一閃即逝率</h3>
+        <div class="hint" style="margin-bottom:8px">放出後一批（~4分鐘）內已被攞走嘅比例 = 搶手程度</div>
+        <div id="an-flash"></div>
+      </div>
+      <div class="card" style="padding:14px">
+        <h3 style="margin:0 0 6px;font-size:14px">⏱️ 執雞視窗 — 場次存活時間</h3>
+        <div class="hint" style="margin-bottom:8px">放出後幾耐被攞走 / 過期（每批 ≈ 4 分鐘）</div>
+        <div id="an-lifespan"></div>
+      </div>
+      <div class="card" style="padding:14px">
+        <h3 style="margin:0 0 6px;font-size:14px">🛋️ 滯留場 — 而家去仲執到</h3>
+        <div class="hint" style="margin-bottom:8px">連續多批都喺度冇人攞嘅場（實時，仲未有人訂）</div>
+        <div id="an-stale"></div>
+      </div>
+    </div>
+
+    <!-- 3️⃣ 時間熱力圖 -->
+    <div class="card" style="padding:14px;margin-bottom:18px">
+      <h3 style="margin:0 0 10px;font-size:14px">🕐 放場時間熱力圖（發現時段）</h3>
+      <div id="an-heat" style="display:grid;grid-template-columns:repeat(24,1fr);gap:2px"></div>
+      <div class="hint" style="margin-top:6px">0時 → 23時 · 顏色越綠 = 該時段越多放場被發現</div>
+    </div>
+    <div class="card" style="padding:14px;margin-bottom:18px">
+      <h3 style="margin:0 0 10px;font-size:14px">📅 放場日期分佈（未來可訂日子）</h3>
+      <div id="an-dates"></div>
+    </div>
+
+    <!-- 5️⃣ 放場王識別 -->
+    <div class="card" style="padding:14px">
+      <h3 style="margin:0 0 6px;font-size:14px">👑 放場王識別 — 疑似反覆放訂行為</h3>
+      <div class="hint" style="margin-bottom:8px">同一場館+時段「放 → 被訂走 → 再放」反覆出現（可能係炒家測試市場 / 團體放異動）</div>
+      <div id="an-king"></div>
+    </div>
+  </div>
+
     <footer>
     📊 數據來源：<a href="https://data.smartplay.lcsd.gov.hk" style="color:var(--accent)">LCSD SmartPLAY 開放數據</a>（每 2 分鐘鏡像）· 由 Teddy Sir 製作 · <span id="foot-time"></span>
     <br>⚠️ 餘額以官方 App 最終確認作準，本網站僅供參考。
@@ -385,6 +448,249 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
 </div>
 
 <script>
+
+// ============================================================
+// 📊 放場分析（v1）— 純前端計算，唔加 Worker 負擔
+// ============================================================
+let analyzeData = null;
+
+async function loadAnalyze(force) {
+  const btn = document.getElementById('an-refresh');
+  if (btn) btn.textContent = '⏳ 分析中…';
+  try {
+    const t = Date.now();
+    const r = await fetch(`esp32/notif-state.json?t=${t}`, { cache: 'no-store' });
+    analyzeData = r.ok ? await r.json() : null;
+  } catch (e) { analyzeData = null; }
+  renderAnalyze();
+  if (btn) btn.textContent = '🔄 重新分析';
+}
+
+function anHm(mins) {
+  const h = Math.floor(mins / 60) % 24, m = mins % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+function anSlot(mins) {
+  const h = Math.floor(mins / 60);
+  return `${String(h).padStart(2,'0')}:00-${String((h+1)%24).padStart(2,'0')}:00`;
+}
+function anSportIcon(s) {
+  return ({ badminton:'🏸', basketball:'🏀', volleyball:'🏐', tennis:'🎾', 'turf-soccer-pitch':'⚽' })[s] || '•';
+}
+function anSportName(s) {
+  return ({ badminton:'羽毛球', basketball:'籃球', volleyball:'排球', tennis:'網球', 'turf-soccer-pitch':'草地足球' })[s] || s;
+}
+// bar chart 渲染（返回 HTML 字串）
+function anBarsHtml(rows, opts) {
+  opts = opts || {};
+  const max = Math.max(1, ...rows.map(r => r.v));
+  const colors = opts.colors || ['var(--accent)'];
+  return rows.map((r, i) => {
+    const pct = Math.round(r.v / max * 100);
+    const col = opts.colorBy ? opts.colorBy(r, i) : colors[i % colors.length];
+    const rawK = String(r.k);
+    const label = rawK.length > 22 ? rawK.slice(0, 21) + '…' : rawK;
+    const safeK = rawK.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return `<div style="display:flex;align-items:center;gap:8px;margin:5px 0">
+      <span style="flex:0 0 40%;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safeK}">${label}</span>
+      <span style="flex:1;height:14px;background:#222;border-radius:4px;overflow:hidden">
+        <span style="display:block;height:100%;width:${pct}%;background:${col};border-radius:4px"></span>
+      </span>
+      <span style="flex:0 0 auto;font-size:12px;color:var(--text);font-weight:600">${r.t ?? r.v}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderAnalyze() {
+  const d = analyzeData;
+  if (!d || !Array.isArray(d.b) || d.b.length === 0) {
+    document.getElementById('an-summary').innerHTML = '<div class="card" style="padding:14px">⏳ 暫時未有放場記錄</div>';
+    return;
+  }
+  const batches = d.b;
+  // 攤平
+  const rows = [];
+  batches.forEach((batch, bi) => {
+    (batch.r || []).forEach(r => rows.push({ ...r, bt: batch.t, bi }));
+  });
+  const total = rows.length;
+
+  // 數據時窗
+  const win = document.getElementById('an-window');
+  if (win) win.textContent = `${batches.length} 批 / ${total} 個放場（${batches[0].t} → ${batches[batches.length-1].t}）`;
+
+  // ---------- 6️⃣ 每日摘要 ----------
+  const byDate = {};
+  rows.forEach(r => { byDate[r.d] = (byDate[r.d] || 0) + 1; });
+  const dates = Object.keys(byDate).sort();
+  const today = new Date().toISOString().slice(0, 10);
+  const sumEl = document.getElementById('an-summary');
+  const latestDate = dates[dates.length - 1];
+  const prevDate = dates[dates.length - 2];
+  const trend = (byDate[latestDate] || 0) - (byDate[prevDate] || 0);
+  const arrow = trend > 0 ? '↑' : (trend < 0 ? '↓' : '→');
+  const arrowCol = trend > 0 ? 'var(--green)' : (trend < 0 ? 'var(--yellow)' : 'var(--muted)');
+  // 最搶手運動
+  const bySport = {};
+  rows.forEach(r => { bySport[r.s] = (bySport[r.s] || 0) + 1; });
+  const hotSport = Object.entries(bySport).sort((a, b) => b[1] - a[1])[0];
+  // 熱門時段
+  const bySlot = {};
+  rows.forEach(r => { const k = Math.floor(r.sm / 60); bySlot[k] = (bySlot[k] || 0) + 1; });
+  const hotSlot = Object.entries(bySlot).sort((a, b) => b[1] - a[1])[0];
+  sumEl.innerHTML = `
+    <div class="card" style="padding:12px"><div style="font-size:11px;color:var(--muted)">放場總數</div><div style="font-size:24px;font-weight:700">${total}</div><div style="font-size:11px;color:var(--muted)">${batches.length} 批記錄</div></div>
+    <div class="card" style="padding:12px"><div style="font-size:11px;color:var(--muted)">最新一日（${latestDate || '—'}）</div><div style="font-size:24px;font-weight:700;color:${arrowCol}">${byDate[latestDate] || 0} ${arrow}</div><div style="font-size:11px;color:var(--muted)">對比 ${prevDate || '—'}</div></div>
+    <div class="card" style="padding:12px"><div style="font-size:11px;color:var(--muted)">最搶手運動</div><div style="font-size:22px;font-weight:700">${anSportIcon(hotSport[0])} ${anSportName(hotSport[0])}</div><div style="font-size:11px;color:var(--muted)">${hotSport[1]} 個（${Math.round(hotSport[1]/total*100)}%）</div></div>
+    <div class="card" style="padding:12px"><div style="font-size:11px;color:var(--muted)">最多人放嘅時段</div><div style="font-size:20px;font-weight:700">${anSlot(hotSlot[0] * 60)}</div><div style="font-size:11px;color:var(--muted)">${hotSlot[1]} 個放場</div></div>`;
+
+  // ---------- 1️⃣ 五大排名 ----------
+  // 體育館
+  const vCount = {};
+  rows.forEach(r => { vCount[r.v] = (vCount[r.v] || 0) + 1; });
+  const vRows = Object.entries(vCount).sort((a, b) => b[1] - a[1]).slice(0, 10)
+    .map(([k, v]) => ({ k, v, t: v }));
+  document.getElementById('an-venues').innerHTML = anBarsHtml(vRows, { colorBy: (r, i) => i < 3 ? 'var(--green)' : 'var(--accent)' });
+
+  // 運動分佈（用 emoji bar）
+  const sRows = Object.entries(bySport).sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => ({ k: anSportIcon(k) + ' ' + anSportName(k), v, t: `${v} (${Math.round(v/total*100)}%)` }));
+  document.getElementById('an-sports').innerHTML = anBarsHtml(sRows, { colorBy: (r, i) => i === 0 ? 'var(--green)' : 'var(--accent)' });
+
+  // 熱門時段
+  const slotRows = Object.entries(bySlot).sort((a, b) => b[1] - a[1]).slice(0, 8)
+    .map(([k, v]) => ({ k: anSlot(k * 60), v, t: v }));
+  document.getElementById('an-slots').innerHTML = anBarsHtml(slotRows, { colorBy: (r, i) => i === 0 ? 'var(--green)' : 'var(--accent)' });
+
+  // ---------- 2️⃣ 執雞雷達（一閃即逝率）----------
+  // 場次 key = 場館+位置+日期+開始時間（同場同時段 = 同一場次）
+  const seen = {};
+  batches.forEach((batch, bi) => {
+    (batch.r || []).forEach(r => {
+      const k = `${r.v}|${r.l || ''}|${r.d}|${r.sm}`;
+      if (!(k in seen)) seen[k] = { first: bi, count: 0, s: r.s, dead: false };
+      seen[k].count++;
+    });
+  });
+  // 存活時間：每個場次只在「第一次消失」嗰批計一次
+  const lifeBy = {};
+  const alive = new Set(Object.keys(seen));
+  batches.forEach((batch, bi) => {
+    const keys = new Set((batch.r || []).map(r => `${r.v}|${r.l || ''}|${r.d}|${r.sm}`));
+    // 先移除：之前 alive 但今批唔見咗
+    for (const k of [...alive]) {
+      if (!keys.has(k)) {
+        const o = seen[k];
+        const life = bi - o.first;
+        if (life > 0) (lifeBy[o.s] = lifeBy[o.s] || []).push(life);
+        o.dead = true;
+        alive.delete(k);
+      }
+    }
+    keys.forEach(k => { if (seen[k]) alive.add(k); });
+  });
+  const sportTotals = {};
+  Object.values(seen).forEach(o => { sportTotals[o.s] = (sportTotals[o.s] || 0) + 1; });
+  // 計一閃即逝：只出現過一批嘅場次
+  const flashCount = {};
+  Object.values(seen).forEach(o => {
+    if (o.count === 1) flashCount[o.s] = (flashCount[o.s] || 0) + 1;
+  });
+  const flashFinal = Object.entries(sportTotals).map(([s, tot]) => ({
+    k: anSportIcon(s) + ' ' + anSportName(s), v: flashCount[s] || 0, tot,
+    pct: Math.round((flashCount[s] || 0) / tot * 100)
+  })).sort((a, b) => b.pct - a.pct);
+  document.getElementById('an-flash').innerHTML = flashFinal.map(r => `
+    <div style="margin:6px 0">
+      <div style="display:flex;justify-content:space-between;font-size:12px">
+        <span>${r.k}</span><span style="color:var(--muted)">${r.v}/${r.tot} 場</span>
+      </div>
+      <div style="height:12px;background:#222;border-radius:4px;overflow:hidden;margin-top:2px">
+        <div style="height:100%;width:${r.pct}%;background:${r.pct >= 80 ? 'var(--yellow)' : (r.pct >= 60 ? 'var(--accent)' : 'var(--green)')}"></div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:1px">${r.pct}% 放咗一批就冇（最搶手）</div>
+    </div>`).join('');
+
+  // ---------- 4️⃣ 執雞視窗（存活時間）----------
+  const lifeEl = document.getElementById('an-lifespan');
+  const allLives = Object.values(lifeBy).flat();
+  if (allLives.length) {
+    const sorted = [...allLives].sort((a, b) => a - b);
+    const med = sorted[Math.floor(sorted.length / 2)];
+    const medMin = med * 4;
+    let html = `<div style="font-size:13px;margin-bottom:8px">🎯 中位存活 <b style="color:var(--green);font-size:18px">${medMin} 分鐘</b>（${med} 批）</div>`;
+    html += `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">最快 ${Math.min(...sorted)*4} 分鐘 · 最長 ${Math.max(...sorted)*4} 分鐘</div>`;
+    html += `<div style="background:#1a1f27;border-left:3px solid var(--green);padding:8px 10px;font-size:12px;border-radius:4px">💡 收到通知後 <b>${medMin} 分鐘內</b>行動先最穩陣 —— 超過就大機會畀人搶走。</div>`;
+    // 按運動
+    const perSport = Object.entries(lifeBy).map(([s, arr]) => {
+      const so = [...arr].sort((a, b) => a - b);
+      return { k: anSportIcon(s) + ' ' + anSportName(s), v: so[Math.floor(so.length / 2)] * 4, n: arr.length };
+    }).sort((a, b) => b.v - a.v);
+    html += `<div style="margin-top:10px">${anBarsHtml(perSport.map(r => ({ k: r.k, v: r.v, t: `${r.v}分` })), { colorBy: (r, i) => i === 0 ? 'var(--green)' : 'var(--accent)' })}</div>`;
+    lifeEl.innerHTML = html;
+  } else {
+    lifeEl.innerHTML = '<div class="hint">⏳ 暫時未有場次消失數據（需要多幾批先有得分析）</div>';
+  }
+
+  // ---------- 滯留場（仲喺度冇人攞）----------
+  const lastIdx = batches.length - 1;
+  // 滯留場 = 最後一批仍然出現 + 已經持續多批（有人想訂但未有人成功）
+  const lastKeys = new Set((batches[lastIdx].r || []).map(r => `${r.v}|${r.l || ''}|${r.d}|${r.sm}`));
+  const staleRows = Object.entries(seen).filter(([k, o]) => lastKeys.has(k) && o.count >= 2)
+    .map(([k, o]) => {
+      const [v, l, d, sm] = k.split('|');
+      return { k: `${v}${l && l !== 'undefined' ? ' · ' + l : ''}`, v: o.count, sm: parseInt(sm), d, s: o.s,
+               since: lastIdx - o.first };
+    })
+    .sort((a, b) => b.v - a.v || a.sm - b.sm).slice(0, 8);
+  document.getElementById('an-stale').innerHTML = staleRows.length ? staleRows.map(r => `
+    <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #222;font-size:12px">
+      <span>${anSportIcon(r.s)} ${r.k}</span>
+      <span style="color:var(--muted);white-space:nowrap">${anHm(r.sm)} · ${r.d.slice(5)} · 留咗${r.v}批</span>
+    </div>`).join('') + '<div class="hint" style="margin-top:6px">💡 呢啲場連續多批都冇人訂 — 而家去可能仲執到</div>'
+    : '<div class="hint">⏳ 暫時冇明顯滯留場</div>';
+
+  // ---------- 3️⃣ 時間熱力圖 ----------
+  const byHour = new Array(24).fill(0);
+  batches.forEach(batch => {
+    const hh = parseInt((batch.t.split(' ')[1] || '00:00').split(':')[0], 10);
+    if (!isNaN(hh)) byHour[hh] += (batch.r || []).length;
+  });
+  const hMax = Math.max(1, ...byHour);
+  document.getElementById('an-heat').innerHTML = byHour.map((v, h) => {
+    const p = v / hMax;
+    const bg = v === 0 ? '#1a1f27' : `rgba(29,185,84,${0.15 + p * 0.85})`;
+    return `<div title="${h}時: ${v} 個放場" style="background:${bg};height:32px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;color:${p > 0.5 ? '#04150a' : 'var(--muted)'}">${h}</div>`;
+  }).join('');
+
+  // ---------- 放場日期分佈 ----------
+  const dRows = dates.map(d => ({ k: d, v: byDate[d], t: byDate[d] })).sort((a, b) => a.k.localeCompare(b.k));
+  document.getElementById('an-dates').innerHTML = anBarsHtml(dRows, { colorBy: (r, i) => r.k === latestDate ? 'var(--green)' : 'var(--accent)' });
+
+  // ---------- 5️⃣ 放場王識別（反覆放訂）----------
+  // 同一場次出現喺唔同批（count > 1）= 反覆出現
+  const repeat = Object.entries(seen).map(([k, o]) => {
+    const [v, l, d, sm] = k.split('|');
+    return { v, l, d, sm: parseInt(sm), count: o.count, s: o.s };
+  }).filter(r => r.count >= 2).sort((a, b) => b.count - a.count).slice(0, 10);
+  document.getElementById('an-king').innerHTML = repeat.length ? `
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="color:var(--muted);text-align:left">
+        <th style="padding:4px">場館</th><th style="padding:4px">日期</th><th style="padding:4px">時段</th><th style="padding:4px">反覆次數</th>
+      </tr></thead>
+      <tbody>${repeat.map(r => `<tr style="border-top:1px solid #222">
+        <td style="padding:4px">${anSportIcon(r.s)} ${r.v}</td>
+        <td style="padding:4px;color:var(--muted)">${r.d.slice(5)}</td>
+        <td style="padding:4px">${anHm(r.sm)}</td>
+        <td style="padding:4px"><b style="color:var(--yellow)">${r.count}x</b></td>
+      </tr>`).join('')}</tbody>
+    </table>
+    <div class="hint" style="margin-top:6px">💡 同一場館+時段重複出現 = 放咗→被訂走→再放。可能係炒家試價，或者團體輪流放場。</div>`
+    : '<div class="hint">⏳ 暫時冇明顯反覆放場模式（需要多啲數據）</div>';
+}
+
+document.getElementById('an-refresh').addEventListener('click', () => loadAnalyze(true));
+
 // ---------- CLICK-TO-SORT（4 個 table 通用） ----------
 const sortState = {}; // tableId -> {key, dir}
 function cmpVal(a, b) {
@@ -1306,6 +1612,7 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
   if (b.dataset.tab === 'esp' && espEve === null) loadEspFeeds();
   if (b.dataset.tab === 'esp') loadCyds();
   if (b.dataset.tab === 'session' && sessionsData === null) loadSessions();
+  if (b.dataset.tab === 'analyze') loadAnalyze();
 });
 ['#f-search','#f-time'].forEach(s => $(s).addEventListener('input', () => { renderFacility(); }));
 $('#f-only').addEventListener('change', renderFacility);
