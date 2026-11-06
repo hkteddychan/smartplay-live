@@ -436,10 +436,17 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
     </div>
 
     <!-- 5️⃣ 放場王識別 -->
-    <div class="card" style="padding:14px">
+    <div class="card" style="padding:14px;margin-bottom:18px">
       <h3 style="margin:0 0 6px;font-size:14px">👑 放場王識別 — 疑似反覆放訂行為</h3>
       <div class="hint" style="margin-bottom:8px">同一場館+時段「放 → 被訂走 → 再放」反覆出現（可能係炒家測試市場 / 團體放異動）</div>
       <div id="an-king"></div>
+    </div>
+
+    <!-- 7️⃣ 搶場大戰 -->
+    <div class="card" style="padding:14px">
+      <h3 style="margin:0 0 6px;font-size:14px">⏰ 搶場大戰 — 07:00-07:30 day-7 開賣實錄</h3>
+      <div class="hint" style="margin-bottom:8px">每日朝早 07:00（智方便）/ 07:15（一般）day-7 開賣 — 記錄頭 35 分鐘每 2 分鐘邊個場被搶走幾多（時間序 = 預訂先後次序）</div>
+      <div id="an-grab">⏳ 載入中…</div>
     </div>
   </div>
 
@@ -513,8 +520,67 @@ async function loadAnalyze(force) {
       if (info) info.textContent = months.length ? `${months.length} 個月檔（${months[0].m} 起）· 共 ${months.reduce((s,m)=>s+(m.n||0),0)} 個事件` : '未有任何永久檔';
     }
   } catch (e) { analyzeData = null; }
+  // ⏰ 搶場大戰數據（同 fetch 任何 range）
+  try {
+    const t2 = Date.now();
+    const r2 = await fetch(`esp32/grab.json?t=${t2}`, { cache: 'no-store' });
+    grabData = r2.ok ? await r2.json() : null;
+  } catch (e) { grabData = null; }
   renderAnalyze();
+  renderGrab();
   if (btn) btn.textContent = '🔄 重新分析';
+}
+
+// ===== ⏰ 搶場大戰 render =====
+let grabData = null;
+const GRAB_ICON = { badminton: '🏸', basketball: '🏀', volleyball: '🏐', tennis: '🎾', 'turf-soccer-pitch': '⚽' };
+function renderGrab() {
+  const el = document.getElementById('an-grab');
+  if (!el) return;
+  if (!grabData || !Array.isArray(grabData.log)) {
+    el.innerHTML = '<div class="hint">⏳ 仲未收集到數據 — 每日朝早 06:50 開始記錄，07:36 完成當日報告。明早之後返嚟睇！</div>';
+    return;
+  }
+  const total = grabData.total || grabData.log.reduce((s, e) => s + e.n, 0);
+  // 聚合場次（先後次序 = 第一次被記錄搶走嘅時間）
+  const seq = {};
+  for (const e of grabData.log) {
+    for (const r of e.r) {
+      const k = `${r.s}|${r.v}|${r.l}|${r.sm}`;
+      if (!seq[k]) seq[k] = { ...r, t0: e.t, tot: 0 };
+      seq[k].tot += r.old - r.nw;
+    }
+  }
+  const rows = Object.values(seq).sort((a, b) => a.t0.localeCompare(b.t0));
+  // 時間線：每個 poll tick 幾多場被搶
+  const ticks = grabData.log.map(e => ({ t: e.t, n: e.n }));
+  let html = `<div class="hint" style="margin-bottom:10px">📅 ${grabData.d} · 頭 35 分鐘共 <b style="color:var(--red)">${total}</b> 場被搶走 · ${rows.length} 個場次</div>`;
+  // 時間線 bars
+  html += '<div style="margin-bottom:12px"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">每個時刻被搶走場數：</div>';
+  const maxN = Math.max(...ticks.map(t => t.n), 1);
+  for (const t of ticks) {
+    const w = Math.round(t.n / maxN * 100);
+    html += `<div style="display:flex;align-items:center;gap:8px;margin:3px 0">
+      <span style="flex:0 0 52px;font-size:11px;color:var(--muted)">${t.t}</span>
+      <span style="flex:1;height:12px;background:linear-gradient(90deg,var(--red) ${w}%,transparent ${w}%);border-radius:3px;min-width:1px"></span>
+      <span style="flex:0 0 40px;font-size:11px;font-weight:700;color:var(--red)">${t.n} 場</span></div>`;
+  }
+  html += '</div>';
+  // 場次先後次序表（Top 15）
+  html += '<div style="font-size:12px;color:var(--muted);margin-bottom:6px">搶場先後次序（最快被搶 = 最多人爭）：</div>';
+  html += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="color:var(--muted);text-align:left">';
+  html += '<th style="padding:4px">#</th><th style="padding:4px">被搶時間</th><th style="padding:4px">場館</th><th style="padding:4px">時段</th><th style="padding:4px">被搶場數</th></tr></thead><tbody>';
+  rows.slice(0, 15).forEach((r, i) => {
+    const icon = GRAB_ICON[r.s] || '🏟️';
+    html += `<tr><td style="padding:4px">${i + 1}</td>
+      <td style="padding:4px;color:var(--red);font-weight:600">${r.t0}</td>
+      <td style="padding:4px">${icon} ${r.v}${r.l ? ' <span style="color:var(--muted)">' + r.l + '</span>' : ''}</td>
+      <td style="padding:4px">${r.sm}-${r.em}</td>
+      <td style="padding:4px;font-weight:700">-${r.tot}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  if (rows.length > 15) html += `<div class="hint" style="margin-top:6px">…另有 ${rows.length - 15} 個場次</div>`;
+  el.innerHTML = html;
 }
 // range pills
 document.querySelectorAll('.an-range').forEach(b => b.addEventListener('click', () => {
