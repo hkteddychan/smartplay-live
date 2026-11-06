@@ -1,8 +1,8 @@
 {
-  "version": "1.3.2",
+  "version": "1.4",
   "bin": "https://hkteddychan.github.io/smartplay-live/esp32/firmware.bin",
-  "md5": "63505432005c24aa949fe294c01ea7bb",
-  "size": 1429216,
-  "note": "v1.3.1 with watchdog fix + NVS WiFi + boot splash",
-  "url": "https://github.com/hkteddychan/smartplay-live/releases/download/v1.3.2/cyd-firmware-v1.3.2.bin"
+  "md5": "16b2b8f7162016ee1c712af38ddbcee8",
+  "size": 1429200,
+  "note": "v1.4 manual OTA check dialog (tap version in header)",
+  "url": "https://github.com/hkteddychan/smartplay-live/releases/download/v1.4/cyd-firmware-v1.4.bin"
 }
