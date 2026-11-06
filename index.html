@@ -124,7 +124,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
   <div class="tabs">
     <button class="tab active" data-tab="facility">🏸 設施餘額</button>
     <button class="tab" data-tab="changes">🔔 最新改變</button>
-    <button class="tab" data-tab="esp">🤖 ESP32 視角</button>
+    <button class="tab" data-tab="esp">🤖 ESP View</button>
     <button class="tab" data-tab="activity">🏊 活動搜尋</button>
       <button class="tab" data-tab="session">📜 放場記錄</button>
   </div>
@@ -921,7 +921,7 @@ function exportChanges() {
   download(`smartplay-changes-${new Date().toISOString().slice(0,10)}.csv`, toCSV(out, hdrs));
 }
 
-// ---------- ESP32 視角（放場通知器 — 純 changes-eve.json 對照） ----------
+// ---------- ESP View（放場通知器 — 純 changes-eve.json 對照） ----------
 // ESP32 v2.1 唔再看 today.json 場次清單 — 純粹 beep-on-release。
 // 呢個 tab 顯示 changes-eve.json 內容 = ESP32 會 beep 嘅嘢。
 let espEve = null;
