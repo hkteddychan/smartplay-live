@@ -28,6 +28,8 @@ static unsigned long g_otaPauseUntil = 0;
 // ---- 屏幕提示（可選 — 由主 ino 提供回調避免循環依賴）----
 // 屏幕提示由 smartplay.ino 提供實作（見 OTA 提示畫面）
 __attribute__((weak)) void otaScreenMsg(const char* line1, const char* line2);
+// 手動檢查結果回報 hook（smartplay.ino 提供定義）
+extern void otaManualNotify(bool hasNew, const char* ver, const char* msg);
 
 static int versionCmp(const char* a, const char* b) {
   int va = 0, vb = 0;
@@ -147,29 +149,32 @@ static void otaPullCheck(bool force = false) {
   http.setTimeout(15000);
   http.begin(OTA_MANIFEST_URL);
   int code = http.GET();
-  if (code != 200) { http.end(); otaFail(); return; }
+  if (code != 200) { http.end(); otaFail(); if (force) otaManualNotify(false, "", "檢查失敗（HTTP 錯誤）"); return; }
   String body = http.getString();
   http.end();
 
   JsonDocument doc;
-  if (deserializeJson(doc, body)) { otaFail(); return; }
+  if (deserializeJson(doc, body)) { otaFail(); if (force) otaManualNotify(false, "", "檢查失敗（格式錯誤）"); return; }
   const char* ver = doc["version"] | "";
   const char* bin = doc["bin"] | "";
   const char* md5 = doc["md5"] | "";
-  if (!ver[0] || !bin[0]) { otaFail(); return; }
+  if (!ver[0] || !bin[0]) { otaFail(); if (force) otaManualNotify(false, "", "檢查失敗（manifest 不完整）"); return; }
   if (versionCmp(ver, OTA_FW_VERSION) <= 0) {
     Serial.printf("[OTA-PULL] 已係最新 (%s)\n", ver);
     otaSuccess();
+    if (force) otaManualNotify(false, ver, "已係最新版本");
     return;
   }
   Serial.printf("[OTA-PULL] 有新版 %s（本機 %s）— 開始更新\n", ver, OTA_FW_VERSION);
-  otaScreenMsg("自動更新中", "下載韌體...");
+  if (force) otaManualNotify(true, ver, "下載韌體中…");
+  else otaScreenMsg("自動更新中", "下載韌體...");
   if (otaDownloadAndFlash(bin, md5)) {
     otaSuccess();
     delay(500);
     ESP.restart();  // 唔會返嚟
   }
   otaFail();
+  if (force) otaManualNotify(false, ver, "下載/燒錄失敗，稍後再試");
 }
 
 #endif // CYD_OTA_PULL_H
