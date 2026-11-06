@@ -121,9 +121,34 @@ static bool g_homeFullDrawn = false;   // 首繪用全頁，之後只局部更�
 static bool g_homeNeedsFull = true;    // true = 要全頁重繪；false = 只局部刷新
 
 /* ---------------- screen state ---------------- */
-enum Screen { SCR_HOME, SCR_ALERT };
+enum Screen { SCR_HOME, SCR_ALERT, SCR_OTA_DIALOG };
 enum Page { PAGE_NOTIFY, PAGE_BROWSE, PAGE_HISTORY };
 static Screen g_screen = SCR_HOME;
+
+// ---- 手動 OTA 檢查對話框（v1.4）----
+// 狀態: 0=idle 1=檢查中 2=已係最新 3=有新版→下載中(唔會返嚟) -1=檢查失敗
+static volatile int g_otaDlgState = 0;
+static char g_otaDlgMsg[40] = "";
+static char g_otaDlgVer[16] = "";
+static void otaDialogDraw();
+static volatile bool g_otaDlgRedraw = false;  // otaManualNotify 設定，loop 消化
+// 由 cyd_ota_pull.h otaPullCheck(force=true) 回報結果
+void otaManualNotify(bool hasNew, const char *ver, const char *msg) {
+  if (hasNew) {
+    // 有新版 — 已開始下載（otaDownloadAndFlash 內會畫更新畫面，成功會重啟）
+    snprintf(g_otaDlgMsg, sizeof(g_otaDlgMsg), "%s", msg ? msg : "");
+    snprintf(g_otaDlgVer, sizeof(g_otaDlgVer), "%s", ver ? ver : "");
+    g_otaDlgState = 3;
+  } else if (ver && ver[0]) {
+    snprintf(g_otaDlgVer, sizeof(g_otaDlgVer), "%s", ver);
+    snprintf(g_otaDlgMsg, sizeof(g_otaDlgMsg), "已係最新版本");
+    g_otaDlgState = 2;
+  } else {
+    snprintf(g_otaDlgMsg, sizeof(g_otaDlgMsg), "%s", msg ? msg : "檢查失敗，稍後再試");
+    g_otaDlgState = -1;
+  }
+  g_otaDlgRedraw = true;
+}
 static Page g_page = PAGE_NOTIFY;
 static Page g_returnPage = PAGE_NOTIFY;   // 警報蓋住邊個頁，收完返返去
 static unsigned long g_alertAt = 0;
@@ -587,6 +612,13 @@ static void drawHeader(uint16_t barColor, uint16_t fg) {
     tft.drawString(buf, SCR_W - 8, 7, 2);
     tft.setTextDatum(TL_DATUM);
   }
+  // 細字版本號（wifi bars 左邊，撳呢個區 = 手動檢查更新）
+  tft.setTextDatum(TR_DATUM);
+  tft.setTextSize(1);
+  tft.setTextColor(C_DIM, barColor);
+  tft.drawString(g_reportFw, SCR_W - 80, 12, 1);
+  tft.setTextSize(2);
+  tft.setTextDatum(TL_DATUM);
   // wifi bars
   if (WiFi.status() == WL_CONNECTED) {
     int rssi = WiFi.RSSI();
@@ -595,6 +627,47 @@ static void drawHeader(uint16_t barColor, uint16_t fg) {
       uint16_t col = (i < bars) ? fg : C_DIM;
       tft.fillRect(SCR_W - 74 + i * 5, HEADER_H - 6 - (i + 1) * 4, 3, (i + 1) * 4, col);
     }
+  }
+}
+
+// ---- v1.4 手動 OTA 檢查對話框（modal 卡片：160x120 置中）----
+static void otaDialogDraw() {
+  // 半透明底（用實色深底代替 alpha — CYD 冇 alpha blending）
+  tft.fillRect(40, 50, 240, 130, C_CARD);
+  tft.drawRect(40, 50, 240, 130, C_ACCENT);
+  tft.setTextDatum(TL_DATUM);
+
+  String title;
+  uint16_t tcol = C_ACCENT;
+  if (g_otaDlgState == 0)      { title = "檢查更新"; tcol = C_ACCENT; }
+  else if (g_otaDlgState == 1) { title = "檢查中…";   tcol = C_ACCENT; }
+  else if (g_otaDlgState == 2) { title = "已係最新";   tcol = C_GOOD; }
+  else if (g_otaDlgState == 3) { title = "有新版！";   tcol = C_WARN; }
+  else                         { title = "檢查失敗";   tcol = C_WARN; }
+
+  drawUTF8(title, 56, 60, tcol, C_CARD);
+
+  char line[48];
+  snprintf(line, sizeof(line), "目前版本 %s", g_reportFw);
+  drawUTF8(String(line), 56, 86, C_TEXT, C_CARD);
+
+  if (g_otaDlgState == 2 && g_otaDlgVer[0]) {
+    snprintf(line, sizeof(line), "最新 %s", g_otaDlgVer);
+    drawUTF8(String(line), 56, 106, C_DIM, C_CARD);
+  } else if (g_otaDlgMsg[0]) {
+    drawUTF8(String(g_otaDlgMsg), 56, 106, C_DIM, C_CARD);
+  } else if (g_otaDlgState == 1) {
+    drawUTF8(String("連接更新服務…"), 56, 106, C_DIM, C_CARD);
+  } else {
+    drawUTF8(String("撳下面檢查，或任何位置關閉"), 56, 106, C_DIM, C_CARD);
+  }
+
+  // 撳掣：狀態 0/-1/2 時顯示「檢查」掣
+  if (g_otaDlgState == 0 || g_otaDlgState == -1 || g_otaDlgState == 2) {
+    tft.fillRoundRect(110, 130, 100, 36, 8, C_ACCENT);
+    drawUTF8(String("檢查更新"), 130, 140, C_BG, C_ACCENT);
+  } else {
+    drawUTF8(String("下載中，唔好斷電…"), 56, 140, C_WARN, C_CARD);
   }
 }
 
@@ -780,6 +853,41 @@ static void processTap(int x, int y) {
     g_page = g_returnPage;
     g_unread = false;
     g_homeNeedsFull = true;
+    g_dirty = true;
+    return;
+  }
+
+  // 🔄 OTA dialog 處理（最上層 modal）
+  if (g_screen == SCR_OTA_DIALOG) {
+    // 「檢查更新」掣 (110..210, 130..166)
+    if ((g_otaDlgState == 0 || g_otaDlgState == -1 || g_otaDlgState == 2) &&
+        x >= 110 && x <= 210 && y >= 130 && y <= 166) {
+      g_otaDlgState = 1;
+      g_dirty = true;
+      otaDialogDraw();  // 立即顯示「檢查中」
+      // 直接跑（會 blocking 下載，但 otaPullCheck 本身就係 blocking 設計）
+      g_screen = SCR_HOME;  // 先還原 screen，免得更新過程中狀態混亂
+      otaPullCheck(true);   // 有結果會 callback 改 g_otaDlgState + g_dirty
+      g_screen = SCR_OTA_DIALOG;
+      g_dirty = true;
+      return;
+    }
+    // 其他位置 → 關閉（檢查中唔畀關，下載中唔會到呢度）
+    if (g_otaDlgState != 1) {
+      g_screen = SCR_HOME;
+      g_otaDlgState = 0;
+      g_homeNeedsFull = true;
+      g_dirty = true;
+    }
+    return;
+  }
+
+  // Header 版本號區（x 220..242, y 0..30）→ 開 OTA dialog
+  if (g_screen == SCR_HOME && x >= 218 && x <= 244 && y <= HEADER_H) {
+    g_otaDlgState = 0;
+    g_otaDlgMsg[0] = 0;
+    g_otaDlgVer[0] = 0;
+    g_screen = SCR_OTA_DIALOG;
     g_dirty = true;
     return;
   }
@@ -1118,6 +1226,10 @@ void loop() {
   otaPullCheck();
   reportTick();
   handleTouch();
+  if (g_otaDlgRedraw) {
+    g_otaDlgRedraw = false;
+    if (g_screen == SCR_OTA_DIALOG) g_dirty = true;
+  }
   if (browseFlashUntil && millis() >= browseFlashUntil) {
     browseFlashUntil = 0;
     browseFlashChip = -1;
@@ -1172,7 +1284,8 @@ void loop() {
 
   if (g_dirty) {
     g_dirty = false;
-    if (g_screen == SCR_ALERT && g_alertCount > 0) drawAlert();
+    if (g_screen == SCR_OTA_DIALOG) otaDialogDraw();
+    else if (g_screen == SCR_ALERT && g_alertCount > 0) drawAlert();
     else if (g_page == PAGE_BROWSE) browseDrawCurrent();
     else if (g_page == PAGE_HISTORY) {
       if (nhDetailBatch >= 0) nhDrawDetail(); else nhDrawList();
