@@ -462,6 +462,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
 </div>
 
 <script>
+const esc=s=>String(s??'').replace(/["'&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',[String.fromCharCode(34)]:'&quot;',"'":'&#39;'})[c]);
 
 // ============================================================
 // 📊 放場分析（v1）— 純前端計算，唔加 Worker 負擔
@@ -1237,18 +1238,18 @@ function renderFacility() {
     const dateLabel = dISO ? dISO.slice(5) + ' ' + dWd : '';
     const tr = document.createElement('tr');
     tr.innerHTML = `<td><span class="tag sport">${s.icon} ${s.name}</span></td>
-      <td>${x.District_Name_TC||''}</td>
-      <td>${x.Venue_Name_TC||''}</td>
-      <td>${x.Facility_Type_Name_TC||''}</td>
+      <td>${esc(x.District_Name_TC||'')}</td>
+      <td>${esc(x.Venue_Name_TC||'')}</td>
+      <td>${esc(x.Facility_Type_Name_TC||'')}</td>
       <td>${dateLabel}</td>
-      <td>${x.Session_Start_Time}-${x.Session_End_Time}</td>
+      <td>${esc(x.Session_Start_Time)}-${esc(x.Session_End_Time)}</td>
       <td class="courts c${Math.min(c,3)}">${c} 場</td>`;
     tbody.appendChild(tr);
   });
   $('#f-stats').innerHTML = `
     <div class="stat"><b>${nDates}</b><span>揀咗幾多日</span></div>
     <div class="stat"><b>${rows.length}</b><span>符合時段${rows.length > 500 ? '（顯示首 500）' : ''}</span></div>
-    <div class="stat"><b>${distinctVenues}</b><span>場地數</span></div>
+    <div class="stat"><b>${esc(distinctVenues)}</b><span>場地數</span></div>
     <div class="stat"><b>${totalSlots}</b><span>總時段</span></div>`;
 }
 
