@@ -613,7 +613,7 @@ function anBarsHtml(rows, opts) {
   return rows.map((r, i) => {
     const pct = Math.round(r.v / max * 100);
     const col = opts.colorBy ? opts.colorBy(r, i) : colors[i % colors.length];
-    const rawK = String(r.k);
+    const rawK = String(r.k) + (r.sub ? ' <span style="color:var(--muted);font-size:10px">' + r.sub + '</span>' : '');
     const label = rawK.length > 22 ? rawK.slice(0, 21) + '…' : rawK;
     const safeK = rawK.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     return `<div style="display:flex;align-items:center;gap:8px;margin:5px 0">
@@ -793,9 +793,27 @@ function renderAnalyze() {
     return `<div title="${h}時: ${v} 個放場" style="background:${bg};height:32px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;color:${p > 0.5 ? '#04150a' : 'var(--muted)'}">${h}</div>`;
   }).join('');
 
-  // ---------- 放場日期分佈 ----------
-  const dRows = dates.map(d => ({ k: d, v: byDate[d], t: byDate[d] })).sort((a, b) => a.k.localeCompare(b.k));
-  document.getElementById('an-dates').innerHTML = anBarsHtml(dRows, { colorBy: (r, i) => r.k === latestDate ? 'var(--green)' : 'var(--accent)' });
+  // ---------- 放場日期分佈（以今日做基準：當日 / 第2-7日）----------
+  const addDays = (ds, n) => new Date(new Date(ds + 'T00:00:00Z').getTime() + n * 86400000).toISOString().slice(0, 10);
+  const hkToday = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+  const dayBuckets = {};
+  const bucketLabels = [];
+  for (let n = 0; n <= 6; n++) {   // 當日 + 第2-7日 = 7 桶
+    const ds = addDays(hkToday, n);
+    dayBuckets[ds] = { label: n === 0 ? '當日' : '第' + (n + 1) + '日', v: 0, date: ds };
+    bucketLabels.push(ds);
+  }
+  let beyond = 0;
+  rows.forEach(r => {
+    if (dayBuckets[r.d]) dayBuckets[r.d].v++;
+    else beyond++;
+  });
+  const dRows = bucketLabels.map(ds => {
+    const b = dayBuckets[ds];
+    return { k: b.label, sub: ds.slice(5), v: b.v, t: b.v };
+  });
+  document.getElementById('an-dates').innerHTML = anBarsHtml(dRows, { colorBy: (r, i) => i === 0 && r.v > 0 ? 'var(--green)' : 'var(--accent)' });
+  if (beyond > 0) document.getElementById('an-dates').innerHTML += `<div class="hint" style="margin-top:6px">ℹ️ 另有 ${beyond} 個放場喺第 8 日或之後（未開賣）</div>`;
 
   // ---------- 5️⃣ 放場王識別（反覆放訂）----------
   // 同一場次出現喺唔同批（count > 1）= 反覆出現
