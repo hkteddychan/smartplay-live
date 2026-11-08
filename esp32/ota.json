@@ -1,8 +1,8 @@
 {
   "version": "1.4",
-  "bin": "https://hkteddychan.github.io/smartplay-live/esp32/firmware.bin",
-  "md5": "16b2b8f7162016ee1c712af38ddbcee8",
-  "size": 1429200,
-  "note": "v1.4 manual OTA check dialog (tap version in header)",
-  "url": "https://github.com/hkteddychan/smartplay-live/releases/download/v1.4/cyd-firmware-v1.4.bin"
+  "bin": "https://github.com/hkteddychan/smartplay-live/releases/latest/download/cyd-firmware-latest.bin",
+  "md5": "",
+  "size": 0,
+  "note": "v1.4 OTA via release asset (Pages bin removed for security)",
+  "url": "https://github.com/hkteddychan/smartplay-live/releases/latest/download/cyd-firmware-latest.bin"
 }
