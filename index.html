@@ -381,7 +381,6 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
       <span style="font-size:12px;color:var(--muted)">時間範圍：</span>
       <button class="tab an-range active" data-range="week" style="padding:5px 12px;font-size:12px">最近 7 天</button>
       <button class="tab an-range" data-range="month" style="padding:5px 12px;font-size:12px">最近一個月</button>
-      <button class="tab an-range" data-range="all" style="padding:5px 12px;font-size:12px">全部歷史</button>
       <button id="an-refresh" class="btn" style="padding:4px 10px;font-size:12px">🔄 重新分析</button>
     </div>
     <div class="hint" style="margin-bottom:14px"><b id="an-window">—</b> · 數據每 2 分鐘更新 · 永久檔案 <span id="an-hist-info">載入中…</span></div>
@@ -474,15 +473,12 @@ const AN_RANGE_DAYS = { week: 7, month: 30 };   // 事件時間過濾天數（al
 
 function anRangeBatches() {
   // 統一回傳批次格式 [{t, r:[...]}] — hist 事件轉返單批格式（fS→first batch, lS→last batch）
-  if (anRange === 'week' || anRange === 'month') {
-    const days = AN_RANGE_DAYS[anRange];
-    // hist（永久檔）過濾 + notif-state 最新 60 批合併（hist 寫入有 30min throttle，未入 hist 嘅新批由 notif-state 補）
-    const histB = histBatches(histMonths).filter(b => b._days !== undefined ? b._days <= days : true);
-    const liveB = (analyzeData && Array.isArray(analyzeData.b) ? analyzeData.b : []).map(b => ({ t: b.t, r: b.r || [], _days: (liveBatchFullTs(b.t).getTime() - Date.now()) / 86400000 }));
-    const filtered = liveB.filter(b => b._days <= days);
-    return histB.concat(filtered).sort((a, b) => a.t.localeCompare(b.t));
-  }
-  return histBatches(histMonths);
+  const days = AN_RANGE_DAYS[anRange] || 30;
+  // hist（永久檔）過濾 + notif-state 最新 60 批合併（hist 寫入有 30min throttle，未入 hist 嘅新批由 notif-state 補）
+  const histB = histBatches(histMonths).filter(b => b._days !== undefined ? b._days <= days : true);
+  const liveB = (analyzeData && Array.isArray(analyzeData.b) ? analyzeData.b : []).map(b => ({ t: b.t, r: b.r || [], _days: (liveBatchFullTs(b.t).getTime() - Date.now()) / 86400000 }));
+  const filtered = liveB.filter(b => b._days <= days);
+  return histB.concat(filtered).sort((a, b) => a.t.localeCompare(b.t));
 }
 
 // notif-state 批次 t 係「MM-DD HH:MM」— 加返年份前綴做年齡計算（跨年：未來時間 = 舊年批次）
@@ -522,8 +518,8 @@ async function loadAnalyze(force) {
   if (btn) btn.textContent = '⏳ 分析中…';
   try {
     const t = Date.now();
-    if (anRange === 'week' || anRange === 'month') {
-      // 7 天 / 一個月：載入全部月份 hist（由本月倒返落去，直到 404），之後喺 anRangeBatches 按天數過濾
+    {
+      // 載入全部月份 hist（由本月倒返落去，直到 404），anRangeBatches 按天數過濾（7天/一個月）
       const now = new Date();
       const months = [];
       for (let i = 0; i < 60; i++) {   // 最多 60 個月（5年）
@@ -647,7 +643,7 @@ function anBarsHtml(rows, opts) {
 }
 
 function renderAnalyze() {
-  if ((anRange === 'week' || anRange === 'month') && histMonths.length === 0) {
+  if (histMonths.length === 0) {
     document.getElementById('an-summary').innerHTML = '<div class="card" style="padding:14px">⏳ 暫時未有放場記錄</div>';
     return;
   }
@@ -665,7 +661,7 @@ function renderAnalyze() {
 
   // 數據時窗
   const win = document.getElementById('an-window');
-  const RANGE_LABEL = { week: '最近 7 天', month: '最近一個月', all: '全部歷史' };
+  const RANGE_LABEL = { week: '最近 7 天', month: '最近一個月' };
   if (win) win.textContent = `分析緊 ${RANGE_LABEL[anRange] || anRange}：${total} 個放場事件（${batches[0]?.t || '—'} → ${batches[batches.length-1]?.t || '—'}）`;
 
   // ---------- 6️⃣ 每日摘要 ----------
