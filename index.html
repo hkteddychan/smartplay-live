@@ -516,27 +516,30 @@ function histBatches(months) {
 async function loadAnalyze(force) {
   const btn = document.getElementById('an-refresh');
   if (btn) btn.textContent = '⏳ 分析中…';
+  const t = Date.now();
+  // notif-state（最新 60 批）— 獨立 try，hist 失敗都唔影響
   try {
-    const t = Date.now();
-    {
-      // 載入全部月份 hist（由本月倒返落去，直到 404），anRangeBatches 按天數過濾（7天/一個月）
-      const now = new Date();
-      const months = [];
-      for (let i = 0; i < 60; i++) {   // 最多 60 個月（5年）
-        const d0 = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const m = `${d0.getFullYear()}-${String(d0.getMonth()+1).padStart(2,'0')}`;
-        try {
-          const r = await fetch(`esp32/hist/${m}.json?t=${t}`, { cache: 'no-store' });
-          if (!r.ok) break;   // 冇更舊 → 停
-          months.push(await r.json());
-        } catch (e) { break; }
-      }
-      months.reverse();
-      histMonths = months;
-      const info = document.getElementById('an-hist-info');
-      if (info) info.textContent = months.length ? `${months.length} 個月檔（${months[0].m} 起）· 共 ${months.reduce((s,m)=>s+(m.n||0),0)} 個事件` : '未有任何永久檔';
-    }
+    const r = await fetch(`esp32/notif-state.json?t=${t}`, { cache: 'no-store' });
+    analyzeData = r.ok ? await r.json() : null;
   } catch (e) { analyzeData = null; }
+  // hist 永久檔（由本月倒返落去，直到 404）— 失敗唔會清走 notif-state
+  try {
+    const now = new Date();
+    const months = [];
+    for (let i = 0; i < 60; i++) {   // 最多 60 個月（5年）
+      const d0 = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const m = `${d0.getFullYear()}-${String(d0.getMonth()+1).padStart(2,'0')}`;
+      try {
+        const r = await fetch(`esp32/hist/${m}.json?t=${t}`, { cache: 'no-store' });
+        if (!r.ok) break;   // 冇更舊 → 停
+        months.push(await r.json());
+      } catch (e) { break; }
+    }
+    months.reverse();
+    histMonths = months;
+    const info = document.getElementById('an-hist-info');
+    if (info) info.textContent = months.length ? `${months.length} 個月檔（${months[0].m} 起）· 共 ${months.reduce((s,m)=>s+(m.n||0),0)} 個事件` : '未有任何永久檔';
+  } catch (e) { histMonths = []; }
   // ⏰ 搶場大戰數據（同 fetch 任何 range）
   try {
     const t2 = Date.now();
@@ -643,7 +646,8 @@ function anBarsHtml(rows, opts) {
 }
 
 function renderAnalyze() {
-  if (histMonths.length === 0) {
+  const hasLive = analyzeData && Array.isArray(analyzeData.b) && analyzeData.b.length > 0;
+  if (histMonths.length === 0 && !hasLive) {
     document.getElementById('an-summary').innerHTML = '<div class="card" style="padding:14px">⏳ 暫時未有放場記錄</div>';
     return;
   }
