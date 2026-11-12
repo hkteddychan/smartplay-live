@@ -1,0 +1,7 @@
+{
+  "notifier_v": "2.2.0",
+  "notifier_bin": "https://github.com/hkteddychan/smartplay-live/releases/download/esp32-fw/notifier.bin",
+  "cyd_v": "3.4.0",
+  "cyd_bin": "https://github.com/hkteddychan/smartplay-live/releases/download/esp32-fw/cyd.bin",
+  "built": "2026-11-12 11:49 UTC"
+}
