@@ -54,7 +54,7 @@
 
 // ---------------- OTA ----------------
 // 開機 + 每 6 小時 GET firmware.json；版本新過 FIRMWARE_VERSION → 自動下載 .bin 更新 + reboot
-const char* FIRMWARE_VERSION = "3.3.0";
+const char* FIRMWARE_VERSION = "3.4.0";
 const char* URL_FIRMWARE = "https://hkteddychan.github.io/smartplay-live/esp32/firmware.json";
 const unsigned long OTA_CHECK_MS = 6UL * 3600 * 1000;
 unsigned long lastOtaCheck = 0;
@@ -170,15 +170,15 @@ bool parseBrowse(const String& body) {
   browseG = doc["g"] | "";
 
   nDates = 0;
-  for (JsonArray d : doc["d"].as<JsonArray>()) {
+  for (JsonVariant d : doc["d"].as<JsonArray>()) {
     if (nDates < 8) dateLabels[nDates++] = d.as<const char*>();   // v7: 需要 (nDates < 8) check
   }
   nSports = 0;
-  for (JsonArray k : doc["k"].as<JsonArray>()) {
+  for (JsonVariant k : doc["k"].as<JsonArray>()) {
     if (nSports < 6) sportIcons[nSports++] = k.as<const char*>();
   }
   nVenues = 0;
-  for (JsonArray v : doc["v"].as<JsonArray>()) {
+  for (JsonVariant v : doc["v"].as<JsonArray>()) {
     if (nVenues >= 200) break;
     String s = v.as<const char*>();
     int bar = s.indexOf('|');
@@ -355,7 +355,7 @@ void processEveChanges(const String& body) {
   int nRel = 0;
   JsonObject sports = doc["sports"];
   for (JsonPair kv : sports) {
-    for (JsonArray c : kv.value().as<JsonArray>()) {
+    for (JsonVariant c : kv.value().as<JsonArray>()) {
       const char* kind = c[5] | "";
       int oldC = c[6] | 0, newC = c[7] | 0;
       bool isRelease = (String(kind) == "chg" && newC > oldC) || String(kind) == "new";
