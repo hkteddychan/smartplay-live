@@ -75,7 +75,9 @@ jobs:
         run: |
           mkdir -p build/cyd
           cp esp32/smartplay_live_cyd.ino build/cyd/cyd.ino
+          # 🔒 audit fix：REPORT_KEY 經 build flag 帶入（secret 唔入 source）
           arduino-cli compile --fqbn esp32:esp32:esp32:PartitionScheme=min_spiffs \
+            --build-property "compiler.cpp.extra_flags=-DREPORT_KEY='\"${{ secrets.REPORT_KEY }}\"'" \
             --output-dir dist build/cyd --warnings none
           cp dist/cyd.ino.bin dist/cyd.bin
 
