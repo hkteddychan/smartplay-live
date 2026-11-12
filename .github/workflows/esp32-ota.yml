@@ -39,20 +39,15 @@ jobs:
       - name: TFT_eSPI user setup (CYD)
         run: |
           LIBDIR=$(arduino-cli config get directories.user)/libraries/TFT_eSPI
-          echo "LIBDIR=$LIBDIR"; ls "$LIBDIR" | head -5
-          # v-fix 2026-11-12: TFT_WIDTH error = User_Setup 未生效。TFT_eSPI 2.5.43 只喺
-          # User_Setup_Select.h 有 #include "User_Setups/Setup_SmartPlayCYD.h" 時先會 load。
-          # 寫入後即場 grep 驗證，唔係就 fail-fast。
-          cat > "$LIBDIR/User_Setup_Select.h" <<'EOF'
-          #include "User_Setups/Setup_SmartPlayCYD.h"
-          EOF
+          echo "LIBDIR=$LIBDIR"
+          # v2 fix 2026-11-12: 之前成個 replace User_Setup_Select.h = 剷走埋 library 嘅
+          # driver-selection block（#if defined(ILI9341_DRIVER) → include ILI9341_Defines.h）
+          # → TFT_WIDTH/ILI9341_PWCTR1 全部 undeclared。正確做法：保留原檔，只換 line 27
+          # 嘅 #include <User_Setup.h> 做我哋嘅 setup 檔。
           cat > "$LIBDIR/User_Setups/Setup_SmartPlayCYD.h" <<'EOF'
-          #ifndef USER_SETUP_LOADED
-          #define USER_SETUP_LOADED
-          #endif
+          // SmartPlay CYD — ILI9341 240x320 SPI + XPT2046 touch
+          #define USER_SETUP_ID 99
           #define ILI9341_DRIVER
-          #define TFT_WIDTH  240
-          #define TFT_HEIGHT 320
           #define TFT_MISO 12
           #define TFT_MOSI 13
           #define TFT_SCLK 14
@@ -66,10 +61,17 @@ jobs:
           #define LOAD_FONT4
           #define LOAD_GFXFF
           #define SMOOTH_FONT
+          #define SPI_FREQUENCY  40000000
+          #define SPI_READ_FREQUENCY  20000000
+          #define SPI_TOUCH_FREQUENCY  2500000
           EOF
           # strip heredoc leading spaces (YAML indent pollutes the file)
-          sed -i 's/^          //' "$LIBDIR/User_Setup_Select.h" "$LIBDIR/User_Setups/Setup_SmartPlayCYD.h"
-          echo "--- verify setup wired:"; grep -c "ILI9341_DRIVER" "$LIBDIR/User_Setups/Setup_SmartPlayCYD.h"
+          sed -i 's/^          //' "$LIBDIR/User_Setups/Setup_SmartPlayCYD.h"
+          # swap default setup -> our setup (keep the driver-selection block intact!)
+          sed -i 's|#include <User_Setup.h>|#include "User_Setups/Setup_SmartPlayCYD.h"|' "$LIBDIR/User_Setup_Select.h"
+          echo "--- verify:"
+          grep -n "Setup_SmartPlayCYD" "$LIBDIR/User_Setup_Select.h"
+          grep -n "ILI9341_Defines" "$LIBDIR/User_Setup_Select.h" | head -2
           grep -q "Setup_SmartPlayCYD" "$LIBDIR/User_Setup_Select.h" || (echo "FATAL: Select.h 未接上" && exit 1)
 
       - name: Build notifier (ESP32 Dev Module)
