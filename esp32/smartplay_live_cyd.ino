@@ -66,7 +66,11 @@ const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
 const char* URL_BROWSE = "https://hkteddychan.github.io/smartplay-live/esp32/browse.json";
 const char* URL_CHANGES_EVE = "https://hkteddychan.github.io/smartplay-live/esp32/changes-eve.json";
 
-const char* URL_REPORT = "https://smartplay-live-mirror.teddy-spot.workers.dev/esp/report";
+// 🔒 audit fix 2026-11-12：/esp/report 而家要 device key（同 RUN_KEY 一致）— build 時用 -DREPORT_KEY= 帶入
+#ifndef REPORT_KEY
+#define REPORT_KEY ""   // PlatformIO/arduino-cli build flag -DREPORT_KEY='"..."' 提供
+#endif
+static String reportUrl() { return String(URL_REPORT) + "?key=" + REPORT_KEY; }
 
 const unsigned long BROWSE_REFRESH_MS = 3UL * 60 * 1000;   // browse.json 每 3min 重拉（mirror */2 加密後）
 const unsigned long EVE_POLL_MS       = 3UL * 60 * 1000;    // changes-eve poll
@@ -324,7 +328,7 @@ void reportScreen() {
   payload += "\"heap\":" + String(ESP.getFreeHeap()) + ",";
   payload += "\"up\":" + String(millis() / 1000) + "}";
   HTTPClient http;
-  http.begin(URL_REPORT);
+  http.begin(reportUrl());
   http.setTimeout(10000);
   http.addHeader("Content-Type", "application/json");
   http.setUserAgent("SmartPlayLive-ESP32/3.3");
