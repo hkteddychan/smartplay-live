@@ -216,7 +216,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
         <tbody></tbody>
       </table>
     </div>
-    <div class="hint">💡 對比今次 vs 上一次數據鏡像（約 2 分鐘前）。<b style="color:#f85149">📉 畿人訂咗</b> · <b style="color:#2ea043">📈 放咗場</b> · <b style="color:#58a6ff">🆕 新時段</b> · ❌ 成個時段消失。</div>
+    <div class="hint">💡 對比今次 vs 上一次數據鏡像（約 2 分鐘前）。<b style="color:#f85149">📉 畀人訂咗</b> · <b style="color:#2ea043">📈 放咗場</b> · <b style="color:#58a6ff">🆕 新時段</b> · ❌ 成個時段消失。</div>
   </div>
 
   <!-- ============ ESP32 TAB（裝置視角驗證） ============ -->
@@ -238,7 +238,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
         <tbody></tbody>
       </table>
     </div>
-    <div class="hint">💡 呢個 tab = <b>changes-eve.json</b>（ESP32 每 3 分鐘 poll 嘅放場偵測 feed）。📈 放場/新增 → ESP32 <b>beep</b> 🔔；📉 被訂走/❌ 消失 → 靜默。ESP32 唔再顯示一般場次清單 — 想睇今晚有咩場用「設施餘額」tab。</div>
+    <div class="hint">💡 呢個 tab = <b>changes-eve.json</b>（ESP32 每 90 秒 poll 嘅放場偵測 feed）。📈 放場/新增 → ESP32 <b>beep</b> 🔔；📉 被訂走/❌ 消失 → 靜默。ESP32 唔再顯示一般場次清單 — 想睇今晚有咩場用「設施餘額」tab。</div>
 
     <hr style="border-color:var(--line);margin:18px 0">
     <h3 style="margin:0 0 6px">📡 CYD 實機狀態（部屏而家顯示緊嘅嘢 + 歷史）</h3>
@@ -275,7 +275,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
             <tbody></tbody>
           </table>
         </div>
-        <div class="hint">📡 CYD 每 3 分鐘 POST 畫面快照；畫面冇變唔會重複記錄。超過 10 分鐘冇報告 = 離線 🔴。</div>
+        <div class="hint">📡 CYD 每 5 分鐘 POST 畫面快照；畫面冇變唔會重複記錄。超過 10 分鐘冇報告 = 離線 🔴。</div>
       </div>
     </div>
   </div>
@@ -1365,7 +1365,7 @@ function renderChanges() {
   const genTs = changesData && changesData.g;
   $('#c-stats').innerHTML = `
     <div class="stat"><b style="color:#2ea043">${nUp + nNew}</b><span>📈 放場/新增 🔥</span></div>
-    <div class="stat"><b style="color:#f85149">${nDown + nGone}</b><span>📉 畿訂/消失</span></div>
+    <div class="stat"><b style="color:#f85149">${nDown + nGone}</b><span>📉 被訂/消失</span></div>
     <div class="stat"><b>${rows.length}</b><span>總改變${rows.length > 500 ? '（顯示首 500）' : ''}</span></div>
     <div class="stat"><b style="font-size:13px">${prevTs ? prevTs : '—'} → ${genTs || '—'}</b><span>對比窗口 (HKT)</span></div>`;
 }
