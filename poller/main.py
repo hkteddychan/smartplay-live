@@ -167,7 +167,9 @@ def format_sale7_summary(rows: Iterable[Mapping]) -> str:
         selected.pop()
 
 
-def run_sale7_summary(conn, notifier, now_hk: datetime) -> int:
+def run_sale7_summary(
+    conn, notifier, now_hk: datetime, *, log: Log = log
+) -> int:
     """Send (at most) one summary and mark exactly the rows it covered."""
     rows = db.fetch_unsent_sale7(conn)
     if not should_send_sale7_summary(rows, now_hk):
@@ -175,6 +177,7 @@ def run_sale7_summary(conn, notifier, now_hk: datetime) -> int:
     text = format_sale7_summary(rows)
     result = notifier.send_summary(text)
     if not result.delivered or not result.via:
+        log(f"sale7 summary_failed {';'.join(result.errors) or 'no_channel'}")
         return 0
     db.mark_sale7_notified(conn, [row["seq"] for row in rows], result.via)
     return len(rows)

@@ -278,7 +278,10 @@ def test_failed_summary_leaves_rows_unsent_for_the_next_round():
     add_event(conn, 1, "sale7")
     notifier = FakeSummaryNotifier(delivered=False, via=None)
 
-    assert run_sale7_summary(conn, notifier, datetime(2026, 11, 26, 8, 15, tzinfo=HK)) == 0
+    assert run_sale7_summary(
+        conn, notifier, datetime(2026, 11, 26, 8, 15, tzinfo=HK),
+        log=lambda _: None,
+    ) == 0
     assert marks(conn) == {1: (0, 0)}
 
 
