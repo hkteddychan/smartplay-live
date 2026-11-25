@@ -1,6 +1,6 @@
 # tests/test_gate.py
 import pytest
-from poller.gate import Gate
+from poller.gate import Gate, GateBackoff, SAFE_MODE_SECONDS
 
 class FakeSession:
     def __init__(self): self.calls = []
@@ -24,3 +24,59 @@ def test_three_latches_within_30min_enters_safe_mode():
     g = Gate(FakeSession(), sleep=lambda s: None, jitter=lambda: 0)
     for _ in range(3): g.on_status(405)
     assert g.state == "safe" and g.safe_mode() is True
+
+class StatusSession:
+    """FakeSession with a switchable status code."""
+    def __init__(self, status=200): self.status = status
+    def get(self, url, **kw):
+        return type("R", (), {"status_code": self.status, "headers": {}, "text": "", "json": lambda s: {}})()
+
+def test_get_raises_gate_backoff_on_405_and_records_latch():
+    class S:
+        def get(self, url, **kw):
+            return type("R", (), {"status_code": 405, "headers": {}, "text": "", "json": lambda s: {}})()
+    g = Gate(S(), sleep=lambda s: None, jitter=lambda: 0)
+    with pytest.raises(GateBackoff) as e:
+        g.get("u")
+    assert e.value.seconds == 90
+    assert g.state == "latch"
+
+def test_state_recovers_to_ok_after_success():
+    s = StatusSession(405)
+    g = Gate(s, sleep=lambda x: None, jitter=lambda: 0)
+    with pytest.raises(GateBackoff):
+        g.get("u")
+    assert g.state == "latch"
+    s.status = 200
+    resp = g.get("u")
+    assert resp.status_code == 200
+    assert g.state == "ok"
+
+def test_target_cycle_seconds_is_120_in_safe_mode():
+    g = Gate(FakeSession(), sleep=lambda s: None, jitter=lambda: 0)
+    assert g.target_cycle_seconds == 60
+    for _ in range(3): g.on_status(405)
+    assert g.target_cycle_seconds == 120
+
+def test_success_during_safe_mode_stays_safe():
+    s = StatusSession(405)
+    g = Gate(s, sleep=lambda x: None, jitter=lambda: 0)
+    for _ in range(3):
+        with pytest.raises(GateBackoff):
+            g.get("u")
+    assert g.state == "safe"
+    s.status = 200
+    g.get("u")
+    assert g.state == "safe" and g.target_cycle_seconds == 120
+
+def test_safe_mode_expiry_recovers_state_lazily():
+    now = [0.0]
+    s = StatusSession(405)
+    g = Gate(s, sleep=lambda x: None, clock=lambda: now[0], jitter=lambda: 0)
+    for _ in range(3):
+        with pytest.raises(GateBackoff):
+            g.get("u")
+    assert g.state == "safe" and g.target_cycle_seconds == 120
+    now[0] = SAFE_MODE_SECONDS + 1
+    assert g.safe_mode() is False
+    assert g.state == "ok" and g.target_cycle_seconds == 60
