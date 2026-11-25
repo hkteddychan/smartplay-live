@@ -197,9 +197,10 @@ def _session_count(conn, sports: Iterable[str]) -> int:
 
 
 def _human_bytes(count: int) -> str:
-    if count >= 1024 * 1024:
-        return f"{count / (1024 * 1024):.1f}MB"
-    return f"{count / 1024:.0f}KB"
+    # Decimal units, matching the plan's ``bytes=3.1MB`` example.
+    if count >= 1_000_000:
+        return f"{count / 1_000_000:.1f}MB"
+    return f"{count / 1_000:.0f}KB"
 
 
 def _result_line(result: CycleResult, sessions: int) -> str:

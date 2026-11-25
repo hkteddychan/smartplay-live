@@ -342,6 +342,20 @@ def test_select_sports_for_only_flag():
     assert select_sports(ACTIVITY) == []
 
 
+def test_result_line_matches_the_smoke_test_log_shape():
+    from poller.main import _result_line
+
+    result = CycleResult(
+        ok=True, degraded=False, aborted=False, ms=1234, bytes=3_100_000,
+        ds_ok=1, ds_total=1, waf_state="ok", events=2, sent=2, parked=0,
+    )
+    line = _result_line(result, 321)
+
+    assert "fetch ok bytes=3.1MB" in line
+    assert "parse=321 sessions" in line
+    assert "cycle_ms=1234" in line
+
+
 def test_facility_once_passes_the_selected_subset_to_the_cycle():
     conn = mem()
     captured = {}
