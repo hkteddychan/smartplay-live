@@ -22,3 +22,10 @@ def test_good_response_parses():
         def get(self, url, **kw): return FakeGateResponse(200, "application/json", json.dumps(data))
     r = fetch_dataset(G(), "http://x", "badminton")
     assert r.ok and len(r.records) == len(data) and r.bytes > 0
+
+def test_fixture_uses_real_lcsd_columns():
+    rows = json.load(open("tests/fixtures/badminton_sample.json", encoding="utf-8"))
+    assert len(rows) == 150
+    assert "Facility_Location_Name_TC" in rows[0]
+    assert "Facility_Type_Name_TC" in rows[0]
+    assert "Facility_Name_TC" not in rows[0]

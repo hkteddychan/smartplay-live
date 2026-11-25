@@ -5,8 +5,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "0",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -14,8 +15,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "1",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -23,8 +25,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "2",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -32,8 +35,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "3",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -41,8 +45,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "4",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -50,8 +55,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -59,8 +65,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "1",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -68,8 +75,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "2",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -77,8 +85,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "3",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -86,8 +95,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "4",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -95,8 +105,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -104,8 +115,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -113,8 +125,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "2",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -122,8 +135,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "3",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -131,8 +145,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "4",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -140,8 +155,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -149,8 +165,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -158,8 +175,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -167,8 +185,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "3",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -176,8 +195,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "4",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -185,8 +205,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -194,8 +215,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -203,8 +225,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -212,8 +235,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -221,8 +245,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "4",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -230,8 +255,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -239,8 +265,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -248,8 +275,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -257,8 +285,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -266,8 +295,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "0",
   "Venue_Name_TC": "土瓜灣體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "九龍城區"
+  "District_Name_TC": "九龍城區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -275,8 +305,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "1",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -284,8 +315,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "2",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -293,8 +325,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "3",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -302,8 +335,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "4",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -311,8 +345,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -320,8 +355,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -329,8 +365,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "2",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -338,8 +375,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "3",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -347,8 +385,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "4",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -356,8 +395,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -365,8 +405,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -374,8 +415,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -383,8 +425,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "3",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -392,8 +435,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "4",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -401,8 +445,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -410,8 +455,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -419,8 +465,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -428,8 +475,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -437,8 +485,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "4",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -446,8 +495,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -455,8 +505,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -464,8 +515,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -473,8 +525,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -482,8 +535,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "0",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -491,8 +545,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -500,8 +555,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -509,8 +565,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -518,8 +575,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -527,8 +585,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "0",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -536,8 +595,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "1",
   "Venue_Name_TC": "深水埗體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -545,8 +605,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "2",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -554,8 +615,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "3",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -563,8 +625,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "4",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -572,8 +635,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -581,8 +645,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -590,8 +655,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -599,8 +665,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "3",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -608,8 +675,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "4",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -617,8 +685,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -626,8 +695,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -635,8 +705,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -644,8 +715,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -653,8 +725,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "4",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -662,8 +735,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -671,8 +745,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -680,8 +755,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -689,8 +765,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -698,8 +775,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "0",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -707,8 +785,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -716,8 +795,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -725,8 +805,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -734,8 +815,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -743,8 +825,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "0",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -752,8 +835,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "1",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -761,8 +845,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -770,8 +855,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -779,8 +865,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -788,8 +875,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "0",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -797,8 +885,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "1",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -806,8 +895,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "2",
   "Venue_Name_TC": "赤柱體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "南區"
+  "District_Name_TC": "南區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -815,8 +905,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "3",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -824,8 +915,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "4",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -833,8 +925,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -842,8 +935,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -851,8 +945,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -860,8 +955,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -869,8 +965,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "4",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -878,8 +975,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -887,8 +985,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -896,8 +995,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -905,8 +1005,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -914,8 +1015,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "0",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -923,8 +1025,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -932,8 +1035,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -941,8 +1045,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -950,8 +1055,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -959,8 +1065,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "0",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -968,8 +1075,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "1",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -977,8 +1085,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -986,8 +1095,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -995,8 +1105,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -1004,8 +1115,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "0",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -1013,8 +1125,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "1",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -1022,8 +1135,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "2",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -1031,8 +1145,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -1040,8 +1155,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -1049,8 +1165,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "0",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -1058,8 +1175,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "1",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -1067,8 +1185,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "2",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -1076,8 +1195,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "3",
   "Venue_Name_TC": "長發體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "葵青區"
+  "District_Name_TC": "葵青區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -1085,8 +1205,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "4",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -1094,8 +1215,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -1103,8 +1225,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -1112,8 +1235,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -1121,8 +1245,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-01",
@@ -1130,8 +1255,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "0",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -1139,8 +1265,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "5",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -1148,8 +1275,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -1157,8 +1285,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -1166,8 +1295,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -1175,8 +1305,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "0",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-02",
@@ -1184,8 +1315,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "1",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -1193,8 +1325,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "6",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -1202,8 +1335,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -1211,8 +1345,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -1220,8 +1355,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "0",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -1229,8 +1365,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "1",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-03",
@@ -1238,8 +1375,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "2",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -1247,8 +1385,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "7",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -1256,8 +1395,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -1265,8 +1405,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "0",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -1274,8 +1415,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "1",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -1283,8 +1425,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "2",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-04",
@@ -1292,8 +1435,9 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "3",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -1301,8 +1445,9 @@
   "Session_End_Time": "08:00",
   "Available_Courts": "8",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 5號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "5號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -1310,8 +1455,9 @@
   "Session_End_Time": "10:00",
   "Available_Courts": "0",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 6號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "6號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -1319,8 +1465,9 @@
   "Session_End_Time": "13:00",
   "Available_Courts": "1",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 1號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "1號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -1328,8 +1475,9 @@
   "Session_End_Time": "18:00",
   "Available_Courts": "2",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 2號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "2號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -1337,8 +1485,9 @@
   "Session_End_Time": "20:00",
   "Available_Courts": "3",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 3號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "3號場"
  },
  {
   "Available_Date": "2026-12-05",
@@ -1346,7 +1495,8 @@
   "Session_End_Time": "22:00",
   "Available_Courts": "4",
   "Venue_Name_TC": "保安道體育館",
-  "Facility_Name_TC": "羽毛球場 (空調) 4號場",
-  "District_Name_TC": "深水埗區"
+  "District_Name_TC": "深水埗區",
+  "Facility_Type_Name_TC": "羽毛球場",
+  "Facility_Location_Name_TC": "4號場"
  }
 ]
