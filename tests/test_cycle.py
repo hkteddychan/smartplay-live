@@ -64,6 +64,22 @@ class FakeAllocator:
         return first
 
 
+class DegradingAllocator:
+    """Falls back to local mode during an allocation, like a real R2 outage."""
+
+    def __init__(self, start=1):
+        self.next = start
+        self.degraded = False
+        self.calls = []
+
+    def allocate(self, n):
+        self.calls.append(n)
+        first = self.next
+        self.next += n
+        self.degraded = True   # every allocation here takes the local path
+        return first
+
+
 class FakeNotifier:
     def __init__(self, delivered=True, via="tg", sent=None, parked=None, errors=None):
         self.delivered = delivered
@@ -399,6 +415,26 @@ def test_burst_threshold_is_over_fifty_per_sport(count, expected):
     assert {r["kind"] for r in event_rows(conn)} == {expected}
 
 
+def test_sale7_burst_never_calls_notifier_and_stays_unmarked():
+    # R43: sale7 is summary-only (Task 11's 08:15 job); it must never reach
+    # send_events, which would batch it into the 07:00 spam the design forbids.
+    conn = mem()
+    day = TODAY + timedelta(days=1)
+    records = [rec(day, facility=f"{i}號場") for i in range(1, 61)]
+    notifier = FakeNotifier()
+    result = run_cycle(make_deps(
+        conn=conn, notifier=notifier,
+        fetcher=FakeFetcher(payload={"badminton": records}),
+    ))
+
+    rows = event_rows(conn)
+    assert len(rows) == 60
+    assert {r["kind"] for r in rows} == {"sale7"}
+    assert notifier.calls == 0                       # never passed to the notifier
+    assert all((r["notified_tg"], r["notified_ntfy"]) == (0, 0) for r in rows)
+    assert result.sent == 0 and result.parked == 0
+
+
 def test_sale7_burst_relabels_that_sport_only():
     conn = mem()
     day = TODAY + timedelta(days=1)
@@ -437,9 +473,34 @@ def test_resync_emitted_when_allocator_degraded():
         "1970-01-01", "00:00", "00:00")
     assert resync["kind"] == "resync"
     assert resync["before"] is None and resync["after"] is None
-    assert allocator.calls == [2]                    # one allocate for both events
+    assert allocator.calls == [1, 1]                 # main event + R42 resync seq
     assert result.events == 2
     assert [e.seq for e in notifier.selected] == [1]  # resync is never notified
+
+
+def test_resync_allocated_in_same_cycle_as_degraded_main_allocation():
+    # R42: when this cycle's main allocation falls back to local mode, the
+    # resync seq must be reserved and persisted immediately — not deferred to
+    # the next round, where a crash could lose the gap marker entirely.
+    conn = mem()
+    day = TODAY + timedelta(days=1)
+    allocator = DegradingAllocator(start=1)
+    notifier = FakeNotifier()
+    result = run_cycle(make_deps(
+        conn=conn, allocator=allocator, notifier=notifier,
+        fetcher=FakeFetcher(payload={"badminton": [
+            rec(day, facility="1號場"), rec(day, facility="2號場"),
+        ]}),
+    ))
+
+    rows = event_rows(conn)
+    assert allocator.calls == [2, 1]                 # main block + resync seq
+    assert [r["kind"] for r in rows] == ["new", "new", "resync"]
+    assert rows[-1]["seq"] > max(r["seq"] for r in rows[:-1])
+    assert (rows[-1]["sport"], rows[-1]["venue"], rows[-1]["facility"]) == (
+        "_system", "", "")
+    assert result.events == 3
+    assert [e.seq for e in notifier.selected] == [1, 2]  # resync never notified
 
 
 def test_resync_alone_when_degraded_with_no_events():

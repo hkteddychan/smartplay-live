@@ -14,8 +14,10 @@ do not:
   re-labelled ``sale7`` when (a) the local time is 06:45–08:00 and the event
   date is that sport's furthest bookable date, or (b) the sport produced more
   than 50 ``new``/``inc`` events in this cycle.
-- **R24 — resync.** ``SeqAllocator.degraded`` (carried from the previous
-  allocation) adds exactly one placeholder ``resync`` event.
+- **R24/R42 — resync.** When this round's main allocation falls back to
+  local mode (``SeqAllocator.degraded``), a second ``allocate(1)`` reserves
+  the resync seq immediately and the placeholder event is persisted in the
+  same round, so the gap marker cannot be lost to a crash.
 - **R37/R39 — notification bookkeeping.** ``notified_tg``/``notified_ntfy``
   are marked from ``DeliveryResult.sent_seqs`` + ``via`` only, never from a
   seq range and never for ``dec``/``gone``. A failed delivery whose outbox
@@ -152,13 +154,19 @@ def run_cycle(deps: Deps) -> CycleResult:
     furthest = _furthest_dates(cur)
     _apply_sale7(events, deps.now_hk, furthest)
 
-    if deps.allocator.degraded:
-        events.append(_resync_event(ts))
-
     # Phase 3 — reserve seqs first, then persist state, then events.
     # Reserving before any SQLite write means an allocator failure cannot leave
     # sessions updated without the events that explain the change.
     seq_start = deps.allocator.allocate(len(events)) if events else 0
+    # R42: a main allocation that fell back to local mode opened a seq gap in
+    # *this* round, so reserve the resync seq right away and persist the marker
+    # below in the same round. Deferring it to the next round would report the
+    # gap a cycle late — or never, if the process dies in between.
+    resync: Event | None = None
+    resync_seq = 0
+    if deps.allocator.degraded:
+        resync_seq = deps.allocator.allocate(1)
+        resync = _resync_event(ts)
     if all_sessions:
         db.upsert_sessions(deps.conn, all_sessions, ts)
     gone_keys = [
@@ -170,6 +178,8 @@ def run_cycle(deps: Deps) -> CycleResult:
         db.delete_sessions(deps.conn, gone_keys)
     if events:
         db.insert_events(deps.conn, events, seq_start)
+    if resync is not None:
+        db.insert_events(deps.conn, [resync], resync_seq)
 
     # Phase 4 — notify, then record exactly what a channel accepted.
     delivery = _notify_if_any(deps, events)
@@ -199,7 +209,7 @@ def run_cycle(deps: Deps) -> CycleResult:
         ds_ok=ds_ok,
         ds_total=ds_total,
         waf_state=deps.gate.state,
-        events=len(events),
+        events=len(events) + (1 if resync is not None else 0),
         sent=len(delivery.sent_seqs),
         parked=len(delivery.parked_seqs),
     )
@@ -209,8 +219,14 @@ def run_cycle(deps: Deps) -> CycleResult:
 
 
 def _should_notify(event: Event) -> bool:
-    """Only availability appearing reaches a phone; ``dec``/``gone`` roll up."""
-    return event.kind in ("new", "inc", "sale7")
+    """Only ``new``/``inc`` reach a phone (R43).
+
+    ``sale7`` is deliberately excluded: it is stored unmarked for the 08:15
+    HKT summary job (Task 11) instead of being batched through ``send_events``,
+    which would produce the 07:00 spam the design forbids. ``dec``/``gone``
+    roll up in the database only.
+    """
+    return event.kind in ("new", "inc")
 
 
 def _notify_if_any(deps: Deps, events: list[Event]):
