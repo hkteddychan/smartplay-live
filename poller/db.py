@@ -104,6 +104,29 @@ def upsert_sessions(
     conn.commit()
 
 
+def load_sessions(conn: sqlite3.Connection) -> dict[tuple, int]:
+    """Snapshot ``{Session.key(): courts}`` for the diff engine (R40).
+
+    Dates are read back as ISO text — the same ``_date_text`` format
+    ``upsert_sessions`` writes — which ``diff_sessions`` normalises back to
+    ``date``.
+    """
+    rows = conn.execute(
+        'SELECT sport, venue, facility, date, start, "end", courts FROM sessions'
+    ).fetchall()
+    return {
+        (
+            row["sport"],
+            row["venue"],
+            row["facility"],
+            _date_text(row["date"]),
+            row["start"],
+            row["end"],
+        ): row["courts"]
+        for row in rows
+    }
+
+
 def delete_sessions(conn: sqlite3.Connection, keys: list[tuple]) -> None:
     """Remove sessions by their 6-tuple identity (sport, venue, facility, date, start, end)."""
     conn.executemany(

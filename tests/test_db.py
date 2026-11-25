@@ -1,4 +1,4 @@
-from poller.db import connect, init_db, upsert_sessions, log_sweep, prune
+from poller.db import connect, init_db, load_sessions, upsert_sessions, log_sweep, prune
 from poller.parse import Session
 
 
@@ -12,6 +12,17 @@ def test_upsert_idempotent():
     upsert_sessions(c, [s], "2026-11-26T10:00:00+08:00")
     upsert_sessions(c, [s], "2026-11-26T10:01:00+08:00")
     assert c.execute("select count(*) from sessions").fetchone()[0] == 1
+
+
+def test_load_sessions_round_trips_diff_keys():
+    """R40: keys use the same ISO date text as upsert, ready for diff()."""
+    c = mem()
+    s = Session("badminton", "A館", "主場", "2026-11-27", "19:00", "20:00", 2)
+    upsert_sessions(c, [s], "2026-11-26T10:00:00+08:00")
+    assert load_sessions(c) == {
+        ("badminton", "A館", "主場", "2026-11-27", "19:00", "20:00"): 2
+    }
+    assert load_sessions(mem()) == {}
 
 
 def test_prune_keeps_recent():
