@@ -1,10 +1,15 @@
-"""Monotonic seq allocator backed by R2, with a local degraded mode.
+"""Monotonic seq allocator behind a Worker route, with a local degraded mode.
 
-R2 (`meta/seq.json`) is the authority because Cloudflare survives an Oracle
-rebuild; the local file is only a cache. A gap in the sequence is safe, a
-duplicate is not: when R2 is unreachable we deliberately skip a block of
-FALLBACK_BUFFER numbers and flag `degraded`, and we never write the counter
-backwards even if the local cache ran ahead while R2 was down.
+The counter lives in R2 (`meta/seq.json`) but is reached only through a
+Worker route (`GET`/`PUT` with `Authorization: Bearer <token>`); the poller
+never speaks the R2 S3 API directly. R2 is the authority because Cloudflare
+survives an Oracle rebuild; the local file is only a cache. A gap in the
+sequence is safe, a duplicate is not: when the route is unreachable we
+deliberately skip a block of FALLBACK_BUFFER numbers and flag `degraded`,
+and we never write the counter backwards even if the local cache ran ahead
+while R2 was down. A GET 404 means the counter does not exist yet: it is
+bootstrapped at 0 and created with `If-None-Match: *`, not treated as an
+outage.
 """
 
 from __future__ import annotations
@@ -54,11 +59,13 @@ class SeqAllocator:
         return new - n + 1
 
     def reserve(self, n: int) -> int:
-        """Conditionally write {"seq": current + n} to R2; return new counter.
+        """Conditionally write {"seq": current + n} to the counter; return it.
 
-        Uses If-Match with the ETag from the GET. A 412 means someone else
-        advanced the counter: re-read once and retry; a second 412 raises
-        SeqConflict. Raises _R2Unavailable when R2 cannot be reached.
+        Uses If-Match with the ETag from the GET, or If-None-Match: * when
+        the counter does not exist yet (GET 404 → bootstrap at 0). A 412
+        means someone else advanced or created the counter: re-read once
+        and retry; a second 412 raises SeqConflict. Raises _R2Unavailable
+        on transport failures, timeouts and 5xx.
         """
         if not isinstance(n, int) or isinstance(n, bool) or n < 1:
             raise ValueError(f"n must be a positive int, got {n!r}")
@@ -80,13 +87,17 @@ class SeqAllocator:
         self.degraded = True
         return base + 1
 
-    def _read_r2(self) -> tuple[int, str]:
+    def _read_r2(self) -> tuple[int, str | None]:
         try:
             resp = self._http.get(
                 self._url, headers=self._auth_headers(), timeout=HTTP_TIMEOUT
             )
         except requests.RequestException as exc:
             raise _R2Unavailable(f"GET {self._url}: {exc}") from exc
+        if resp.status_code == 404:
+            # Counter does not exist yet, not an outage: bootstrap at 0 and
+            # let the reserve create it with If-None-Match: *.
+            return 0, None
         if resp.status_code != 200:
             raise _R2Unavailable(f"GET {self._url} -> {resp.status_code}")
         etag = resp.headers.get("ETag") or resp.headers.get("etag")
@@ -98,9 +109,12 @@ class SeqAllocator:
             raise _R2Unavailable(f"GET {self._url}: missing ETag or invalid seq")
         return seq, etag
 
-    def _write_r2(self, new: int, etag: str) -> int:
+    def _write_r2(self, new: int, etag: str | None) -> int:
         headers = self._auth_headers()
-        headers["If-Match"] = etag
+        if etag is None:
+            headers["If-None-Match"] = "*"  # create-only: lose to a racer, 412
+        else:
+            headers["If-Match"] = etag
         headers["Content-Type"] = "application/json"
         try:
             resp = self._http.put(

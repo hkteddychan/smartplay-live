@@ -215,6 +215,75 @@ def test_put_network_error_falls_back(tmp_path):
     assert r2.val["seq"] == 100  # R2 untouched
 
 
+class BootstrapR2:
+    """Counter does not exist yet: GET 404 until a PUT creates it."""
+    def __init__(self):
+        self.val = None
+        self.put_headers = None
+        self.puts = 0
+    def get(self, url, headers=None, timeout=None):
+        if self.val is None:
+            return type("R", (), {"status_code": 404})()
+        class R: status_code = 200
+        R.json = lambda s: dict(self.val); R.headers = {"ETag": "e1"}
+        return R()
+    def put(self, url, data=None, headers=None, timeout=None):
+        self.puts += 1
+        self.put_headers = headers
+        body = json.loads(data) if isinstance(data, str) else json.loads(data.decode())
+        self.val = body
+        class R: status_code = 200
+        return R()
+
+
+def test_404_bootstraps_counter_instead_of_degrading(tmp_path):
+    path = tmp_path / "seq.json"
+    r2 = BootstrapR2()
+    a = SeqAllocator("u", "t", str(path), http=r2)
+    assert a.allocate(1) == 1
+    assert a.degraded is False
+    assert r2.put_headers["If-None-Match"] == "*"
+    assert "If-Match" not in r2.put_headers
+    assert r2.put_headers["Authorization"] == "Bearer t"
+    assert r2.val == {"seq": 1}
+    assert json.loads(path.read_text(encoding="utf-8")) == {"seq": 1}
+
+
+def test_bootstrap_conflict_retries_once(tmp_path):
+    class RacedBootstrapR2(BootstrapR2):
+        def put(self, url, data=None, headers=None, timeout=None):
+            if self.puts == 0:
+                self.puts += 1
+                self.val = {"seq": 7}  # competitor created the counter first
+                class R: status_code = 412
+                return R()
+            return super().put(url, data=data, headers=headers, timeout=timeout)
+    r2 = RacedBootstrapR2()
+    a = SeqAllocator("u", "t", str(tmp_path / "seq.json"), http=r2)
+    assert a.allocate(1) == 8  # re-read sees 7, reserves 8 with If-Match
+    assert a.degraded is False
+    assert r2.puts == 2
+    assert r2.put_headers["If-Match"] == "e1"
+
+
+def test_successful_read_uses_max_of_remote_and_local(tmp_path):
+    path = tmp_path / "seq.json"
+    path.write_text(json.dumps({"seq": 500}), encoding="utf-8")
+    r2 = FakeR2()
+    r2.val = {"seq": 120}  # stale authority behind the local cache
+    a = SeqAllocator("u", "t", str(path), http=r2)
+    assert a.allocate(1) == 501  # never at or below the 500 already issued
+    assert r2.val["seq"] == 501
+
+
+def test_transport_error_sets_degraded(tmp_path):
+    path = tmp_path / "seq.json"
+    path.write_text(json.dumps({"seq": 100}), encoding="utf-8")
+    a = SeqAllocator("u", "t", str(path), http=DownR2())
+    assert a.allocate(1) == 1101  # local 100 + 1000 buffer, first of block
+    assert a.degraded is True
+
+
 def test_n_below_one_raises_value_error(tmp_path):
     r2 = FakeR2()
     a = SeqAllocator("u", "t", str(tmp_path / "seq.json"), http=r2)
