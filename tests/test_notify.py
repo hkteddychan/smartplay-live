@@ -143,6 +143,26 @@ def test_long_venue_messages_stay_under_4096(monkeypatch):
         assert len(post["json"]["text"]) < 4096   # R35 hard cap
 
 
+@pytest.mark.parametrize("count", [1, 30])
+def test_escape_heavy_venue_posts_stay_under_4096(monkeypatch, count):
+    """R35: the 4096 cap applies to the ESCAPED payload, not the plain text.
+
+    ``&"`` escapes to ``&amp;&quot;`` (11 chars per 2 plain), so a plain-text
+    cap alone lets the POSTed text blow far past Telegram's hard limit.
+    """
+    record_sleeps(monkeypatch)
+    http = FakeHttp()
+    n = Notifier(make_settings(), http=http)
+    events = [ev(seq=i, venue='&"' * 2500) for i in range(1, count + 1)]
+    result = n.send_events(events, lambda e: True)
+    assert result.delivered is True
+    assert http.tg_posts
+    for post in http.tg_posts:
+        text = post["json"]["text"]
+        assert len(text) <= 4096               # measured on the escaped text
+        assert "&amp;" in text                 # still HTML-escaped, not raw
+
+
 # --- formatting -------------------------------------------------------------
 
 def test_date_is_human_readable(monkeypatch):
@@ -390,3 +410,89 @@ def test_flush_outbox_skips_rows_not_due(monkeypatch):
     assert n.flush_outbox(conn) == 0
     assert n.http.posts == []
     assert conn.execute("SELECT COUNT(*) FROM outbox").fetchone()[0] == 1
+
+
+def test_flush_marks_only_batch_seqs_not_range(monkeypatch):
+    """R38: channel_filter yields non-contiguous seqs (1 new, 2 dec, 3 inc →
+    batch [1, 3]); flush must mark exactly the batch's seqs, never min..max."""
+    record_sleeps(monkeypatch)
+    conn = mem()
+    events = [ev(seq=1, kind="new"),
+              ev(seq=2, kind="dec", before=2, after=1),
+              ev(seq=3, kind="inc", before=1, after=3)]
+    db.insert_events(conn, events, seq_start=1)
+    http = FakeHttp(tg=[FakeResponse(500)], ntfy=[FakeResponse(500)])
+    n = Notifier(make_settings(), http=http, conn=conn)
+    result = n.send_events(events, is_alerting)      # selects seq 1 and 3 only
+    assert result.delivered is False
+    row = conn.execute("SELECT payload FROM outbox").fetchone()
+    assert json.loads(row["payload"])["seqs"] == [1, 3]
+    _make_due(conn)
+    n.http = FakeHttp()
+    assert n.flush_outbox(conn) == 1
+    rows = conn.execute(
+        "SELECT seq, notified_tg, notified_ntfy FROM events ORDER BY seq"
+    ).fetchall()
+    assert [(r["seq"], r["notified_tg"], r["notified_ntfy"]) for r in rows] == [
+        (1, 1, 0), (2, 0, 0), (3, 1, 0)]
+
+
+def test_flush_outbox_drops_corrupt_row_and_continues(monkeypatch):
+    conn = mem()
+    n = _seed_outbox(monkeypatch, conn)              # good row (seq 5)
+    conn.execute(
+        "INSERT INTO outbox (seq_from, seq_to, channel, payload, attempts, next_try, last_error) "
+        "VALUES (99, 99, 'tg+ntfy', '{corrupt', 0, '2000-01-01T00:00:00+08:00', 'x')"
+    )
+    conn.commit()
+    _make_due(conn)
+    n.http = FakeHttp()
+    assert n.flush_outbox(conn) == 1                 # good row resent, corrupt dropped
+    assert conn.execute("SELECT COUNT(*) FROM outbox").fetchone()[0] == 0
+    assert len(n.http.tg_posts) == 1                 # corrupt row never posted
+
+
+def test_flush_outbox_corrupt_only_row_is_dropped(monkeypatch):
+    conn = mem()
+    n = _seed_outbox(monkeypatch, conn)
+    conn.execute("UPDATE outbox SET payload = 'not json at all'")
+    _make_due(conn)
+    n.http = FakeHttp()
+    assert n.flush_outbox(conn) == 0
+    assert conn.execute("SELECT COUNT(*) FROM outbox").fetchone()[0] == 0
+    assert n.http.posts == []
+
+
+# --- DeliveryResult seq tracking (R37) ----------------------------------------
+
+def test_delivery_result_sent_seqs_on_success(monkeypatch):
+    record_sleeps(monkeypatch)
+    http = FakeHttp()
+    n = Notifier(make_settings(), http=http)
+    result = n.send_events([ev(seq=7), ev(seq=8)], lambda e: True)
+    assert result.sent_seqs == [7, 8] and result.parked_seqs == []
+    assert DeliveryResult(True).sent_seqs == []      # defaults are empty lists
+    assert DeliveryResult(True).parked_seqs == []
+
+
+def test_delivery_result_parked_seqs_on_both_fail(monkeypatch):
+    record_sleeps(monkeypatch)
+    conn = mem()
+    http = FakeHttp(tg=[FakeResponse(500)], ntfy=[FakeResponse(500)])
+    n = Notifier(make_settings(), http=http, conn=conn)
+    result = n.send_events([ev(seq=5), ev(seq=6)], lambda e: True)
+    assert result.delivered is False
+    assert result.sent_seqs == [] and result.parked_seqs == [5, 6]
+
+
+def test_delivery_result_tracks_seqs_per_message(monkeypatch):
+    record_sleeps(monkeypatch)
+    conn = mem()
+    http = FakeHttp(tg=[FakeResponse(500)] * 4 + [FakeResponse(200)],
+                    ntfy=[FakeResponse(500)])
+    n = Notifier(make_settings(), http=http, conn=conn)
+    events = [ev(seq=i) for i in range(1, 31)]
+    result = n.send_events(events, lambda e: True)
+    assert result.delivered is False and result.via == "tg"
+    assert result.parked_seqs == list(range(1, 13))   # first batch both-failed
+    assert result.sent_seqs == list(range(13, 31))    # 補充 delivered via TG

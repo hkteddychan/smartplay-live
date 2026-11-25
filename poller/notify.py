@@ -1,4 +1,4 @@
-"""Delivery layer for slot-release alerts (spec §5.4, R33–R36).
+"""Delivery layer for slot-release alerts (spec §5.4, R33–R38).
 
 Send-first, coalesce-after (R33): the first batch of a round goes out
 immediately — no pre-send waiting window. Everything else in the same call
@@ -32,8 +32,8 @@ from poller import db
 from poller.diff import Event, is_alerting
 
 MAX_LINES = 12                # per message; the rest become "…+N 場"
-MAX_BATCH_CHARS = 4000        # format_batch target, headroom under the TG cap
-TG_MAX_CHARS = 4096           # Telegram hard limit (R35)
+MAX_BATCH_CHARS = 4000        # format_batch plain-text target
+TG_MAX_CHARS = 4096           # Telegram hard limit, measured on ESCAPED text (R35)
 BACKOFF_SECONDS = (1, 5, 20)  # spec §5.4 retry ladder
 OUTBOX_RETRY_SECONDS = 60
 MAX_OUTBOX_ATTEMPTS = 3 * 24 * 60  # ~3 days at one retry/minute (spec §5.4)
@@ -55,12 +55,17 @@ class DeliveryResult:
     ``via`` is "tg", "ntfy" or "tg+ntfy" (channels used across messages),
     None when nothing was delivered or nothing needed sending. ``errors``
     lists each failed channel's final error, even when the fallback saved
-    the delivery.
+    the delivery. ``sent_seqs``/``parked_seqs`` (R37) partition the selected
+    events per message so the cycle can mark ``notified_*`` per event:
+    a channel accepted the message → its seqs in ``sent_seqs``; both
+    channels failed → its seqs in ``parked_seqs`` (row in the outbox).
     """
 
     delivered: bool
     via: str | None = None
     errors: list[str] = field(default_factory=list)
+    sent_seqs: list[int] = field(default_factory=list)
+    parked_seqs: list[int] = field(default_factory=list)
 
 
 def _format_date(value: date | str) -> str:
@@ -92,7 +97,9 @@ def _render(events: list[Event], label: str = "放場") -> tuple[str, int]:
     Returns ``(text, shown)`` where ``shown`` counts events with a line in
     the text. Overlong batches drop whole lines first, so splits always
     fall on event boundaries (R35); a single pathological line (e.g. a
-    5000-character venue) is ellipsised so the hard 4096 cap still holds.
+    5000-character venue) is ellipsised. The hard 4096 cap is measured on
+    the HTML-ESCAPED text: escaping expands ``&``/quotes up to 6×, so a
+    plain-text cap alone cannot guarantee what actually goes on the wire.
     """
     if not events:
         return "", 0
@@ -105,16 +112,27 @@ def _render(events: list[Event], label: str = "放場") -> tuple[str, int]:
     while True:
         tail = f"…+{hidden} 場" if hidden else ""
         text = "\n".join([header, *lines] + ([tail] if tail else []))
-        if len(text) <= MAX_BATCH_CHARS:
+        if len(text) <= MAX_BATCH_CHARS and len(html.escape(text)) <= TG_MAX_CHARS:
             return text, shown
         if len(lines) > 1:
             lines.pop()
             shown -= 1
             hidden += 1
         elif lines:
-            overhead = len(header) + 1 + (len(tail) + 1 if tail else 0)
-            keep = max(MAX_BATCH_CHARS - overhead - 1, 0)
-            lines[0] = lines[0][:keep] + "…"
+            # Ellipsise the plain line, then re-verify after escaping: keep
+            # the longest prefix whose escaped form fits the remaining budget.
+            overhead = len(html.escape(header)) + 1 + (
+                len(html.escape(tail)) + 1 if tail else 0)
+            budget = TG_MAX_CHARS - overhead - 1   # -1 for the ellipsis
+            line = lines[0]
+            lo, hi = 0, max(min(len(line), MAX_BATCH_CHARS - overhead - 1), 0)
+            while lo < hi:
+                mid = (lo + hi + 1) // 2
+                if len(html.escape(line[:mid])) <= budget:
+                    lo = mid
+                else:
+                    hi = mid - 1
+            lines[0] = line[:lo] + "…"
         else:
             return text, shown
 
@@ -170,6 +188,8 @@ class Notifier:
         errors: list[str] = []
         used: set[str] = set()
         delivered = True
+        sent_seqs: list[int] = []
+        parked_seqs: list[int] = []
         text, shown = _render(selected)
         groups = [(selected[:shown], text)]
         rest = selected[shown:]
@@ -180,16 +200,19 @@ class Notifier:
             tags = ",".join(dict.fromkeys(e.sport for e in batch))
             silent = not any(is_alerting(e) for e in batch)
             ok, via, errs = self._try_channels(plain, title, tags, silent)
+            seqs = [e.seq for e in batch]
             if ok:
                 used.add(via)
+                sent_seqs.extend(seqs)
             else:
                 delivered = False
+                parked_seqs.extend(seqs)
                 write_err = self._write_outbox(batch, plain, title, tags, silent, errs)
                 if write_err:
                     errs.append(write_err)
             errors.extend(errs)
         via = "+".join(c for c in ("tg", "ntfy") if c in used) or None
-        return DeliveryResult(delivered, via, errors)
+        return DeliveryResult(delivered, via, errors, sent_seqs, parked_seqs)
 
     def format_batch(self, events: list[Event]) -> str:
         """One message: ≤12 lines, overflow as ``…+N 場``, ≤4000 chars."""
@@ -198,11 +221,14 @@ class Notifier:
     def flush_outbox(self, conn: sqlite3.Connection) -> int:
         """Retry due outbox rows once per channel; return the number resent.
 
-        Success deletes the row and marks the covered events notified on
+        Success deletes the row and marks exactly the batch's seqs (the
+        payload's ``seqs`` list, R38 — never a min..max range) notified on
         the channel that accepted; failure bumps ``attempts`` and schedules
         ``next_try`` 60s out. Rows that exhausted ~3 days of retries are
-        dropped. Single attempt per channel (no backoff sleeps) so a flush
-        never blocks the cycle — the 60s cadence is the retry mechanism.
+        dropped, and so are rows with a corrupt payload — a broken outbox
+        must not crash the cycle. Single attempt per channel (no backoff
+        sleeps) so a flush never blocks — the 60s cadence is the retry
+        mechanism.
         """
         now = datetime.now(db.HK)
         now_iso = now.isoformat(timespec="seconds")
@@ -219,19 +245,25 @@ class Notifier:
                 conn.execute("DELETE FROM outbox WHERE id = ?", (row["id"],))
                 conn.commit()
                 continue
-            payload = json.loads(row["payload"])
-            ok, via, errors = self._try_channels(
-                payload["text"], payload["title"], payload["tags"],
-                payload["silent"], retries=0,
-            )
+            try:
+                payload = json.loads(row["payload"])
+                send_args = (payload["text"], payload["title"],
+                             payload["tags"], payload["silent"])
+            except (ValueError, TypeError, KeyError):
+                # Corrupt row: drop it and keep flushing the rest.
+                conn.execute("DELETE FROM outbox WHERE id = ?", (row["id"],))
+                conn.commit()
+                continue
+            ok, via, errors = self._try_channels(*send_args, retries=0)
             if ok:
                 conn.execute("DELETE FROM outbox WHERE id = ?", (row["id"],))
-                if row["seq_from"] is not None:
+                seqs = payload.get("seqs") or []
+                if seqs:
                     column = "notified_tg" if via == "tg" else "notified_ntfy"
                     conn.execute(
                         f"UPDATE events SET {column} = 1, notify_err = NULL "
-                        "WHERE seq BETWEEN ? AND ?",
-                        (row["seq_from"], row["seq_to"]),
+                        f"WHERE seq IN ({','.join('?' * len(seqs))})",
+                        seqs,
                     )
                 conn.commit()
                 sent += 1
@@ -335,12 +367,18 @@ class Notifier:
         self, batch: list[Event], plain: str, title: str, tags: str,
         silent: bool, errors: list[str],
     ) -> str | None:
-        """Park a both-failed batch for flush_outbox; returns a write error."""
+        """Park a both-failed batch for flush_outbox; returns a write error.
+
+        The payload carries the exact ``seqs`` list (R38): channel_filter
+        selections are routinely non-contiguous, so a min..max range would
+        mark events that were never in the batch.
+        """
+        seqs = [e.seq for e in batch]
         payload = json.dumps(
-            {"text": plain, "title": title, "tags": tags, "silent": silent},
+            {"text": plain, "title": title, "tags": tags, "silent": silent,
+             "seqs": seqs},
             ensure_ascii=False,
         )
-        seqs = [e.seq for e in batch]
         now = datetime.now(db.HK)
         row = (
             min(seqs), max(seqs), "tg+ntfy", payload, 0,
