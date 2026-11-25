@@ -41,12 +41,18 @@ CREATE TABLE IF NOT EXISTS daily_rollup (
   PRIMARY KEY(day, sport, venue, kind)
 );
 
-CREATE TABLE IF NOT EXISTS activities (   -- activity-prog 快照（獨立 300s thread）
+CREATE TABLE IF NOT EXISTS activities (   -- activity-prog 快照（獨立 900s thread）
   activity_no TEXT PRIMARY KEY,
   payload TEXT NOT NULL,             -- 原始 JSON（搜尋 tab 用）
   first_seen TEXT NOT NULL,
   last_seen TEXT NOT NULL
 ) WITHOUT ROWID;
+
+CREATE TABLE IF NOT EXISTS activity_meta (  -- R51: 快照 hash，避免每 tick 重寫 15MB
+  id INTEGER PRIMARY KEY CHECK(id = 1),
+  hash TEXT,
+  updated_at TEXT
+);
 
 CREATE TABLE IF NOT EXISTS outbox (           -- 通知失敗重試隊列
   id INTEGER PRIMARY KEY AUTOINCREMENT,

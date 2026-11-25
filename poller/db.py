@@ -11,6 +11,7 @@ events that were already acknowledged to the caller.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from datetime import date, datetime, timedelta, timezone
@@ -220,16 +221,12 @@ def mark_sale7_notified(
     return marked
 
 
-def upsert_activities(
-    conn: sqlite3.Connection, records: list[dict], now_iso: str
-) -> int:
-    """Replace the activity snapshot with ``records`` (Task 11 thread B).
+def _activity_rows(records: list[dict]) -> list[tuple[str, str]]:
+    """Compact ``(activity_no, payload)`` rows, sorted for a stable hash.
 
-    Each row is kept as its original JSON payload keyed by ``ACTIVITY_NO``;
-    ``first_seen`` survives a refresh while ``last_seen`` is the current run.
-    Rows absent from this run are deleted, so the table is a snapshot rather
-    than an ever-growing archive. Records without an ``ACTIVITY_NO`` are
-    skipped (one bad upstream row must not abort the whole snapshot).
+    Records without an ``ACTIVITY_NO`` are skipped (one bad upstream row must
+    not abort the whole snapshot). Sorting makes an upstream re-order look
+    like what it is: no change.
     """
     rows = []
     for record in records:
@@ -242,25 +239,83 @@ def upsert_activities(
             (
                 activity_no.strip(),
                 json.dumps(record, ensure_ascii=False, separators=(",", ":")),
-                now_iso,
-                now_iso,
             )
         )
+    rows.sort()
+    return rows
+
+
+def _snapshot_hash(rows: list[tuple[str, str]]) -> str:
+    """SHA-256 over the compact payload actually written to ``activities``."""
+    digest = hashlib.sha256()
+    for activity_no, payload in rows:
+        digest.update(activity_no.encode("utf-8"))
+        digest.update(b"\x1f")
+        digest.update(payload.encode("utf-8"))
+        digest.update(b"\x1e")
+    return digest.hexdigest()
+
+
+def upsert_activities(
+    conn: sqlite3.Connection, records: list[dict], now_iso: str
+) -> int:
+    """Store ``records`` as the activity snapshot, but only when it changed.
+
+    R51: the payload is ~15MB, so rewriting it every tick would cost ~4GB/day
+    of SQLite writes. ``activity_meta`` keeps the hash of the compact payload;
+    ``activities`` is rewritten (delete-all + insert in one transaction) only
+    when that hash differs. ``activity_meta.updated_at`` is refreshed on every
+    non-empty payload so staleness stays observable.
+
+    Each row keeps its original JSON payload keyed by ``ACTIVITY_NO``;
+    ``first_seen`` survives a refresh while ``last_seen`` is the current run.
+    Rows absent from this run are deleted, so the table is a snapshot rather
+    than an ever-growing archive. A payload with no usable records is a no-op,
+    leaving the previous snapshot intact. Returns the number of rows written
+    (``0`` means nothing was written).
+    """
+    rows = _activity_rows(records)
     if not rows:
         conn.commit()
         return 0
-    conn.executemany(
-        """
-        INSERT INTO activities (activity_no, payload, first_seen, last_seen)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(activity_no) DO UPDATE SET
-          payload = excluded.payload,
-          last_seen = excluded.last_seen
-        """,
-        rows,
-    )
-    conn.execute("DELETE FROM activities WHERE last_seen < ?", (now_iso,))
-    conn.commit()
+
+    snapshot_hash = _snapshot_hash(rows)
+    meta = conn.execute(
+        "SELECT hash FROM activity_meta WHERE id = 1"
+    ).fetchone()
+    if meta is not None and meta["hash"] == snapshot_hash:
+        conn.execute(
+            "UPDATE activity_meta SET updated_at = ? WHERE id = 1", (now_iso,)
+        )
+        conn.commit()
+        return 0
+
+    first_seen = {
+        row["activity_no"]: row["first_seen"]
+        for row in conn.execute("SELECT activity_no, first_seen FROM activities")
+    }
+    with conn:
+        conn.execute("DELETE FROM activities")
+        conn.executemany(
+            """
+            INSERT INTO activities (activity_no, payload, first_seen, last_seen)
+            VALUES (?, ?, ?, ?)
+            """,
+            [
+                (activity_no, payload, first_seen.get(activity_no, now_iso), now_iso)
+                for activity_no, payload in rows
+            ],
+        )
+        conn.execute(
+            """
+            INSERT INTO activity_meta (id, hash, updated_at)
+            VALUES (1, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              hash = excluded.hash,
+              updated_at = excluded.updated_at
+            """,
+            (snapshot_hash, now_iso),
+        )
     return len(rows)
 
 

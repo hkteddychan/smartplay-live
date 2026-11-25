@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 from poller.db import (
     connect,
     fetch_unsent_sale7,
@@ -111,6 +113,32 @@ def test_mark_sale7_notified_accepts_both_channels_and_is_a_noop_for_empty():
 # --- activity snapshot (Task 11 thread B) -----------------------------------
 
 
+@contextmanager
+def _trace(conn):
+    """Collect the SQL statements executed inside the ``with`` block.
+
+    A trace callback is the cheapest way to prove a no-op: the test counts
+    real DELETE/INSERT statements, not just the returned row count.
+    """
+    statements = []
+    conn.set_trace_callback(statements.append)
+    try:
+        yield statements
+    finally:
+        conn.set_trace_callback(None)
+
+
+def _activity_writes(statements):
+    """Only the statements that touch the snapshot table, normalised."""
+    return [
+        sql.strip().lower()
+        for sql in statements
+        if sql.strip().lower().startswith(
+            ("delete from activities", "insert into activities")
+        )
+    ]
+
+
 def test_upsert_activities_is_a_snapshot_and_keeps_first_seen():
     c = mem()
     t1 = "2026-11-26T10:00:00+08:00"
@@ -139,3 +167,80 @@ def test_upsert_activities_is_a_snapshot_and_keeps_first_seen():
     assert rows[0]["first_seen"] == t1
     assert rows[0]["last_seen"] == t2
     assert "新名" in rows[0]["payload"] and "舊名" not in rows[0]["payload"]
+
+
+def test_unchanged_activity_snapshot_performs_no_delete_or_insert():
+    """R51: the 15MB snapshot must not be rewritten when nothing changed."""
+    c = mem()
+    t1 = "2026-11-26T10:00:00+08:00"
+    t2 = "2026-11-26T10:15:00+08:00"
+    records = [
+        {"ACTIVITY_NO": "A1", "TC_PGM_NAME": "測試"},
+        {"ACTIVITY_NO": "A2", "TC_PGM_NAME": "另一個"},
+    ]
+    assert upsert_activities(c, records, t1) == 2
+
+    with _trace(c) as statements:
+        stored = upsert_activities(c, [dict(record) for record in records], t2)
+
+    assert stored == 0
+    assert _activity_writes(statements) == []
+    assert c.execute("SELECT COUNT(*) FROM activities").fetchone()[0] == 2
+
+    meta = c.execute(
+        "SELECT hash, updated_at FROM activity_meta WHERE id = 1"
+    ).fetchone()
+    assert meta["updated_at"] == t2
+    assert len(meta["hash"]) == 64
+
+
+def test_changed_activity_snapshot_rewrites_exactly_once():
+    """R51: a real change is one DELETE plus one INSERT pass."""
+    c = mem()
+    t1 = "2026-11-26T10:00:00+08:00"
+    t2 = "2026-11-26T10:15:00+08:00"
+    assert upsert_activities(c, [{"ACTIVITY_NO": "A1", "TC_PGM_NAME": "舊"}], t1) == 1
+
+    with _trace(c) as statements:
+        stored = upsert_activities(
+            c,
+            [
+                {"ACTIVITY_NO": "A1", "TC_PGM_NAME": "新"},
+                {"ACTIVITY_NO": "B2", "TC_PGM_NAME": "新增"},
+            ],
+            t2,
+        )
+
+    assert stored == 2
+    writes = _activity_writes(statements)
+    assert sum(sql.startswith("delete from activities") for sql in writes) == 1
+    assert sum(sql.startswith("insert into activities") for sql in writes) == 2
+
+    rows = c.execute(
+        'SELECT activity_no, first_seen, last_seen FROM activities ORDER BY activity_no'
+    ).fetchall()
+    assert [row["activity_no"] for row in rows] == ["A1", "B2"]
+    assert rows[0]["first_seen"] == t1          # survives the rewrite
+    assert rows[1]["first_seen"] == t2
+    assert all(row["last_seen"] == t2 for row in rows)
+
+    meta = c.execute(
+        "SELECT hash, updated_at FROM activity_meta WHERE id = 1"
+    ).fetchone()
+    assert meta["updated_at"] == t2
+
+
+def test_activity_hash_ignores_upstream_row_order():
+    """R51: re-ordering the same payload must not look like a change."""
+    c = mem()
+    t1 = "2026-11-26T10:00:00+08:00"
+    t2 = "2026-11-26T10:15:00+08:00"
+    first = {"ACTIVITY_NO": "A1", "TC_PGM_NAME": "甲"}
+    second = {"ACTIVITY_NO": "B2", "TC_PGM_NAME": "乙"}
+    assert upsert_activities(c, [first, second], t1) == 2
+
+    with _trace(c) as statements:
+        stored = upsert_activities(c, [second, first], t2)
+
+    assert stored == 0
+    assert _activity_writes(statements) == []

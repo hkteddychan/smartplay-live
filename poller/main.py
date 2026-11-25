@@ -2,9 +2,10 @@
 
 Thread A (facility) runs :func:`poller.cycle.run_cycle` every
 ``gate.target_cycle_seconds`` (60s normally, 120s in WAF safe mode). Thread B
-fetches ``activity-prog`` every 300s and stores the snapshot in SQLite; it is
+fetches ``activity-prog`` every 900s and stores the snapshot in SQLite; it is
 deliberately outside the five-sport cycle so the 14.6MB payload never touches
-the G1 budget. Both threads share one :class:`poller.gate.Gate`, so only one
+the G1 budget. A payload hash keeps an unchanged snapshot from being rewritten
+(R51). Both threads share one :class:`poller.gate.Gate`, so only one
 HTTP request is ever in flight.
 
 The sale7 summary job (R48) runs from thread A once per facility round:
@@ -326,9 +327,10 @@ def activity_loop(
     wait: Callable[[float], bool] | None = None,
     log: Log = log,
 ) -> None:
-    """activity-prog once every 300s; ``activity_once`` swallows failures."""
+    """activity-prog once every 900s; ``activity_once`` swallows failures."""
 
     def tick() -> None:
+        # Spec's "skip if the gate lock waits > 3 min" is deliberately omitted; 900s + hash makes a missed tick harmless.
         activity_once(conn, gate, now(), log=log)
 
     periodic_loop(

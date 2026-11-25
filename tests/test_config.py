@@ -1,9 +1,14 @@
 import pytest
-from poller.config import Settings, SPORTS, ConfigError
+from poller.config import ACTIVITY_EVERY_SECONDS, Settings, SPORTS, ConfigError
 
 
 def test_sports_order_is_smallest_first():
     assert SPORTS == ["turf-soccer-pitch", "tennis", "basketball", "volleyball", "badminton"]
+
+
+def test_activity_cadence_is_15_minutes():
+    # R51: activity search is not latency-critical (was 300s).
+    assert ACTIVITY_EVERY_SECONDS == 900
 
 
 def test_settings_requires_tg_token(monkeypatch):

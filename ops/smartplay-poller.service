@@ -11,6 +11,8 @@ EnvironmentFile=/opt/smartplay/.env
 ExecStart=/opt/smartplay/venv/bin/python -m poller.main
 Restart=always
 RestartSec=5
+TimeoutStopSec=120
+KillSignal=SIGTERM
 MemoryMax=1G
 CPUQuota=150%
 

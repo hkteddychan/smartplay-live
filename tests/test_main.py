@@ -8,6 +8,7 @@ never sleep. SQLite is real (in-memory); only the notifier/fetcher are fakes.
 import signal
 import threading
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -152,14 +153,15 @@ def run_for(seconds, every, stop_at=600.0):
     return runs
 
 
-def test_activity_runs_every_300s_and_facility_every_60s():
+def test_activity_runs_every_900s_and_facility_every_60s():
+    # R51: activity search is not latency-critical, so thread B moved to 900s.
     facility = run_for(600, 60)
-    activity = run_for(600, 300)
+    activity = run_for(1800, 900, stop_at=1800)
 
     assert len(facility) == 10
     assert facility == [0, 60, 120, 180, 240, 300, 360, 420, 480, 540]
     assert len(activity) == 2
-    assert activity == [0, 300]
+    assert activity == [0, 900]
 
 
 def test_facility_interval_can_double_in_safe_mode():
@@ -406,7 +408,7 @@ def test_dry_run_prints_the_plan_without_env_or_network(monkeypatch, capsys):
 
     out = capsys.readouterr().out.lower()
     assert "dry run" in out
-    assert "60" in out and "300" in out
+    assert "60" in out and "900" in out
     assert "08:10" in out and "08:20" in out
     assert "activity-prog" in out
 
@@ -416,6 +418,21 @@ def test_dry_run_with_only_activity_shows_no_facility_loop(monkeypatch, capsys):
     assert main(["--dry-run", "--only=activity-prog"]) == 0
     out = capsys.readouterr().out.lower()
     assert "facility" in out and "skip" in out
+
+
+def test_systemd_unit_allows_a_graceful_stop_and_has_no_watchdog():
+    """R52/R45: stop must not SIGKILL a cycle stuck in notify backoff."""
+    unit = (
+        Path(__file__).resolve().parents[1] / "ops" / "smartplay-poller.service"
+    ).read_text(encoding="utf-8")
+
+    assert "TimeoutStopSec=120" in unit
+    assert "KillSignal=SIGTERM" in unit
+    assert "Restart=always" in unit
+    assert "RestartSec=5" in unit
+    assert "MemoryMax=1G" in unit
+    assert "CPUQuota=150%" in unit
+    assert "WatchdogSec" not in unit
 
 
 def test_main_rejects_unknown_only_value(capsys):
