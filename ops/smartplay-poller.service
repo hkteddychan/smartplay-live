@@ -1,0 +1,18 @@
+[Unit]
+Description=SmartPLAY Live poller
+After=network-online.target
+OnFailure=smartplay-alert@%n.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/smartplay
+EnvironmentFile=/opt/smartplay/.env
+ExecStart=/opt/smartplay/venv/bin/python -m poller.main
+Restart=always
+RestartSec=5
+MemoryMax=1G
+CPUQuota=150%
+
+[Install]
+WantedBy=multi-user.target

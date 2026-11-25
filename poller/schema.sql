@@ -41,6 +41,13 @@ CREATE TABLE IF NOT EXISTS daily_rollup (
   PRIMARY KEY(day, sport, venue, kind)
 );
 
+CREATE TABLE IF NOT EXISTS activities (   -- activity-prog 快照（獨立 300s thread）
+  activity_no TEXT PRIMARY KEY,
+  payload TEXT NOT NULL,             -- 原始 JSON（搜尋 tab 用）
+  first_seen TEXT NOT NULL,
+  last_seen TEXT NOT NULL
+) WITHOUT ROWID;
+
 CREATE TABLE IF NOT EXISTS outbox (           -- 通知失敗重試隊列
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   seq_from INTEGER, seq_to INTEGER, channel TEXT,

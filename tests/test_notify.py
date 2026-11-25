@@ -496,3 +496,31 @@ def test_delivery_result_tracks_seqs_per_message(monkeypatch):
     assert result.delivered is False and result.via == "tg"
     assert result.parked_seqs == list(range(1, 13))   # first batch both-failed
     assert result.sent_seqs == list(range(13, 31))    # 補充 delivered via TG
+
+
+# --- sale7 summary (Task 11 / R48) -------------------------------------------
+
+def test_send_summary_sends_one_preformatted_message(monkeypatch):
+    record_sleeps(monkeypatch)
+    http = FakeHttp()
+    n = Notifier(make_settings(), http=http)
+    text = "🛒 開賣 summary ×3\n• 香港單車館：2 場\n• 九龍公園：1 場"
+
+    result = n.send_summary(text)
+
+    assert result.delivered is True and result.via == "tg"
+    assert result.sent_seqs == [] and result.parked_seqs == []
+    assert len(http.posts) == 1 and "sendMessage" in http.posts[0]["url"]
+    assert http.posts[0]["json"]["text"] == text
+    assert http.posts[0]["json"]["disable_notification"] is False
+
+
+def test_send_summary_is_a_vacuous_success_for_empty_text(monkeypatch):
+    record_sleeps(monkeypatch)
+    http = FakeHttp()
+    n = Notifier(make_settings(), http=http)
+
+    result = n.send_summary("")
+
+    assert result.delivered is True and result.via is None
+    assert http.posts == []

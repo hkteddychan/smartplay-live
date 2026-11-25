@@ -34,7 +34,7 @@ from __future__ import annotations
 import sqlite3
 import time
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Callable
 
@@ -67,6 +67,9 @@ class Deps:
     parse: Callable[..., list[Session]] = parse_records
     diff: Callable[..., list[Event]] = diff_sessions
     clock: Callable[[], float] = time.monotonic
+    # Task 11's --only smoke path can narrow a round to one dataset. The
+    # default keeps the production five-sport round unchanged.
+    sports: list[str] = field(default_factory=lambda: list(SPORTS))
 
 
 @dataclass
@@ -98,7 +101,7 @@ def run_cycle(deps: Deps) -> CycleResult:
     outcomes: dict[str, tuple[bool, list[Session], int, str | None]] = {}
     bytes_total = 0
     aborted = False
-    for sport in SPORTS:
+    for sport in deps.sports:
         try:
             fetched = deps.fetch(deps.gate, deps.base_url, sport)
         except GateBackoff:
@@ -122,7 +125,7 @@ def run_cycle(deps: Deps) -> CycleResult:
         outcomes[sport] = (True, sessions, fetched.bytes, None)
 
     ds_ok = sum(1 for ok, *_ in outcomes.values() if ok)
-    ds_total = len(SPORTS)
+    ds_total = len(deps.sports)
 
     if aborted:
         ms = _elapsed_ms(started, deps.clock())
@@ -137,7 +140,7 @@ def run_cycle(deps: Deps) -> CycleResult:
     # Phase 2 — combine only the datasets that succeeded.
     all_sessions: list[Session] = []
     cur: dict[tuple, int] = {}
-    for sport in SPORTS:
+    for sport in deps.sports:
         ok, sessions, _, _ = outcomes[sport]
         if not ok:
             continue
@@ -146,7 +149,7 @@ def run_cycle(deps: Deps) -> CycleResult:
             cur[session.key()] = session.courts
 
     events: list[Event] = []
-    for sport in SPORTS:
+    for sport in deps.sports:
         if not outcomes[sport][0]:
             continue  # failed sport: keep last version, emit no gone
         prev_sport = {key: count for key, count in prev.items() if key[0] == sport}
@@ -197,12 +200,12 @@ def run_cycle(deps: Deps) -> CycleResult:
         not delivery.delivered and "outbox_write_failed" in delivery.errors
     )
 
-    for sport in SPORTS:
+    for sport in deps.sports:
         ok, _, nbytes, error = outcomes[sport]
         _update_dataset_status(deps.conn, sport, ok, nbytes, ts, error)
 
     ms = _elapsed_ms(started, deps.clock())
-    notes = [f"{sport}:{outcomes[sport][3]}" for sport in SPORTS if not outcomes[sport][0]]
+    notes = [f"{sport}:{outcomes[sport][3]}" for sport in deps.sports if not outcomes[sport][0]]
     if outbox_failed:
         notes.append("outbox_write_failed")
     _log_sweep(
@@ -211,7 +214,7 @@ def run_cycle(deps: Deps) -> CycleResult:
     )
 
     return CycleResult(
-        ok=ds_ok == len(SPORTS),
+        ok=ds_ok == len(deps.sports),
         degraded=ds_ok in (3, 4),
         aborted=False,
         ms=ms,

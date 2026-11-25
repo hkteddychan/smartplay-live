@@ -218,6 +218,22 @@ class Notifier:
         """One message: ≤12 lines, overflow as ``…+N 場``, ≤4000 chars."""
         return _render(events)[0]
 
+    def send_summary(self, text: str, retries: int = 0) -> DeliveryResult:
+        """Send one pre-formatted summary (R48) through TG→ntfy.
+
+        The caller owns the text and the row bookkeeping (``mark_sale7_notified``);
+        this method only delivers. ``retries=0`` by default so a sale7 summary
+        can never stall the 60s facility loop for the full backoff ladder —
+        the loop itself retries the still-unmarked rows next minute.
+        """
+        if not text:
+            return DeliveryResult(True, None, [])
+        title = text.split("\n", 1)[0]
+        ok, via, errors = self._try_channels(
+            text, title, "sale7", silent=False, retries=retries
+        )
+        return DeliveryResult(ok, via, errors)
+
     def flush_outbox(self, conn: sqlite3.Connection) -> int:
         """Retry due outbox rows once per channel; return the number resent.
 

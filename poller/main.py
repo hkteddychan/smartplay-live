@@ -1,0 +1,509 @@
+"""Process entry point: two long-running threads over one SQLite database.
+
+Thread A (facility) runs :func:`poller.cycle.run_cycle` every
+``gate.target_cycle_seconds`` (60s normally, 120s in WAF safe mode). Thread B
+fetches ``activity-prog`` every 300s and stores the snapshot in SQLite; it is
+deliberately outside the five-sport cycle so the 14.6MB payload never touches
+the G1 budget. Both threads share one :class:`poller.gate.Gate`, so only one
+HTTP request is ever in flight.
+
+The sale7 summary job (R48) runs from thread A once per facility round:
+
+* inside **08:10–08:20 HKT**, or
+* after a sale7 burst has had no new events for **15 minutes**,
+
+one message is sent with ``venue → number of slots`` for every unsent sale7
+row, then exactly those rows are marked on the channel that accepted it.
+Sale7 never goes through ``Notifier.send_events``.
+
+Shutdown (R50): SIGTERM/SIGINT only set a ``threading.Event``; each worker
+finishes the iteration in progress (never mid-request) and exits, then the
+database connections are closed. Sleeps are ``stop_event.wait(timeout)``, so
+systemd does not have to wait out a full cycle.
+"""
+
+from __future__ import annotations
+
+import argparse
+import html
+import os
+import signal
+import threading
+import time
+from collections import Counter
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Callable, Iterable, Mapping
+
+import requests
+
+from poller import db
+from poller.config import (
+    ACTIVITY,
+    ACTIVITY_EVERY_SECONDS,
+    CYCLE_SECONDS,
+    SPORTS,
+    Settings,
+)
+from poller.cycle import BASE_URL, CycleResult, Deps, run_cycle
+from poller.fetch import FetchResult, fetch_dataset
+from poller.gate import Gate, GateBackoff
+from poller.notify import Notifier
+from poller.seq import SeqAllocator
+
+HK = db.HK
+SALE7_WINDOW = ("08:10", "08:20")     # R48: inclusive HKT clock window
+SALE7_IDLE = timedelta(minutes=15)    # R48: quiet time after a burst
+SUMMARY_MAX_VENUES = 60
+SUMMARY_MAX_CHARS = 4000
+TG_MAX_CHARS = 4096                   # Telegram hard limit (escaped text)
+HTTP_TIMEOUT = (10, 60)               # connect, read — below systemd's 90s stop
+
+Log = Callable[[str], None]
+
+
+def log(message: str) -> None:
+    """One line to the journal; flushed so systemd sees it immediately."""
+    print(message, flush=True)
+
+
+# --- scheduling -------------------------------------------------------------
+
+Interval = float | Callable[[], float]
+
+
+def periodic_loop(
+    stop_event: threading.Event,
+    interval: Interval,
+    run: Callable[[], None],
+    *,
+    clock: Callable[[], float] = time.monotonic,
+    wait: Callable[[float], bool] | None = None,
+) -> None:
+    """Run ``run`` immediately, then every ``interval`` seconds.
+
+    ``interval`` may be a callable so the facility loop can follow
+    ``gate.target_cycle_seconds`` into safe mode. The next due time is pinned
+    to the cadence rather than to the finish time, so a round that overruns
+    waits a full interval instead of firing a catch-up burst. ``wait`` is
+    ``stop_event.wait`` in production and a fake in tests; its return value
+    means "stop requested".
+    """
+    wait = wait if wait is not None else stop_event.wait
+    next_due = clock()
+    while not stop_event.is_set():
+        run()
+        every = interval() if callable(interval) else interval
+        next_due += every
+        now = clock()
+        if next_due <= now:
+            next_due = now + every
+        if wait(max(0.0, next_due - now)):
+            break
+
+
+def make_signal_handler(stop_event: threading.Event):
+    """Build the SIGTERM/SIGINT handler: set the event, do nothing else."""
+
+    def handler(signum, frame) -> None:  # noqa: ARG001 - signal API signature
+        stop_event.set()
+
+    return handler
+
+
+def install_signal_handlers(stop_event: threading.Event) -> None:
+    handler = make_signal_handler(stop_event)
+    signal.signal(signal.SIGTERM, handler)
+    signal.signal(signal.SIGINT, handler)
+
+
+# --- sale7 summary (R48) ----------------------------------------------------
+
+
+def _aware_hk(value: datetime) -> datetime:
+    return value if value.tzinfo is not None else value.replace(tzinfo=HK)
+
+
+def _row_ts(row: Mapping) -> datetime:
+    parsed = datetime.fromisoformat(row["ts"])
+    return _aware_hk(parsed)
+
+
+def should_send_sale7_summary(
+    rows: Iterable[Mapping], now_hk: datetime
+) -> bool:
+    """True when there is something unsent and either R48 condition holds."""
+    rows = list(rows)
+    if not rows:
+        return False
+    now_hk = _aware_hk(now_hk)
+    if SALE7_WINDOW[0] <= now_hk.strftime("%H:%M") <= SALE7_WINDOW[1]:
+        return True
+    latest = max(_row_ts(row) for row in rows)
+    return now_hk - latest >= SALE7_IDLE
+
+
+def format_sale7_summary(rows: Iterable[Mapping]) -> str:
+    """One message: header plus ``• venue：N 場``, sorted by slot count."""
+    rows = list(rows)
+    counts = Counter(str(row["venue"]) for row in rows)
+    items = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    header = f"🛒 開賣 summary ×{len(rows)}"
+    selected = items[:SUMMARY_MAX_VENUES]
+    while True:
+        hidden = items[len(selected):]
+        note = (
+            f"…另有 {len(hidden)} 場館 / {sum(count for _, count in hidden)} 場"
+            if hidden else ""
+        )
+        lines = [header, *(f"• {venue}：{count} 場" for venue, count in selected)]
+        if note:
+            lines.append(note)
+        text = "\n".join(lines)
+        if len(text) <= SUMMARY_MAX_CHARS and len(html.escape(text)) <= TG_MAX_CHARS:
+            return text
+        if not selected:
+            return header
+        selected.pop()
+
+
+def run_sale7_summary(conn, notifier, now_hk: datetime) -> int:
+    """Send (at most) one summary and mark exactly the rows it covered."""
+    rows = db.fetch_unsent_sale7(conn)
+    if not should_send_sale7_summary(rows, now_hk):
+        return 0
+    text = format_sale7_summary(rows)
+    result = notifier.send_summary(text)
+    if not result.delivered or not result.via:
+        return 0
+    db.mark_sale7_notified(conn, [row["seq"] for row in rows], result.via)
+    return len(rows)
+
+
+# --- one iteration of each thread -------------------------------------------
+
+
+def _session_count(conn, sports: Iterable[str]) -> int:
+    sports = list(sports)
+    if not sports:
+        return 0
+    placeholders = ",".join("?" * len(sports))
+    return conn.execute(
+        f"SELECT COUNT(*) FROM sessions WHERE sport IN ({placeholders})", sports
+    ).fetchone()[0]
+
+
+def _human_bytes(count: int) -> str:
+    if count >= 1024 * 1024:
+        return f"{count / (1024 * 1024):.1f}MB"
+    return f"{count / 1024:.0f}KB"
+
+
+def _result_line(result: CycleResult, sessions: int) -> str:
+    status = "ok" if result.ok else ("aborted" if result.aborted else "degraded")
+    return (
+        f"fetch {status} bytes={_human_bytes(result.bytes)} "
+        f"parse={sessions} sessions ds={result.ds_ok}/{result.ds_total} "
+        f"events={result.events} sent={result.sent} parked={result.parked} "
+        f"cycle_ms={result.ms} waf={result.waf_state}"
+    )
+
+
+def facility_once(
+    conn,
+    gate,
+    allocator,
+    notifier,
+    sports: Iterable[str],
+    now_hk: datetime,
+    *,
+    run: Callable[[Deps], CycleResult] = run_cycle,
+    log: Log = log,
+) -> CycleResult:
+    """One facility round restricted to ``sports`` (``--only`` friendly)."""
+    sports = list(sports)
+    deps = Deps(
+        conn=conn,
+        gate=gate,
+        allocator=allocator,
+        notifier=notifier,
+        now_hk=now_hk,
+        sports=sports,
+    )
+    result = run(deps)
+    log(_result_line(result, _session_count(conn, sports)))
+    return result
+
+
+def activity_once(
+    conn,
+    gate,
+    now_hk: datetime,
+    *,
+    fetch: Callable[..., FetchResult] = fetch_dataset,
+    store: Callable[..., int] = db.upsert_activities,
+    log: Log = log,
+) -> bool:
+    """Fetch+store one activity snapshot; a bad payload leaves the old one."""
+    try:
+        fetched = fetch(gate, BASE_URL, ACTIVITY)
+    except GateBackoff as exc:
+        log(f"activity waf_backoff seconds={exc.seconds:g}")
+        return False
+    except Exception as exc:  # never kill the thread on one transport error
+        log(f"activity fetch_failed {type(exc).__name__}")
+        return False
+    if not fetched.ok:
+        log(f"activity fetch_failed {fetched.error}")
+        return False
+    try:
+        stored = store(
+            conn, fetched.records, now_hk.isoformat(timespec="seconds")
+        )
+    except Exception as exc:
+        log(f"activity store_failed {type(exc).__name__}")
+        return False
+    log(
+        f"activity ok bytes={_human_bytes(fetched.bytes)} "
+        f"records={len(fetched.records)} stored={stored}"
+    )
+    return True
+
+
+# --- thread bodies ----------------------------------------------------------
+
+
+def facility_loop(
+    stop_event: threading.Event,
+    *,
+    conn,
+    gate,
+    allocator,
+    notifier,
+    sports: Iterable[str],
+    run: Callable[[Deps], CycleResult] = run_cycle,
+    summary: Callable[[object, object, datetime], int] = run_sale7_summary,
+    now: Callable[[], datetime] = lambda: datetime.now(HK),
+    clock: Callable[[], float] = time.monotonic,
+    wait: Callable[[float], bool] | None = None,
+    log: Log = log,
+) -> None:
+    """Facility round + sale7 summary, once per target cycle."""
+
+    def tick() -> None:
+        try:
+            facility_once(
+                conn, gate, allocator, notifier, sports, now(),
+                run=run, log=log,
+            )
+        except Exception as exc:  # a bad round must not kill the thread
+            log(f"facility cycle_failed {type(exc).__name__}")
+        try:
+            sent = summary(conn, notifier, now())
+        except Exception as exc:
+            log(f"sale7 summary_failed {type(exc).__name__}")
+            return
+        if sent:
+            log(f"sale7 summary rows={sent}")
+
+    periodic_loop(
+        stop_event, lambda: gate.target_cycle_seconds, tick,
+        clock=clock, wait=wait,
+    )
+
+
+def activity_loop(
+    stop_event: threading.Event,
+    *,
+    conn,
+    gate,
+    now: Callable[[], datetime] = lambda: datetime.now(HK),
+    clock: Callable[[], float] = time.monotonic,
+    wait: Callable[[float], bool] | None = None,
+    log: Log = log,
+) -> None:
+    """activity-prog once every 300s; ``activity_once`` swallows failures."""
+
+    def tick() -> None:
+        activity_once(conn, gate, now(), log=log)
+
+    periodic_loop(
+        stop_event, float(ACTIVITY_EVERY_SECONDS), tick,
+        clock=clock, wait=wait,
+    )
+
+
+# --- process wiring ---------------------------------------------------------
+
+
+class _TimeoutSession(requests.Session):
+    """requests.Session whose requests always carry a connect/read timeout.
+
+    ``Gate.get`` calls ``session.get(url)`` without a timeout; without this
+    wrapper a stalled LCSD connection could hold SIGTERM shutdown until
+    systemd's stop timeout. 60s read keeps shutdown below systemd's 90s.
+    """
+
+    def request(self, method, url, *args, **kwargs):
+        kwargs.setdefault("timeout", HTTP_TIMEOUT)
+        return super().request(method, url, *args, **kwargs)
+
+
+def select_sports(only: str | None) -> list[str]:
+    """Translate ``--only`` into the facility sports this process handles."""
+    if only is None:
+        return list(SPORTS)
+    if only == ACTIVITY:
+        return []
+    if only not in SPORTS:
+        raise ValueError(f"unknown dataset: {only}")
+    return [only]
+
+
+def _open_db(path: str):
+    conn = db.connect(path)
+    conn.execute("PRAGMA busy_timeout=5000")
+    db.init_db(conn)
+    return conn
+
+
+def _seq_allocator(settings: Settings) -> SeqAllocator:
+    url = os.environ.get("SEQ_URL", "").strip()
+    token = os.environ.get("SEQ_TOKEN", "").strip()
+    local = os.environ.get("SEQ_LOCAL_PATH", "").strip() or str(
+        Path(settings.db_path).with_name("seq.json")
+    )
+    return SeqAllocator(url, token, local)
+
+
+def _plan_text(args: argparse.Namespace) -> str:
+    sports = select_sports(args.only)
+    activity = args.only is None or args.only == ACTIVITY
+    facility = (
+        f"{', '.join(sports)} every {CYCLE_SECONDS}s (120s in safe mode)"
+        if sports else "(skipped)"
+    )
+    activity_line = (
+        f"{ACTIVITY} every {ACTIVITY_EVERY_SECONDS}s" if activity else "(skipped)"
+    )
+    return "\n".join(
+        [
+            "SmartPLAY poller — dry run (no network, no DB writes)",
+            f"facility : {facility}",
+            f"activity : {activity_line}",
+            "summary  : one sale7 summary in 08:10-08:20 HKT, or 15 min "
+            "after the last sale7 event",
+            "shutdown : SIGTERM/SIGINT sets an event; workers stop between "
+            "iterations",
+            f"once     : {'yes' if args.once else 'no'}",
+            f"db       : {os.environ.get('DB_PATH', '/opt/smartplay/state.db')}",
+        ]
+    )
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="poller.main", description="SmartPLAY live poller"
+    )
+    parser.add_argument(
+        "--once", action="store_true",
+        help="run one iteration of the selected thread(s) and exit",
+    )
+    parser.add_argument(
+        "--only", metavar="DATASET",
+        help=f"restrict work to one sport or {ACTIVITY}",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="print the plan; no network, no database, no credentials",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if args.only is not None and args.only != ACTIVITY and args.only not in SPORTS:
+        parser.error(f"unknown --only value: {args.only}")
+    if args.dry_run:
+        print(_plan_text(args))
+        return 0
+
+    settings = Settings.from_env()
+    sports = select_sports(args.only)
+    run_activity = args.only is None or args.only == ACTIVITY
+    stop_event = threading.Event()
+    install_signal_handlers(stop_event)
+    gate = Gate(_TimeoutSession())
+    allocator = _seq_allocator(settings)
+
+    if args.once:
+        conn = _open_db(settings.db_path)
+        try:
+            if sports:
+                result = facility_once(
+                    conn, gate, allocator, Notifier(settings, conn=conn),
+                    sports, datetime.now(HK),
+                )
+                return 0 if result.ok else 1
+            return 0 if activity_once(conn, gate, datetime.now(HK)) else 1
+        finally:
+            conn.close()
+
+    facility_conn = _open_db(settings.db_path) if sports else None
+    activity_conn = _open_db(settings.db_path) if run_activity else None
+    threads: list[threading.Thread] = []
+    if facility_conn is not None:
+        threads.append(
+            threading.Thread(
+                name="facility",
+                target=facility_loop,
+                kwargs={
+                    "conn": facility_conn,
+                    "gate": gate,
+                    "allocator": allocator,
+                    "notifier": Notifier(settings, conn=facility_conn),
+                    "sports": sports,
+                },
+            )
+        )
+    if activity_conn is not None:
+        threads.append(
+            threading.Thread(
+                name="activity",
+                target=activity_loop,
+                kwargs={"conn": activity_conn, "gate": gate},
+            )
+        )
+
+    log(
+        f"poller starting sports={','.join(sports) or '-'} "
+        f"activity={'on' if run_activity else 'off'} db={settings.db_path}"
+    )
+    for thread in threads:
+        thread.start()
+    exit_code = 0
+    try:
+        while not stop_event.is_set():
+            # A worker that dies outside its per-tick guard must not leave the
+            # process alive but idle: exit non-zero so systemd restarts (and
+            # OnFailure can alert).
+            if not any(thread.is_alive() for thread in threads):
+                log("poller worker exited unexpectedly")
+                exit_code = 1
+                break
+            stop_event.wait(5.0)
+    finally:
+        stop_event.set()
+        for thread in threads:
+            thread.join()
+        if facility_conn is not None:
+            facility_conn.close()
+        if activity_conn is not None:
+            activity_conn.close()
+    log("poller stopped")
+    return exit_code
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

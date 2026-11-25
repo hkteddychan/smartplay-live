@@ -11,6 +11,7 @@ events that were already acknowledged to the caller.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -170,6 +171,97 @@ def insert_events(
         )
     conn.commit()
     return seqs
+
+
+def fetch_unsent_sale7(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Sale7 rows no channel has delivered yet (R46).
+
+    "Unsent" means **both** channel flags are still 0: once either channel
+    accepted the summary the row must not be included in the next one.
+    """
+    return conn.execute(
+        'SELECT seq, ts, sport, venue, facility, date, start, "end", before, after '
+        "FROM events "
+        "WHERE kind = 'sale7' AND notified_tg = 0 AND notified_ntfy = 0 "
+        "ORDER BY seq"
+    ).fetchall()
+
+
+def mark_sale7_notified(
+    conn: sqlite3.Connection, seqs: list[int], channel: str
+) -> int:
+    """Mark exactly ``seqs`` on the channel(s) that accepted a sale7 summary.
+
+    ``channel`` is ``"tg"``, ``"ntfy"`` or ``"tg+ntfy"``. The ``kind`` guard
+    makes the helper safe even if a caller passes a mixed seq list: a sale7
+    summary must never mark an ordinary ``new``/``inc`` row. Returns the
+    number of sale7 rows touched by the first updated column.
+    """
+    if not seqs or not channel:
+        return 0
+    channels = set(channel.split("+"))
+    columns = [
+        column
+        for name, column in (("tg", "notified_tg"), ("ntfy", "notified_ntfy"))
+        if name in channels
+    ]
+    if not columns:
+        return 0
+    placeholders = ",".join("?" * len(seqs))
+    marked = 0
+    for column in columns:
+        cursor = conn.execute(
+            f"UPDATE events SET {column} = 1, notify_err = NULL "
+            f"WHERE seq IN ({placeholders}) AND kind = 'sale7'",
+            list(seqs),
+        )
+        marked = max(marked, cursor.rowcount)
+    conn.commit()
+    return marked
+
+
+def upsert_activities(
+    conn: sqlite3.Connection, records: list[dict], now_iso: str
+) -> int:
+    """Replace the activity snapshot with ``records`` (Task 11 thread B).
+
+    Each row is kept as its original JSON payload keyed by ``ACTIVITY_NO``;
+    ``first_seen`` survives a refresh while ``last_seen`` is the current run.
+    Rows absent from this run are deleted, so the table is a snapshot rather
+    than an ever-growing archive. Records without an ``ACTIVITY_NO`` are
+    skipped (one bad upstream row must not abort the whole snapshot).
+    """
+    rows = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        activity_no = record.get("ACTIVITY_NO")
+        if not isinstance(activity_no, str) or not activity_no.strip():
+            continue
+        rows.append(
+            (
+                activity_no.strip(),
+                json.dumps(record, ensure_ascii=False, separators=(",", ":")),
+                now_iso,
+                now_iso,
+            )
+        )
+    if not rows:
+        conn.commit()
+        return 0
+    conn.executemany(
+        """
+        INSERT INTO activities (activity_no, payload, first_seen, last_seen)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(activity_no) DO UPDATE SET
+          payload = excluded.payload,
+          last_seen = excluded.last_seen
+        """,
+        rows,
+    )
+    conn.execute("DELETE FROM activities WHERE last_seen < ?", (now_iso,))
+    conn.commit()
+    return len(rows)
 
 
 def log_sweep(conn: sqlite3.Connection, **kw) -> None:

@@ -248,6 +248,24 @@ def test_parse_failure_is_isolated_per_dataset():
     assert status["err_streak"] == 1 and "ValueError" in status["last_err"]
 
 
+def test_deps_sports_can_restrict_a_round_to_one_dataset():
+    # Task 11's --only smoke path: the round's universe is deps.sports, so a
+    # filtered run neither fetches nor diffs the other sports.
+    conn = mem()
+    seed(conn, Session("tennis", "B館", "1號場", TODAY, "19:00", "20:00", 1))
+    fetcher = FakeFetcher(payload={"tennis": [rec(TODAY)]})
+    deps = make_deps(conn=conn, fetcher=fetcher)
+    deps.sports = ["tennis"]
+
+    result = run_cycle(deps)
+
+    assert fetcher.calls == ["tennis"]
+    assert result.ds_total == 1 and result.ds_ok == 1 and result.ok is True
+    assert conn.execute(
+        "SELECT COUNT(*) FROM sessions WHERE sport = 'tennis'"
+    ).fetchone()[0] == 1
+
+
 # --- R15: GateBackoff aborts the round immediately --------------------------
 
 
