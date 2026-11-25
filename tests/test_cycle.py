@@ -13,7 +13,7 @@ import pytest
 
 from poller import db
 from poller.config import SPORTS
-from poller.cycle import CycleResult, Deps, run_cycle
+from poller.cycle import CycleResult, Deps, _mark_notified, run_cycle
 from poller.fetch import FetchResult
 from poller.gate import GateBackoff
 from poller.notify import DeliveryResult
@@ -89,9 +89,11 @@ class FakeNotifier:
         self.errors = errors or []
         self.calls = 0
         self.selected = []
+        self.batch = []
 
     def send_events(self, events, channel_filter):
         self.calls += 1
+        self.batch = list(events)          # every event handed to the notifier
         self.selected = [e for e in events if channel_filter(e)]
         seqs = [e.seq for e in self.selected]
         sent = seqs if self.sent is None and self.delivered else (self.sent or [])
@@ -451,6 +453,45 @@ def test_sale7_burst_relabels_that_sport_only():
     assert by_sport == {"badminton": {"sale7"}, "tennis": {"new"}}
 
 
+def test_send_events_argument_never_contains_sale7():
+    # R43 literal: sale7 rows are pre-filtered out of the list handed to
+    # send_events, not merely rejected by its channel_filter.
+    conn = mem()
+    day = TODAY + timedelta(days=1)
+    notifier = FakeNotifier()
+    run_cycle(make_deps(
+        conn=conn, notifier=notifier,
+        fetcher=FakeFetcher(payload={
+            "badminton": [rec(day, facility=f"{i}號場") for i in range(1, 61)],
+            "tennis": [rec(day, venue="網球場", facility="1號場")],
+        }),
+    ))
+
+    assert notifier.calls == 1
+    assert {e.kind for e in notifier.batch} == {"new"}
+    assert [(e.sport, e.kind) for e in notifier.batch] == [("tennis", "new")]
+
+
+def test_mark_notified_never_marks_sale7():
+    # R43 whitelist: even a caller that hands a sale7 seq to _mark_notified
+    # (e.g. a future outbox flush) must leave it unmarked for the 08:15 job.
+    conn = mem()
+    conn.execute(
+        "INSERT INTO events (seq, sport, venue, facility, date, start, \"end\", "
+        "kind, before, \"after\", ts) VALUES "
+        "(5, 'badminton', 'A館', '1號場', '2026-11-27', '19:00', '20:00', "
+        "'sale7', 0, 1, '2026-11-26T10:00:00+08:00')"
+    )
+    conn.commit()
+
+    _mark_notified(conn, [5], "tg")
+
+    row = conn.execute(
+        "SELECT notified_tg, notified_ntfy FROM events WHERE seq = 5"
+    ).fetchone()
+    assert (row["notified_tg"], row["notified_ntfy"]) == (0, 0)
+
+
 # --- R24: degraded allocator emits exactly one resync -----------------------
 
 
@@ -503,16 +544,16 @@ def test_resync_allocated_in_same_cycle_as_degraded_main_allocation():
     assert [e.seq for e in notifier.selected] == [1, 2]  # resync never notified
 
 
-def test_resync_alone_when_degraded_with_no_events():
+def test_no_resync_on_quiet_cycle_while_degraded():
+    # R44: a carried-over degraded flag must not mint a resync (and burn
+    # another 1000-seq block) on every event-free cycle of an R2 outage.
     conn = mem()
     allocator = FakeAllocator(start=7, degraded=True)
     result = run_cycle(make_deps(conn=conn, allocator=allocator))
 
-    rows = event_rows(conn)
-    assert len(rows) == 1 and rows[0]["kind"] == "resync"
-    assert rows[0]["seq"] == 7
-    assert allocator.calls == [1]
-    assert result.events == 1
+    assert allocator.calls == []                      # no main call, no resync
+    assert event_rows(conn) == []                     # zero resync rows
+    assert result.events == 0
 
 
 def test_resync_not_emitted_when_allocator_healthy():

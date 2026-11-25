@@ -14,10 +14,12 @@ do not:
   re-labelled ``sale7`` when (a) the local time is 06:45–08:00 and the event
   date is that sport's furthest bookable date, or (b) the sport produced more
   than 50 ``new``/``inc`` events in this cycle.
-- **R24/R42 — resync.** When this round's main allocation falls back to
+- **R24/R42/R44 — resync.** When this round's main allocation falls back to
   local mode (``SeqAllocator.degraded``), a second ``allocate(1)`` reserves
   the resync seq immediately and the placeholder event is persisted in the
-  same round, so the gap marker cannot be lost to a crash.
+  same round, so the gap marker cannot be lost to a crash. A cycle with no
+  diffed events never allocates and never emits a resync, even while the
+  carried-over ``degraded`` flag is still set.
 - **R37/R39 — notification bookkeeping.** ``notified_tg``/``notified_ntfy``
   are marked from ``DeliveryResult.sent_seqs`` + ``via`` only, never from a
   seq range and never for ``dec``/``gone``. A failed delivery whose outbox
@@ -157,14 +159,22 @@ def run_cycle(deps: Deps) -> CycleResult:
     # Phase 3 — reserve seqs first, then persist state, then events.
     # Reserving before any SQLite write means an allocator failure cannot leave
     # sessions updated without the events that explain the change.
-    seq_start = deps.allocator.allocate(len(events)) if events else 0
+    seq_start = 0
+    # R44: only a degradation observed by *this* round's main allocation may
+    # raise a resync. The flag is carried over across rounds, so reading it
+    # unconditionally would mint a resync — and burn another 1000-seq local
+    # block — on every quiet cycle for as long as R2 stays down.
+    main_degraded = False
+    if events:
+        seq_start = deps.allocator.allocate(len(events))
+        main_degraded = deps.allocator.degraded
     # R42: a main allocation that fell back to local mode opened a seq gap in
     # *this* round, so reserve the resync seq right away and persist the marker
     # below in the same round. Deferring it to the next round would report the
     # gap a cycle late — or never, if the process dies in between.
     resync: Event | None = None
     resync_seq = 0
-    if deps.allocator.degraded:
+    if main_degraded:
         resync_seq = deps.allocator.allocate(1)
         resync = _resync_event(ts)
     if all_sessions:
@@ -230,10 +240,15 @@ def _should_notify(event: Event) -> bool:
 
 
 def _notify_if_any(deps: Deps, events: list[Event]):
-    """Send the alert round and mark ``notified_*`` per accepted seq (R37)."""
-    if not any(_should_notify(event) for event in events):
+    """Send the alert round and mark ``notified_*`` per accepted seq (R37).
+
+    R43 literal: the list handed to ``send_events`` is pre-filtered, so a
+    ``sale7`` row is never inside that argument at all.
+    """
+    candidates = [event for event in events if _should_notify(event)]
+    if not candidates:
         return _empty_delivery()
-    result = deps.notifier.send_events(events, _should_notify)
+    result = deps.notifier.send_events(candidates, _should_notify)
     _mark_notified(deps.conn, result.sent_seqs, result.via)
     return result
 
@@ -247,7 +262,8 @@ def _mark_notified(conn: sqlite3.Connection, seqs: list[int], via: str | None) -
 
     ``via`` is aggregated per round ("tg", "ntfy" or "tg+ntfy"), not per
     message, so a mixed round marks every sent seq on both used channels.
-    ``dec``/``gone`` stay unmarked even if a caller hands them in.
+    ``sale7`` stays unmarked for the 08:15 summary job (R43), as do
+    ``dec``/``gone``, even if a caller hands them in.
     """
     if not seqs or not via:
         return
@@ -259,7 +275,7 @@ def _mark_notified(conn: sqlite3.Connection, seqs: list[int], via: str | None) -
     for column in columns:
         conn.execute(
             f"UPDATE events SET {column} = 1, notify_err = NULL "
-            f"WHERE seq IN ({placeholders}) AND kind IN ('new','inc','sale7')",
+            f"WHERE seq IN ({placeholders}) AND kind IN ('new','inc')",
             list(seqs),
         )
     conn.commit()
