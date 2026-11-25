@@ -13,6 +13,7 @@ import random
 import threading
 import time
 from collections import deque
+from collections.abc import Callable
 
 import requests
 
@@ -41,7 +42,7 @@ class Gate:
         sleep=time.sleep,
         clock=time.monotonic,
         stagger: float = STAGGER_SECONDS,
-        jitter=None,
+        jitter: Callable[[], float] | None = None,
     ) -> None:
         self._session = session
         self._sleep = sleep
@@ -56,7 +57,7 @@ class Gate:
     def get(self, url: str) -> requests.Response:
         """Fetch url, pacing calls; record the status and raise on latches.
 
-        Calls on_status itself so the fetcher never has to remember. On a
+        Calls _record_status itself so the fetcher never has to remember. On a
         latch status the latch is recorded first, then GateBackoff(seconds)
         is raised instead of sleeping inline.
         """
@@ -79,11 +80,12 @@ class Gate:
 
     def _record_status(self, status: int) -> float:
         """Update latch/safe state for a status; caller must hold the lock."""
+        now = self._clock()
+        self._expire_safe_mode(now)
         if status not in WAF_STATUSES:
             if status == 200 and not self.safe_mode():
                 self._latches.clear()
             return 0.0
-        now = self._clock()
         self._latches.append(now)
         recent = sum(1 for t in self._latches if now - t <= LATCH_WINDOW_SECONDS)
         if recent >= 3:
@@ -91,16 +93,24 @@ class Gate:
         step = min(len(self._latches), len(LATCH_LADDER)) - 1
         return float(LATCH_LADDER[step])
 
+    def _expire_safe_mode(self, now: float) -> None:
+        """Lazy safe-mode expiry; caller must hold the lock.
+
+        Prunes only latches that have aged out of the latch window, so a
+        latch recorded after expiry survives; never wipes fresh latches.
+        """
+        if self._safe_until is None or now < self._safe_until:
+            return
+        self._safe_until = None
+        while self._latches and now - self._latches[0] > LATCH_WINDOW_SECONDS:
+            self._latches.popleft()
+
     @property
     def state(self) -> str:
         with self._lock:
             if self.safe_mode():
                 return "safe"
-            if self._safe_until is not None:
-                # Safe mode expired (lazy check): the latches that caused
-                # it are older than the latch window, so recover to "ok".
-                self._safe_until = None
-                self._latches.clear()
+            self._expire_safe_mode(self._clock())
             if self._latches:
                 return "latch"
             return "ok"
