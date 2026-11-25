@@ -202,7 +202,7 @@ class Gate:
 
 #### 5.1.2 解析與壓縮
 
-LCSD 原始 record（實測欄位）：`Available_Date`、`Available_Courts`、`Venue_Name_TC`、`District_Name_TC`、`Session_Start_Time`、`Session_End_Time`、`Facility_Name_TC`…（沿用現有 worker 的 `compactRows` 映射，已驗證可用）。
+LCSD 原始 record（實測欄位）：`Available_Date`、`Available_Courts`、`Venue_Name_TC`、`District_Name_TC`、`Session_Start_Time`、`Session_End_Time`、`Facility_Location_Name_TC`（設施維度，例如「1號場」）、`Facility_Type_Name_TC`（類型，例如「羽毛球場 (空調)(市區)」，只作顯示）…（沿用現有 worker 的 `compactDigest` 映射，已對照部署源碼驗證）。
 
 只保留：
 - `Available_Courts > 0`
