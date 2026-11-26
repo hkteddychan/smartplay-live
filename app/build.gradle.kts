@@ -10,6 +10,19 @@ android {
     namespace = "com.playfinder.app"
     compileSdk = 35
 
+    signingConfigs {
+        create("release") {
+            val kp = rootProject.file("keystore.properties")
+            if (kp.exists()) {
+                val props = java.util.Properties().apply { kp.inputStream().use { load(it) } }
+                storeFile = rootProject.file(props.getProperty("storeFile"))
+                storePassword = props.getProperty("storePassword")
+                keyAlias = props.getProperty("keyAlias")
+                keyPassword = props.getProperty("keyPassword")
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.playfinder.app"
         minSdk = 26
@@ -24,6 +37,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
