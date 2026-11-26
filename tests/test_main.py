@@ -597,6 +597,25 @@ def test_systemd_unit_allows_a_graceful_stop_and_has_no_watchdog():
     assert "WatchdogSec" not in unit
 
 
+def test_systemd_onfailure_targets_the_alert_template_correctly():
+    """I8: %n already ends in .service — appending it again double-suffixes."""
+    ops = Path(__file__).resolve().parents[1] / "ops"
+    unit = (ops / "smartplay-poller.service").read_text(encoding="utf-8")
+
+    assert "OnFailure=smartplay-alert@%n\n" in unit
+    assert "smartplay-alert@%n.service" not in unit
+    assert "StartLimitIntervalSec=300" in unit
+    assert "StartLimitBurst=5" in unit
+    assert "WatchdogSec" not in unit          # R45/R52 still hold
+
+    alert = (ops / "smartplay-alert@.service").read_text(encoding="utf-8")
+    assert "Type=oneshot" in alert
+    assert "EnvironmentFile=-/opt/smartplay/.env" in alert
+    assert 'if [ -z "$TG_TOKEN" ]' in alert
+    assert "curl" in alert and "api.telegram.org" in alert
+    assert "%i" in alert
+
+
 def test_main_rejects_unknown_only_value(capsys):
     with pytest.raises(SystemExit) as exc:
         main(["--dry-run", "--only=not-a-sport"])

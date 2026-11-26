@@ -1,7 +1,9 @@
 [Unit]
 Description=SmartPLAY Live poller
 After=network-online.target
-OnFailure=smartplay-alert@%n.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
+OnFailure=smartplay-alert@%n
 
 [Service]
 Type=simple
