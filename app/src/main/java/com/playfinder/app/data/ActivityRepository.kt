@@ -13,8 +13,8 @@ class ActivityRepository @Inject constructor(
     private val api: LcsdApi,
     private val dao: ActivityDao
 ) {
-    fun observe(district: String, type: String, from: String): Flow<List<ActivityEntity>> =
-        dao.observe(district, type, from)
+    fun observe(district: String, type: String, from: String, to: String): Flow<List<ActivityEntity>> =
+        dao.observe(district, type, from, to)
 
     fun observeAll(): Flow<List<ActivityEntity>> = dao.observeAll()
 
@@ -44,6 +44,8 @@ class ActivityRepository @Inject constructor(
         quota = quota ?: 0,
         placesLeft = placesLeft ?: 0,
         enrolMethod = enrolMethod?.trim().orEmpty(),
+        enrolStartDate = enrolStartDate?.trim().orEmpty(),
+        enrolEndDate = enrolEndDate?.trim().orEmpty(),
         url = url?.trim().orEmpty()
     )
 }

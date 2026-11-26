@@ -13,8 +13,8 @@ interface ActivityDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(activities: List<ActivityEntity>)
 
-    @Query("SELECT * FROM activities WHERE (:district = '' OR district = :district) AND (:type = '' OR type = :type) AND startDate >= :from ORDER BY startDate, startTime")
-    fun observe(district: String, type: String, from: String): Flow<List<ActivityEntity>>
+    @Query("SELECT * FROM activities WHERE (:district = '' OR district = :district) AND (:type = '' OR type = :type) AND startDate BETWEEN :from AND :to ORDER BY startDate, startTime")
+    fun observe(district: String, type: String, from: String, to: String): Flow<List<ActivityEntity>>
 
     @Query("SELECT * FROM activities ORDER BY startDate, startTime")
     fun observeAll(): Flow<List<ActivityEntity>>

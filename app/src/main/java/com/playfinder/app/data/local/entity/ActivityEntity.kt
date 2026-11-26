@@ -21,6 +21,8 @@ data class ActivityEntity(
     val quota: Int,
     val placesLeft: Int,
     val enrolMethod: String,
+    val enrolStartDate: String,
+    val enrolEndDate: String,
     val url: String,
     val fetchedAt: Long = System.currentTimeMillis()
 )

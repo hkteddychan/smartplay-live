@@ -25,4 +25,7 @@ object DatabaseModule {
 
     @Provides
     fun provideActivityDao(db: PlayFinderDatabase) = db.activityDao()
+
+    @Provides
+    fun provideReleaseEventDao(db: PlayFinderDatabase) = db.releaseEventDao()
 }

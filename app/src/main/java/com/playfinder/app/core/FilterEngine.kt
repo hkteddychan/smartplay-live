@@ -1,4 +1,4 @@
-package com.playfinder.app.ui
+package com.playfinder.app.core
 
 import com.playfinder.app.data.local.entity.SlotEntity
 import java.time.DayOfWeek
@@ -17,6 +17,13 @@ data class SlotFilter(
     val search: String = ""
 )
 
+/**
+ * Pure filter, sort and bucket logic for court sessions.
+ *
+ * It lives outside the `ui` package because two layers need it: the Compose
+ * screens (to show the filtered list) and the background poller (to decide
+ * whether a session matches the user's watchlist).
+ */
 object FilterEngine {
 
     /** Returns -1 for malformed timestamps so they never satisfy a time filter. */

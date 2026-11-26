@@ -28,5 +28,7 @@ data class LcsdActivity(
     @Json(name = "QUOTA") val quota: Int? = 0,
     @Json(name = "PLACES_LEFT") val placesLeft: Int? = 0,
     @Json(name = "ENROL_METHOD") val enrolMethod: String? = null,
+    @Json(name = "ENROL_START_DATE") val enrolStartDate: String? = null,
+    @Json(name = "ENROL_END_DATE") val enrolEndDate: String? = null,
     @Json(name = "TC_URL") val url: String? = null
 )

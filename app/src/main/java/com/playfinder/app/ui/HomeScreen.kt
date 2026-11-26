@@ -44,6 +44,9 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.playfinder.app.R
 import com.playfinder.app.alerts.WatchlistStore
+import com.playfinder.app.core.FilterEngine
+import com.playfinder.app.core.SlotFilter
+import com.playfinder.app.core.SortMode
 import com.playfinder.app.data.local.entity.SlotEntity
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -80,6 +83,7 @@ fun HomeScreen(vm: HomeViewModel = hiltViewModel()) {
     val visible by vm.visible.collectAsState()
     val heatmap by vm.heatmap.collectAsState()
     val districts by vm.districts.collectAsState()
+    val availableDates by vm.availableDates.collectAsState()
     val lastSync by vm.lastSync.collectAsState()
 
     var showFilters by rememberSaveable { mutableStateOf(false) }
@@ -150,7 +154,7 @@ fun HomeScreen(vm: HomeViewModel = hiltViewModel()) {
             FilterSummaryRow(
                 search = filter.search,
                 activeCount = activeFilterCount(filter),
-                onSearch = { vm.setFilter(filter.copy(search = it)) },
+                onSearch = vm::setSearch,
                 onOpenFilters = { showFilters = true }
             )
 
@@ -215,7 +219,14 @@ fun HomeScreen(vm: HomeViewModel = hiltViewModel()) {
                                         scope.launch {
                                             WatchlistStore.addSport(ctx, slot.sport)
                                             WatchlistStore.addDistrict(ctx, slot.district)
-                                            snackbar.showSnackbar("已加入追蹤：${slot.venue}")
+                                            val venueAdded = WatchlistStore.addVenue(ctx, slot.venue)
+                                            snackbar.showSnackbar(
+                                                if (venueAdded) {
+                                                    "已加入追蹤：${slot.venue}"
+                                                } else {
+                                                    "已追蹤 ${slot.sport}／${slot.district}；場地追蹤已達上限 ${WatchlistStore.MAX_VENUES} 個"
+                                                }
+                                            )
                                         }
                                     }
                                 )
@@ -232,6 +243,7 @@ fun HomeScreen(vm: HomeViewModel = hiltViewModel()) {
             filter = filter,
             sort = sort,
             districts = districts,
+            dates = availableDates,
             onFilter = vm::setFilter,
             onSort = vm::setSort,
             onDismiss = { showFilters = false }
@@ -357,15 +369,13 @@ private fun FilterSheet(
     filter: SlotFilter,
     sort: SortMode,
     districts: List<String>,
+    dates: List<String>,
     onFilter: (SlotFilter) -> Unit,
     onSort: (SortMode) -> Unit,
     onDismiss: () -> Unit
 ) {
     var districtOpen by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val dates = remember {
-        (0..13).map { offset -> LocalDate.now().plusDays(offset.toLong()).toString() }
-    }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(

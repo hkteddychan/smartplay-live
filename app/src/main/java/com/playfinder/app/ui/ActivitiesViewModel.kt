@@ -7,11 +7,13 @@ import com.playfinder.app.data.ActivityRepository
 import com.playfinder.app.data.local.entity.ActivityEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -19,7 +21,14 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 
-@OptIn(ExperimentalCoroutinesApi::class)
+/** Date ranges offered for programme activities. */
+enum class ActivityRange(val label: String, val days: Int?) {
+    ALL("全部日期", null),
+    WEEK("未來 7 日", 7),
+    MONTH("未來 30 日", 30)
+}
+
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class ActivitiesViewModel @Inject constructor(
     private val repo: ActivityRepository
@@ -30,7 +39,7 @@ class ActivitiesViewModel @Inject constructor(
     private val _district = MutableStateFlow("")
     private val _type = MutableStateFlow("")
     private val _search = MutableStateFlow("")
-    private val _from = MutableStateFlow(LocalDate.now().toString())
+    private val _range = MutableStateFlow(ActivityRange.ALL)
     private val _lastSync = MutableStateFlow<Long?>(null)
 
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
@@ -38,7 +47,7 @@ class ActivitiesViewModel @Inject constructor(
     val district: StateFlow<String> = _district.asStateFlow()
     val type: StateFlow<String> = _type.asStateFlow()
     val search: StateFlow<String> = _search.asStateFlow()
-    val from: StateFlow<String> = _from.asStateFlow()
+    val range: StateFlow<ActivityRange> = _range.asStateFlow()
     val lastSync: StateFlow<Long?> = _lastSync.asStateFlow()
 
     private val allRows: StateFlow<List<ActivityEntity>> = repo.observeAll()
@@ -52,12 +61,19 @@ class ActivitiesViewModel @Inject constructor(
         .map { rows -> rows.map { it.type }.filter { it.isNotBlank() }.distinct().sorted() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    private val debouncedSearch: StateFlow<String> = _search
+        .debounce(SEARCH_DEBOUNCE_MS)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
     /** Room query re-runs whenever a filter changes; search is applied in memory. */
-    val visible: StateFlow<List<ActivityEntity>> = combine(_district, _type, _from) { d, t, f ->
-        Triple(d, t, f)
-    }.flatMapLatest { (d, t, f) ->
-        repo.observe(d, t, f)
-    }.combine(_search) { rows, q ->
+    val visible: StateFlow<List<ActivityEntity>> = combine(_district, _type, _range) { d, t, r ->
+        Triple(d, t, r)
+    }.flatMapLatest { (d, t, r) ->
+        val today = LocalDate.now()
+        val from = today.toString()
+        val to = r.days?.let { today.plusDays((it - 1).toLong()).toString() } ?: "9999-12-31"
+        repo.observe(d, t, from, to)
+    }.combine(debouncedSearch) { rows, q ->
         if (q.isBlank()) rows
         else rows.filter { it.name.contains(q, true) || it.venue.contains(q, true) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -78,15 +94,15 @@ class ActivitiesViewModel @Inject constructor(
         _search.value = q
     }
 
-    fun setFrom(d: String) {
-        _from.value = d
+    fun setRange(r: ActivityRange) {
+        _range.value = r
     }
 
     fun clearFilters() {
         _district.value = ""
         _type.value = ""
         _search.value = ""
-        _from.value = LocalDate.now().toString()
+        _range.value = ActivityRange.ALL
     }
 
     fun refresh() {
@@ -102,5 +118,9 @@ class ActivitiesViewModel @Inject constructor(
                 }
             _loading.value = false
         }
+    }
+
+    private companion object {
+        const val SEARCH_DEBOUNCE_MS = 300L
     }
 }

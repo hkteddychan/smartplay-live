@@ -1,33 +1,79 @@
-# PlayFinder Android APK — Implementation Plan
+# PlayFinder Android APK — Implementation Plan (executed)
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status:** Executed 2026-11-26/27. The task list below is kept as the
+> historical record of what was planned; the checkboxes reflect the plan as
+> written, **not** the implementation. For the authoritative description of
+> what shipped, read
+> [2026-11-26-playfinder-android.md](./2026-11-26-playfinder-android.md) and
+> the package contracts under `app/src/main/java/com/playfinder/app/`.
 
-**Goal:** Build "PlayFinder" — a native Android app (Kotlin + Jetpack Compose) for browsing LCSD court availability, programme activities, and receiving push alerts via ntfy, with an AdSense value-exchange monetization model.
+**Goal:** Build "PlayFinder" — a native Android app (Kotlin + Jetpack Compose) for browsing LCSD court availability, programme activities, and receiving push alerts, with an ad-for-push value-exchange monetisation model.
 
-**Architecture:** Single-activity Compose app with Hilt DI, repository pattern (LCSD API → Room cache), ntfy push via anonymous subscription, AdMob rewarded video for 3-min view → 1 week push alerts.
+**Architecture as built:** Single-activity Compose app with Hilt DI, concrete repositories over Room (LCSD API → Room cache), and **device-local** push: a 15-minute WorkManager poll that notifies when a session's availability increased, unlocked by an AdMob rewarded video plus a three-minute in-app stay.
 
-**Tech Stack:** Kotlin 2.0, Jetpack Compose (Material 3), Hilt, Room, Retrofit + OkHttp + Moshi, AdMob, FusedLocationProvider, Coroutines + Flow
+**Tech Stack:** Kotlin 2.0, Jetpack Compose (Material 3), Hilt, Room, Retrofit + OkHttp + Moshi, WorkManager, DataStore, AdMob, FusedLocationProvider, Coroutines + Flow
 
-**Spec:** `docs/superpowers/specs/2026-11-26-playfinder-android-design.md`
+**Spec:** `docs/designs/2026-11-26-playfinder-android.md`
+
+## As-built file map (replaces the "Files" lists in the tasks below)
+
+The per-task `Files:` lists further down are the historical plan. This table is
+the authoritative mapping, with the action that was actually taken.
+
+| Planned path | As-built path | Action |
+|---|---|---|
+| `data/repository/SlotRepository.kt` | `data/PlayFinderRepository.kt` | Renamed / modified |
+| `data/repository/ActivityRepository.kt` | `data/ActivityRepository.kt` | Renamed / modified |
+| `data/dto/LcsdMetadata.kt` | — | Removed (the metadata endpoint has no consumer) |
+| `data/entity/WatchlistEntity.kt`, `data/dao/WatchlistDao.kt` | `alerts/WatchlistStore.kt` (DataStore) | Replaced by a DataStore store |
+| `push/NtfySubscriber.kt`, `push/PushManager.kt` | `alerts/SlotPollWorker.kt` + `alerts/AlertNotifier.kt` | Replaced by a device-local poller |
+| `ads/AdManager.kt` | `ads/RewardedAdManager.kt` | Renamed / modified |
+| `ui/screens/browse/BrowseScreen.kt` | `ui/HomeScreen.kt` | Renamed / modified |
+| `ui/screens/browse/BrowseViewModel.kt` | `ui/HomeViewModel.kt` | Renamed / modified |
+| `ui/screens/search/SearchScreen.kt`, `SearchViewModel.kt` | merged into `ui/HomeScreen.kt` + `ui/HomeViewModel.kt` | Merged into the browse screen |
+| `ui/screens/activity/ActivityScreen.kt` | `ui/ActivitiesScreen.kt` | Renamed / modified |
+| `ui/screens/activity/ActivityViewModel.kt` | `ui/ActivitiesViewModel.kt` | Renamed / modified |
+| `ui/screens/watchlist/WatchlistScreen.kt` | `ui/AlertsScreen.kt` | Renamed / modified |
+| `ui/screens/watchlist/WatchlistViewModel.kt` | — (the watchlist is a DataStore store) | Removed |
+| `ui/screens/settings/SettingsScreen.kt` | `ui/SettingsScreen.kt` | Renamed / modified |
+| `ui/screens/settings/SettingsViewModel.kt` | `ui/SettingsViewModel.kt` | Renamed / modified |
+| `ui/screens/about/AboutScreen.kt` | a card inside `ui/SettingsScreen.kt` | Merged into Settings |
+| `ui/components/SlotHeatmap.kt`, `SlotCard.kt`, `FilterBar.kt`, `OfflineBadge.kt`, `SportChipRow.kt`, `ActivityCard.kt` | inline in the screens | Merged into the screens |
+| `ui/components/AdBanner.kt` | — | Removed (rewarded video only) |
+| `ui/navigation/PlayFinderNavGraph.kt`, `BottomNavBar.kt` | `MainActivity.kt` (`AppShell`) | Merged into the activity |
+| `util/DeepLink.kt` | `ui/DeepLink.kt` | Moved |
+| `ui/FilterEngine.kt` | `core/FilterEngine.kt` + `core/ReleaseDetector.kt` | Moved and extended |
+| `data/remote/LcsdApiTest.kt` | `data/remote/MoshiAdapterTest.kt` | Renamed |
+| `data/local/SlotDaoTest.kt` | — | Not implemented (Room needs an instrumented test) |
+| `push/PushManagerTest.kt` | `alerts/WatchlistTest.kt` | Renamed / reduced scope |
+| `.github/workflows/build-apk.yml` | `.github/workflows/android-apk.yml` | Renamed |
+
+## As-built verification
+
+| Check | Command |
+|---|---|
+| Unit tests | `.\gradlew.bat testDebugUnitTest` |
+| Debug APK | `.\gradlew.bat assembleDebug` |
+| Signed bundle | `.\gradlew.bat bundleRelease` (needs `keystore.properties`) |
+| CI | `.github/workflows/android-apk.yml` |
 
 ## Global Constraints
 
 - Min SDK 26 (Android 8.0), target SDK 35
 - Kotlin 2.0+, Compose BOM 2024.12+
 - Package: `com.playfinder.app`
-- AdSense publisher: `pub-2824936620876447`
-- ntfy endpoint: `https://ntfy.tedton.hk`
-- LCSD API base: `https://data.smartplay.lcsd.gov.hk/rest/cms/api/v1/publ/contents/open-data`
+- AdMob: the app id and rewarded unit id must replace Google's test ids before release (publisher `pub-2824936620876447`)
+- LCSD API base: `https://data.smartplay.lcsd.gov.hk/rest/cms/api/v1/publ/contents/open-data/`
 - No user accounts, no personal data collection
 - Offline-first: Room caches last fetch
 
-## Review Focus
+## Review Focus (as planned, with the outcome)
 
-- The ntfy subscription must survive Doze mode and app restarts (Android background restrictions kill naive SSE connections)
-- AdMob rewarded video must grant the 1-week push only after 3 full minutes of view (not just "ad loaded")
-- Offline cache must show stale data with "last updated X ago" badge, never crash on empty cache
-- Deep links must open SmartPLAY in the system browser, not an in-app WebView (LCSD booking requires session cookies)
-- Watchlist filters must persist across app restarts (DataStore, not just in-memory)
+- The push subscription must survive Doze mode and app restarts → **done** as a WorkManager periodic job; Doze still stretches the 15-minute floor, which is documented as a risk.
+- AdMob rewarded video must grant the 1-week push only after 3 full minutes of view → **reinterpreted**: the rewarded video's own reward fires on completion, then a separate three-minute in-app countdown must finish. A three-minute *ad* view is impossible with rewarded video, and forcing a banner to stay visible would be invalid traffic.
+- Offline cache must show stale data with a "last updated X ago" badge, never crash on an empty cache → **done** (`lastSync` label plus an offline banner).
+- Deep links must open SmartPLAY in the system browser, not an in-app WebView → **done**.
+- Watchlist filters must persist across app restarts (DataStore, not just in-memory) → **done**.
 
 ---
 

@@ -8,15 +8,23 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+// Release signing is driven by keystore.properties, which is never committed.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val releaseStoreFile: File? = if (keystorePropertiesFile.exists()) {
+    val props = Properties().apply { keystorePropertiesFile.inputStream().use { load(it) } }
+    rootProject.file(props.getProperty("storeFile"))
+} else {
+    null
+}
+
 android {
     namespace = "com.playfinder.app"
     compileSdk = 35
 
     signingConfigs {
         create("release") {
-            val kp = rootProject.file("keystore.properties")
-            if (kp.exists()) {
-                val props = Properties().apply { kp.inputStream().use { load(it) } }
+            if (keystorePropertiesFile.exists()) {
+                val props = Properties().apply { keystorePropertiesFile.inputStream().use { load(it) } }
                 storeFile = rootProject.file(props.getProperty("storeFile"))
                 storePassword = props.getProperty("storePassword")
                 keyAlias = props.getProperty("keyAlias")
@@ -56,6 +64,18 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+}
+
+// Fail loudly when a release artifact is requested without signing material,
+// instead of producing an unsigned bundle that only fails at upload time.
+gradle.taskGraph.whenReady {
+    val releaseRequested = allTasks.any { it.name.contains("Release", ignoreCase = true) }
+    if (releaseRequested && releaseStoreFile == null) {
+        throw GradleException(
+            "Release signing is not configured: keystore.properties is missing. " +
+                "Copy keystore.properties.example, fill it in, and keep the .jks out of git."
+        )
     }
 }
 

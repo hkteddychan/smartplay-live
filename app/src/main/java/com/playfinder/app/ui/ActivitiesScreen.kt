@@ -43,6 +43,7 @@ fun ActivitiesScreen(vm: ActivitiesViewModel = hiltViewModel()) {
     val district by vm.district.collectAsState()
     val type by vm.type.collectAsState()
     val search by vm.search.collectAsState()
+    val range by vm.range.collectAsState()
     val districts by vm.districts.collectAsState()
     val types by vm.types.collectAsState()
     val visible by vm.visible.collectAsState()
@@ -162,6 +163,21 @@ fun ActivitiesScreen(vm: ActivitiesViewModel = hiltViewModel()) {
                 }
             }
 
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ActivityRange.entries.forEach { r ->
+                    FilterChip(
+                        selected = range == r,
+                        onClick = { vm.setRange(r) },
+                        label = { Text(r.label) }
+                    )
+                }
+            }
+
             if (lastSync != null) {
                 Text(
                     "更新於 ${activityRelativeTime(lastSync!!)}",
@@ -268,6 +284,14 @@ private fun ActivityCard(activity: ActivityEntity) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (activity.enrolStartDate.isNotBlank() || activity.enrolEndDate.isNotBlank()) {
+                Text(
+                    "報名日期：${activity.enrolStartDate.ifBlank { "—" }} – ${activity.enrolEndDate.ifBlank { "—" }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 

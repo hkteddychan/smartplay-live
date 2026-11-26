@@ -16,8 +16,8 @@ interface SlotDao {
     @Query("SELECT * FROM slots WHERE sport = :sport ORDER BY date, startTime")
     fun observeBySport(sport: String): Flow<List<SlotEntity>>
 
-    @Query("SELECT * FROM slots WHERE sport = :sport AND date BETWEEN :from AND :to ORDER BY date, startTime")
-    fun observeBySportAndDate(sport: String, from: String, to: String): Flow<List<SlotEntity>>
+    @Query("SELECT * FROM slots WHERE sport = :sport")
+    suspend fun getBySport(sport: String): List<SlotEntity>
 
     @Query("DELETE FROM slots WHERE sport = :sport")
     suspend fun deleteBySport(sport: String)

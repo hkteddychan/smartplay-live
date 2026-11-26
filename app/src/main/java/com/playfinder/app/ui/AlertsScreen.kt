@@ -18,7 +18,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.playfinder.app.ads.RewardedAdManager
@@ -34,6 +33,21 @@ import java.util.Locale
 private const val GATE_SECONDS = 180
 
 private enum class AdState { Idle, Loading, Counting }
+
+/** ISO weekday number (1 = Monday) to the Chinese label. */
+private val WEEKDAY_LABELS = listOf(1, 2, 3, 4, 5, 6, 7).zip(
+    listOf("一", "二", "三", "四", "五", "六", "日")
+)
+
+private data class PushWindow(val label: String, val from: Int, val to: Int)
+
+private val PUSH_WINDOWS = listOf(
+    PushWindow("全日", 0, 24 * 60),
+    PushWindow("早上 6–12", 6 * 60, 12 * 60),
+    PushWindow("下午 12–18", 12 * 60, 18 * 60),
+    PushWindow("黃昏 18–22", 18 * 60, 22 * 60),
+    PushWindow("夜間 22–24", 22 * 60, 24 * 60)
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -134,6 +148,40 @@ fun AlertsScreen() {
                 }
             )
 
+            WeekdayCard(
+                watchlist = wl,
+                onToggle = { day ->
+                    scope.launch { WatchlistStore.toggleWeekday(ctx, day) }
+                }
+            )
+
+            PushWindowCard(
+                watchlist = wl,
+                onSelect = { from, to ->
+                    scope.launch { WatchlistStore.setTimeRange(ctx, from, to) }
+                }
+            )
+
+            VenuesCard(
+                watchlist = wl,
+                onRemove = { venue ->
+                    scope.launch { WatchlistStore.removeVenue(ctx, venue) }
+                }
+            )
+
+            QuietHoursCard(
+                watchlist = wl,
+                onToggle = { enabled ->
+                    scope.launch {
+                        WatchlistStore.setQuietHours(
+                            ctx,
+                            if (enabled) 23 * 60 else -1,
+                            if (enabled) 7 * 60 else -1
+                        )
+                    }
+                }
+            )
+
             DistrictsCard(
                 watchlist = wl,
                 onRemove = { district ->
@@ -145,7 +193,7 @@ fun AlertsScreen() {
             )
 
             Text(
-                "推播只會喺偵測到新放場時發出，每個時段只通知一次。" +
+                "推播只會喺偵測到場次餘額增加時發出，每個場次只通知一次。" +
                     "背景檢查每 15 分鐘一次（受 Android 省電設定影響）。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -292,6 +340,118 @@ private fun SportsCard(watchlist: Watchlist?, onToggle: (String) -> Unit) {
                         }
                     )
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun WeekdayCard(watchlist: Watchlist?, onToggle: (Int) -> Unit) {
+    val days = watchlist?.weekdays.orEmpty()
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("放場日子", style = MaterialTheme.typography.titleMedium)
+            Text(
+                if (days.isEmpty()) "未揀選 = 每一天" else "只會推播揀選嘅日子",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                WEEKDAY_LABELS.forEach { (iso, label) ->
+                    FilterChip(
+                        selected = iso in days,
+                        onClick = { onToggle(iso) },
+                        label = { Text("週$label") }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PushWindowCard(watchlist: Watchlist?, onSelect: (Int, Int) -> Unit) {
+    val from = watchlist?.fromMinute ?: 0
+    val to = watchlist?.toMinute ?: (24 * 60)
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("放場時段", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "只會推播呢個時間範圍內嘅場次。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                PUSH_WINDOWS.forEach { w ->
+                    FilterChip(
+                        selected = from == w.from && to == w.to,
+                        onClick = { onSelect(w.from, w.to) },
+                        label = { Text(w.label) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun VenuesCard(watchlist: Watchlist?, onRemove: (String) -> Unit) {
+    val venues = watchlist?.venues.orEmpty()
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("追蹤場地（最多 ${WatchlistStore.MAX_VENUES} 個）", style = MaterialTheme.typography.titleMedium)
+            Text(
+                if (venues.isEmpty()) {
+                    "未設定 = 追蹤所有場地。喺場地列表長按任何場次即可加入該場地。"
+                } else {
+                    "已用 ${venues.size} / ${WatchlistStore.MAX_VENUES} 個。"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (venues.isNotEmpty()) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    venues.sorted().forEach { v ->
+                        InputChip(
+                            selected = true,
+                            onClick = { onRemove(v) },
+                            label = { Text(v) },
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Filled.Close,
+                                    contentDescription = "移除 $v",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuietHoursCard(watchlist: Watchlist?, onToggle: (Boolean) -> Unit) {
+    val enabled = watchlist?.quietHoursEnabled == true
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("靜默時段（23:00–07:00）", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "靜默時段內唔會彈通知，但放場記錄會保留，到時段完結先提醒。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = enabled, onCheckedChange = onToggle)
             }
         }
     }

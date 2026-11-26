@@ -3,9 +3,13 @@ package com.playfinder.app.ui
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.playfinder.app.core.FilterEngine
+import com.playfinder.app.core.SlotFilter
+import com.playfinder.app.core.SortMode
 import com.playfinder.app.data.PlayFinderRepository
 import com.playfinder.app.data.local.entity.SlotEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -13,11 +17,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+private data class SortSpec(val mode: SortMode, val lat: Double?, val lon: Double?)
+
+@OptIn(FlowPreview::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val repo: PlayFinderRepository
@@ -32,6 +40,7 @@ class HomeViewModel @Inject constructor(
     private val _userLat = MutableStateFlow<Double?>(null)
     private val _userLon = MutableStateFlow<Double?>(null)
     private val _lastSync = MutableStateFlow<Long?>(null)
+    private val _searchInput = MutableStateFlow("")
 
     private var observeJob: Job? = null
 
@@ -47,6 +56,14 @@ class HomeViewModel @Inject constructor(
     /** Raw cached rows for the selected sport — drives empty vs no-results states. */
     val all: StateFlow<List<SlotEntity>> = _all.asStateFlow()
 
+    /**
+     * Search is debounced by 300 ms so typing does not re-filter the whole
+     * cache on every keystroke.
+     */
+    private val debouncedSearch: StateFlow<String> = _searchInput
+        .debounce(SEARCH_DEBOUNCE_MS)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
     val districts: StateFlow<List<String>> = _all
         .map { rows ->
             rows.map { it.district }
@@ -56,15 +73,28 @@ class HomeViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Dates that actually exist in the cache — the feed only publishes ~8 days. */
+    val availableDates: StateFlow<List<String>> = _all
+        .map { rows -> rows.map { it.date }.filter { it.isNotBlank() }.distinct().sorted() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /**
      * Derived state, so Room writes and filter/sort changes both recompose the
      * list. Previously these were plain getters over a non-collected flow and
      * the UI stayed stale after the first render.
      */
     val visible: StateFlow<List<SlotEntity>> = combine(
-        _all, _filter, _sort, _userLat, _userLon
-    ) { all, filter, sort, lat, lon ->
-        FilterEngine.sort(FilterEngine.apply(all, filter), sort, lat, lon)
+        combine(_all, _filter, _sort, _userLat, _userLon) { all, filter, sort, lat, lon ->
+            FilterEngine.apply(all, filter.copy(search = "")) to SortSpec(sort, lat, lon)
+        },
+        debouncedSearch
+    ) { (rows, spec), query ->
+        val searched = if (query.isBlank()) {
+            rows
+        } else {
+            FilterEngine.apply(rows, SlotFilter(search = query))
+        }
+        FilterEngine.sort(searched, spec.mode, spec.lat, spec.lon)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val heatmap: StateFlow<IntArray> = visible
@@ -86,6 +116,11 @@ class HomeViewModel @Inject constructor(
 
     fun setFilter(f: SlotFilter) {
         _filter.value = f
+    }
+
+    fun setSearch(query: String) {
+        _filter.value = _filter.value.copy(search = query)
+        _searchInput.value = query
     }
 
     fun setSort(mode: SortMode) {
@@ -111,6 +146,7 @@ class HomeViewModel @Inject constructor(
 
     fun clearFilters() {
         _filter.value = SlotFilter()
+        _searchInput.value = ""
     }
 
     private fun observe(sport: String) {
@@ -133,5 +169,9 @@ class HomeViewModel @Inject constructor(
                 }
             _loading.value = false
         }
+    }
+
+    private companion object {
+        const val SEARCH_DEBOUNCE_MS = 300L
     }
 }

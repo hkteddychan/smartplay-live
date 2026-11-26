@@ -1,5 +1,6 @@
 package com.playfinder.app.di
 
+import com.playfinder.app.BuildConfig
 import com.playfinder.app.data.remote.LcsdApi
 import com.squareup.moshi.Moshi
 import dagger.Module
@@ -27,7 +28,13 @@ object NetworkModule {
     @Singleton
     fun provideOkHttp(): OkHttpClient = OkHttpClient.Builder()
         .addInterceptor(HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BASIC
+            // Logging every request in a release build leaks the user's
+            // browsing pattern into logcat.
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BASIC
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         })
         .build()
 

@@ -1,4 +1,4 @@
-package com.playfinder.app.ui
+package com.playfinder.app.core
 
 import com.playfinder.app.data.local.entity.SlotEntity
 import org.junit.Assert.assertEquals
