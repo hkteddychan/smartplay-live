@@ -112,8 +112,8 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
 .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--line); border-top-color: var(--green); border-radius: 50%; animation: spin 1s linear infinite; vertical-align: middle; margin-right: 8px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2824936620876447" crossorigin="anonymous"></script>
 </head>
-<body>
 <div class="container">
   <header>
     <span class="logo">🎯</span>
@@ -1075,8 +1075,8 @@ async function loadAll(forceAll) {
     if (metaR.ok) {
       const meta = await metaR.json();
       const t = new Date(meta.generated_utc);
-      $('#upd-time').textContent = '更新於 ' + t.toLocaleString('zh-HK', { hour12: false });
-      $('#foot-time').textContent = '數據更新：' + t.toLocaleString('zh-HK', { hour12: false });
+      $('#upd-time').textContent = '更新於 ' + t.toLocaleString('zh-HK', { hour12: false, timeZone: 'Asia/Hong_Kong' });
+      $('#foot-time').textContent = '數據更新：' + t.toLocaleString('zh-HK', { hour12: false, timeZone: 'Asia/Hong_Kong' });
     }
   } catch (e) { console.warn('⚠️ meta.json 載入失敗: ' + e.message); }
   initSports();
