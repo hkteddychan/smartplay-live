@@ -3,6 +3,7 @@ package com.playfinder.app.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -12,6 +13,7 @@ import com.playfinder.app.alerts.WatchlistStore
 @Composable
 fun SettingsScreen() {
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
     var pushOn by remember { mutableStateOf(false) }
     var sports by remember { mutableStateOf(emptySet<String>()) }
 
@@ -22,7 +24,7 @@ fun SettingsScreen() {
             Text("放場推播通知")
         }
         Button(onClick = {
-            launch {
+            scope.launch {
                 WatchlistStore.setSports(ctx, sports)
                 if (pushOn) WatchlistStore.grantPush(ctx)
             }

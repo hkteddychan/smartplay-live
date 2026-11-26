@@ -31,10 +31,10 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun PlayFinderNav() {
-    const val HOME = "home"
-    const val FAVOURITES = "favourites"
-    const val ALERTS = "alerts"
-    const val ABOUT = "about"
+    val HOME = "home"
+    val FAVOURITES = "favourites"
+    val ALERTS = "alerts"
+    val ABOUT = "about"
 
     NavHost(navController = rememberNavController(), startDestination = HOME) {
         composable(HOME) { HomeScreen() }

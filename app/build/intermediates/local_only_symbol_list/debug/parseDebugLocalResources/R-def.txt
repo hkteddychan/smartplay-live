@@ -1,0 +1,7 @@
+R_DEF: Internal format may change without notice
+local
+drawable ic_stat_notify
+string app_name
+string disclaimer
+style Theme.PlayFinder
+xml network_security_config
