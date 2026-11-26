@@ -11,6 +11,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.playfinder.app.ui.HomeScreen
+import com.playfinder.app.ui.SettingsScreen
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -35,10 +37,10 @@ fun PlayFinderNav() {
     const val ABOUT = "about"
 
     NavHost(navController = rememberNavController(), startDestination = HOME) {
-        composable(HOME) { Text("PlayFinder — 場地餘額") }
+        composable(HOME) { HomeScreen() }
         composable(FAVOURITES) { Text("我的收藏") }
         composable(ALERTS) { Text("放場通知") }
-        composable(ABOUT) { Text("關於 PlayFinder") }
+        composable(ABOUT) { SettingsScreen() }
     }
 }
 
