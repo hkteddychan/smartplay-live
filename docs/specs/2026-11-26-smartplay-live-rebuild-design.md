@@ -71,7 +71,7 @@
         │ Primary（正常情況）                                          │ Fallback（僅在 primary 心跳停 >3 分鐘，且取得租約）
         ▼                                                             ▼
  Oracle VM  systemd: smartplay-poller                       GitHub Actions cron */5
- Python 3.12 · 單一長跑 process                            同一份 poller.py --once --degraded
+ Python 3.10+ · 單一長跑 process                           同一份 poller.py --once --degraded
         │                                                             │
         ├─ SQLite（Single Source of Truth）                          │
         │   sessions / events(seq) / sweeps / rollup                  │
@@ -102,7 +102,7 @@
 
 ## 5. 元件設計
 
-### 5.1 Oracle Poller（Python 3.12）
+### 5.1 Oracle Poller（Python 3.10+）
 
 位置：`/opt/smartplay/`（systemd `smartplay-poller.service`，`Restart=always`）
 
@@ -156,7 +156,7 @@ def main():
 
 ```
 Thread A（主）：5 個設施運動，每 60s 一輪          ← 受 G1（≤60s）約束
-Thread B（副）：activity-prog，每 5 分鐘一次        ← 唔計入 G1
+Thread B（副）：activity-prog，每 15 分鐘一次（900s）  ← 唔計入 G1
                  ↓
          兩者共用 `Gate`（threading.Lock）：
          同一時間只可以有一個 HTTP 請求打 LCSD，
@@ -164,7 +164,7 @@ Thread B（副）：activity-prog，每 5 分鐘一次        ← 唔計入 G1
          峰值頻寬唔會翻倍（守住 anti-goal：唔好激怒 WAF）。
 ```
 
-- 若 Thread B 等超過 3 分鐘仍未取得鎖 → 跳過該輪（活動數據遲 5 分鐘無影響）。
+- 若 Thread B 等超過 3 分鐘仍未取得鎖 → 跳過該輪（活動數據遲 15 分鐘無影響）。
 - **SLO 只適用於 Thread A**（5 個設施運動）；驗收表已註明。
 
 #### 5.1.1 WAF 節奏控制（重點）
@@ -304,6 +304,8 @@ R2: meta/seq.json = {"seq": 123456}
 - Primary 恢復時做一次 **resync**：用 SQLite 最後狀態 vs 新抓數據 diff，若發現中間有 fallback 寫過嘅事件，只補 `seq` 之後嘅新事件，並插一條 `kind='resync', note='{from_seq}..{to_seq} 由 fallback 處理'`，令客戶端知道自己漏咗一段（`/v1/changes` 會回 `gap:true`）。
 - 客戶端規則：見到 `resync` → 重拉 `/v1/state`（唔會顯示錯嘅舊數據）。
 
+> **P1–P3 實際運行模式（R58）：** Worker `/seq` route 未上線之前，poller 以 **local-seq** 模式運行 —— `SEQ_URL` 為空時由本地 `seq.json` **順序**配發（**不跳 1000**），`seq_source="local"`、`degraded=True`，而且**不寫 `resync`**（本地模式冇 R2 缺口可報）。啟動時以 `MAX(events.seq)` 校正本地計數器（`seq.json` 丟失亦唔會重號）。Worker `/seq` 上線後切回 R2 模式。
+
 ---
 
 ### 5.3 Diff Engine
@@ -391,7 +393,8 @@ Priority: high
 Tags: tennis
 Body: ...
 ```
-- 同步發去 TG 同 ntfy；**兩者任一成功即算送達**（記 `delivered`）。
+- **ntfy 係後備，唔係同步 fan-out**：TG 先送；TG 失敗（429/5xx/transport）才改送 ntfy。
+  **兩者任一成功即算送達**（記 `delivered`），唔會同一條訊息兩邊都發。
 - 如果兩者都失敗 → `outbox` + 網站 banner「通知管道異常」。
 
 ---
@@ -639,7 +642,7 @@ Website footer 顯示 `v5.0.0 · abc1234 · 12s ago`。
 3. **R2 而唔係 KV**：KV 免費層每日 1,000 次寫入，60 秒週期會爆；R2 免費 100 萬寫/月（我們約 4.3 萬）。
 4. **Worker 做 read API，唔做寫入**：寫入只有一個來源（poller），避免競態。
 5. **`since=<seq>` 增量協議**：CYD / APK / 網站共用，斷線重連唔會漏。
-6. **activity-prog 5 分鐘節奏**：保護 60 秒主循環。
+6. **activity-prog 15 分鐘（900s）節奏**：保護 60 秒主循環。
 7. **day-7 開賣獨立事件類型 `sale7`**：避免 07:00 大批 release 誤鳴。
 8. **保留 GitHub Pages**：零 DNS 改動，風險最低。
 9. **唔刪除舊 n8n workflow，只停用**：可即時 re-enable。
