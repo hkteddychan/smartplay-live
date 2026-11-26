@@ -67,6 +67,24 @@ def test_prune_keeps_recent():
     assert c.execute("select count(*) from sweeps").fetchone()[0] == 0
 
 
+def test_init_db_adds_the_records_column_to_an_existing_database():
+    """I3: an in-place upgrade must not miss dataset_status.records."""
+    c = sqlite3.connect(":memory:")
+    c.row_factory = sqlite3.Row
+    c.execute(
+        "CREATE TABLE dataset_status (name TEXT PRIMARY KEY, last_ok TEXT, "
+        "last_err TEXT, err_streak INTEGER DEFAULT 0, bytes INTEGER)"
+    )
+
+    init_db(c)
+    init_db(c)  # idempotent
+
+    columns = {
+        row["name"] for row in c.execute("PRAGMA table_info(dataset_status)")
+    }
+    assert "records" in columns
+
+
 # --- I7: seed the local seq counter from the events table -------------------
 
 
