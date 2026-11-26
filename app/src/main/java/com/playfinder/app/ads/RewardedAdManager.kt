@@ -1,6 +1,7 @@
 package com.playfinder.app.ads
 
 import android.app.Activity
+import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
@@ -14,8 +15,9 @@ object RewardedAdManager {
     private const val UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
 
     /**
-     * Shows a rewarded ad and returns true only when the user earned the reward
-     * (i.e. watched to completion). Dismissal without earning returns false.
+     * Shows a rewarded ad and returns true only when the user earned the reward.
+     * Always resumes: load failure, show failure and dismissal-without-reward
+     * all return false, so callers can never hang on "loading".
      */
     suspend fun showAndReward(activity: Activity): Boolean = suspendCancellableCoroutine { cont ->
         var rewarded = false
@@ -28,6 +30,8 @@ object RewardedAdManager {
             }
         }
 
+        cont.invokeOnCancellation { finished = true }
+
         RewardedAd.load(
             activity,
             UNIT_ID,
@@ -35,16 +39,17 @@ object RewardedAdManager {
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {
                     ad.fullScreenContentCallback = object : FullScreenContentCallback() {
-                        override fun onAdDismissedFullScreenContent() {
-                            finish(rewarded)
-                        }
+                        override fun onAdDismissedFullScreenContent() = finish(rewarded)
+                        override fun onAdFailedToShowFullScreenContent(error: AdError) = finish(false)
                     }
-                    ad.show(activity) { _ -> rewarded = true }
+                    try {
+                        ad.show(activity) { rewarded = true }
+                    } catch (_: Throwable) {
+                        finish(false)
+                    }
                 }
 
-                override fun onAdFailedToLoad(e: LoadAdError) {
-                    finish(false)
-                }
+                override fun onAdFailedToLoad(error: LoadAdError) = finish(false)
             }
         )
     }

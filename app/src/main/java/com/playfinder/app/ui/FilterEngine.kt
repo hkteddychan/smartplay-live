@@ -19,10 +19,11 @@ data class SlotFilter(
 
 object FilterEngine {
 
+    /** Returns -1 for malformed timestamps so they never satisfy a time filter. */
     fun minuteOf(time: String): Int = runCatching {
         val parts = time.split(":")
         parts[0].toInt() * 60 + parts[1].toInt()
-    }.getOrDefault(0)
+    }.getOrDefault(-1)
 
     fun apply(slots: List<SlotEntity>, f: SlotFilter): List<SlotEntity> = slots.filter { s ->
         (f.district.isBlank() || s.district == f.district) &&
@@ -66,7 +67,13 @@ object FilterEngine {
     /** 24 buckets: count of available slots per start hour. */
     fun heatmap(slots: List<SlotEntity>): IntArray {
         val out = IntArray(24)
-        slots.forEach { if (it.available > 0) out[minuteOf(it.startTime) / 60]++ }
+        slots.forEach {
+            val minute = minuteOf(it.startTime)
+            if (it.available > 0 && minute >= 0) {
+                val bucket = minute / 60
+                if (bucket in 0..23) out[bucket]++
+            }
+        }
         return out
     }
 }

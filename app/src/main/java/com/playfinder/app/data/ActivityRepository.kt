@@ -16,30 +16,34 @@ class ActivityRepository @Inject constructor(
     fun observe(district: String, type: String, from: String): Flow<List<ActivityEntity>> =
         dao.observe(district, type, from)
 
+    fun observeAll(): Flow<List<ActivityEntity>> = dao.observeAll()
+
     suspend fun refresh() {
         val res = api.getActivities()
-        if (res.isSuccessful) {
-            dao.insertAll(res.body().orEmpty().map { it.toEntity() })
-            dao.deleteStale(System.currentTimeMillis() - 14L * 24 * 3600 * 1000)
-        }
+        if (!res.isSuccessful) error("HTTP ${res.code()} for activity-prog")
+        val body = res.body() ?: error("Empty response for activity-prog")
+        val rows = body
+            .filter { !it.activityNo.isNullOrBlank() }
+            .map { it.toEntity() }
+        dao.replaceAll(rows)
     }
 
     private fun LcsdActivity.toEntity() = ActivityEntity(
-        id = activityNo,
-        name = nameTc.trim(),
-        type = typeTc.trim(),
-        district = districtTc.trim(),
-        startDate = startDate,
-        endDate = endDate,
-        day = dayTc.trim(),
-        startTime = startTime,
-        endTime = endTime,
-        venue = venueTc.trim(),
-        targetGroup = targetGroup.trim(),
-        fee = fee,
-        quota = quota,
-        placesLeft = placesLeft,
-        enrolMethod = enrolMethod,
-        url = url
+        id = activityNo?.trim().orEmpty(),
+        name = nameTc?.trim().orEmpty(),
+        type = typeTc?.trim().orEmpty(),
+        district = districtTc?.trim().orEmpty(),
+        startDate = startDate?.trim().orEmpty(),
+        endDate = endDate?.trim().orEmpty(),
+        day = dayTc?.trim().orEmpty(),
+        startTime = startTime?.trim().orEmpty(),
+        endTime = endTime?.trim().orEmpty(),
+        venue = venueTc?.trim().orEmpty(),
+        targetGroup = targetGroup?.trim().orEmpty(),
+        fee = fee ?: 0.0,
+        quota = quota ?: 0,
+        placesLeft = placesLeft ?: 0,
+        enrolMethod = enrolMethod?.trim().orEmpty(),
+        url = url?.trim().orEmpty()
     )
 }

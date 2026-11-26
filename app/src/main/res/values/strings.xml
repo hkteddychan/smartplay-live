@@ -1,4 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">PlayFinder</string>
     <string name="disclaimer">資料來源：康文署 SmartPLAY 開放數據（每 2 分鐘鏡像）。餘額以官方 App 最終確認為準，本應用僅供參考。</string>
+
+    <string name="cd_refresh">重新載入</string>
+    <string name="cd_locate">用我嘅位置排序</string>
+    <string name="cd_more">更多選項</string>
+    <string name="cd_available">有位</string>
+    <string name="cd_full">滿額</string>
+    <string name="cd_heatmap_cell">%1$d 時至 %2$d 時：%3$d 個時段有位</string>
+
+    <string name="action_retry">重試</string>
+    <string name="action_reload">重新載入</string>
+    <string name="action_clear_filters">清除篩選</string>
+
+    <string name="msg_load_failed">載入失敗，請檢查網絡連線</string>
+    <string name="msg_not_synced">尚未同步資料</string>
+    <string name="msg_not_synced_body">首次使用需要網絡連線下載最新場地餘額。</string>
+    <string name="msg_no_results">冇符合篩選條件嘅場次</string>
+    <string name="msg_no_results_body">試下清除篩選或者揀其他日期。</string>
+    <string name="msg_offline">離線：顯示上次同步資料</string>
+
+    <string name="filter_title">篩選</string>
 </resources>

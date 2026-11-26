@@ -4,7 +4,19 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "slots", indices = [Index("sport"), Index("date"), Index("district")])
+@Entity(
+    tableName = "slots",
+    indices = [
+        Index("sport"),
+        Index("date"),
+        Index("district"),
+        // One row per bookable session; prevents duplicates accumulating on every refresh.
+        Index(
+            value = ["sport", "venue", "facility", "location", "date", "startTime"],
+            unique = true
+        )
+    ]
+)
 data class SlotEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val sport: String,

@@ -3,44 +3,65 @@ package com.playfinder.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.compose.*
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.playfinder.app.ui.ActivitiesScreen
+import com.playfinder.app.ui.AlertsScreen
 import com.playfinder.app.ui.HomeScreen
 import com.playfinder.app.ui.SettingsScreen
+import com.playfinder.app.ui.theme.PlayFinderTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 private object Routes {
     const val HOME = "home"
     const val ACTIVITIES = "activities"
     const val ALERTS = "alerts"
-    const val ABOUT = "about"
+    const val SETTINGS = "settings"
 }
 
-private data class Tab(val route: String, val label: String, val icon: String)
+private data class Tab(val route: String, val label: String, val icon: ImageVector)
 
 private val TABS = listOf(
-    Tab(Routes.HOME, "場地", "🏸"),
-    Tab(Routes.ACTIVITIES, "活動", "🏊"),
-    Tab(Routes.ALERTS, "通知", "🔔"),
-    Tab(Routes.ABOUT, "設定", "⚙️")
+    Tab(Routes.HOME, "場地", Icons.Filled.Home),
+    Tab(Routes.ACTIVITIES, "活動", Icons.Filled.DateRange),
+    Tab(Routes.ALERTS, "通知", Icons.Filled.Notifications),
+    Tab(Routes.SETTINGS, "設定", Icons.Filled.Settings)
 )
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { AppShell() } }
+        setContent {
+            PlayFinderTheme {
+                AppShell()
+            }
+        }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppShell() {
     val nav = rememberNavController()
@@ -48,6 +69,9 @@ fun AppShell() {
     val current = backStack?.destination
 
     Scaffold(
+        // Insets are handled by each screen's TopAppBar and the NavigationBar,
+        // so the shell must not add another layer of system-bar padding.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             NavigationBar {
                 TABS.forEach { tab ->
@@ -55,12 +79,12 @@ fun AppShell() {
                         selected = current?.hierarchy?.any { it.route == tab.route } == true,
                         onClick = {
                             nav.navigate(tab.route) {
-                                popUpTo(Routes.HOME) { saveState = true }
+                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
                                 launchSingleTop = true
                                 restoreState = true
                             }
                         },
-                        icon = { Text(tab.icon) },
+                        icon = { Icon(tab.icon, contentDescription = null) },
                         label = { Text(tab.label) }
                     )
                 }
@@ -74,12 +98,8 @@ fun AppShell() {
         ) {
             composable(Routes.HOME) { HomeScreen() }
             composable(Routes.ACTIVITIES) { ActivitiesScreen() }
-            composable(Routes.ALERTS) { SettingsScreen() }
-            composable(Routes.ABOUT) { SettingsScreen() }
+            composable(Routes.ALERTS) { AlertsScreen() }
+            composable(Routes.SETTINGS) { SettingsScreen() }
         }
     }
 }
-
-@Preview(showBackground = true)
-@Composable
-fun AppShellPreview() { MaterialTheme { AppShell() } }

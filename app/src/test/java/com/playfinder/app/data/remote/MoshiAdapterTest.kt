@@ -5,6 +5,7 @@ import com.playfinder.app.data.remote.dto.LcsdRecord
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class MoshiAdapterTest {
@@ -47,5 +48,15 @@ class MoshiAdapterTest {
         assertEquals("家庭定向尋寶樂", list[0].nameTc)
         assertEquals("東區", list[0].districtTc)
         assertEquals(200, list[0].placesLeft)
+    }
+
+    @Test
+    fun `LcsdActivity tolerates null optional columns`() {
+        val json = """[{"ACTIVITY_NO":"X1","TC_PGM_NAME":"測試","TC_TARGET_GRP":null,"TC_URL":null,"FEE":null}]"""
+        val list = moshi.adapter<List<LcsdActivity>>(actType).fromJson(json)!!
+        assertEquals(1, list.size)
+        assertEquals("測試", list[0].nameTc)
+        assertNull(list[0].targetGroup)
+        assertNull(list[0].url)
     }
 }

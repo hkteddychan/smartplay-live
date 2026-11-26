@@ -9,7 +9,7 @@ import com.playfinder.app.data.local.entity.SlotEntity
 
 @Database(
     entities = [SlotEntity::class, ActivityEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class PlayFinderDatabase : RoomDatabase() {

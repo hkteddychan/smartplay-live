@@ -71,4 +71,16 @@ class FilterEngineTest {
         val far = FilterEngine.distanceMeters(22.2773, 114.1593, 22.50, 114.50)
         assertTrue(far > near)
     }
+
+    @Test
+    fun `malformed time is excluded by any time filter`() {
+        val bad = slot(start = "not-a-time")
+        assertEquals(0, FilterEngine.apply(listOf(bad), SlotFilter()).size)
+    }
+
+    @Test
+    fun `heatmap ignores malformed times instead of crashing`() {
+        val h = FilterEngine.heatmap(listOf(slot(start = "??", available = 3)))
+        assertEquals(0, h.sum())
+    }
 }
