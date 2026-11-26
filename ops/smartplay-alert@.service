@@ -1,0 +1,10 @@
+[Unit]
+Description=SmartPLAY failure alert for %i
+
+[Service]
+Type=oneshot
+# "-" so a missing file is not itself a failure; the guard below then logs.
+EnvironmentFile=-/opt/smartplay/.env
+# OnFailure=smartplay-alert@%n passes the failed unit name as the instance
+# (%i), e.g. smartplay-poller.service. A missing token only logs (W3).
+ExecStart=/bin/sh -c 'if [ -z "$TG_TOKEN" ] || [ -z "$TG_CHAT" ]; then echo "smartplay-alert: TG_TOKEN/TG_CHAT missing, skipping"; exit 0; fi; curl -fsS --max-time 10 --data-urlencode chat_id="$TG_CHAT" --data-urlencode text="⚠️ SmartPLAY 失敗：%i — 請查看 journalctl -u %i" "https://api.telegram.org/bot$TG_TOKEN/sendMessage"'
