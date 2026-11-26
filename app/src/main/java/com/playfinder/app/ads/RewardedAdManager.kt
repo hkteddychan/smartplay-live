@@ -1,39 +1,49 @@
 package com.playfinder.app.ads
 
 import android.app.Activity
-import android.content.Context
 import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.FullScreenContentCallback
+import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.rewarded.RewardedAd
+import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
 object RewardedAdManager {
-    // Replace with real unit id before release
-    private const val UNIT_ID = "ca-app-pub-2824936620876447/0000000000"
+    // Google test rewarded unit id — replace with the real one before release.
+    private const val UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
 
+    /**
+     * Shows a rewarded ad and returns true only when the user earned the reward
+     * (i.e. watched to completion). Dismissal without earning returns false.
+     */
     suspend fun showAndReward(activity: Activity): Boolean = suspendCancellableCoroutine { cont ->
-        var rewarded: RewardedAd? = null
+        var rewarded = false
+        var finished = false
+
+        fun finish(value: Boolean) {
+            if (!finished) {
+                finished = true
+                if (cont.isActive) cont.resume(value)
+            }
+        }
+
         RewardedAd.load(
             activity,
             UNIT_ID,
             AdRequest.Builder().build(),
-            object : com.google.android.gms.ads.rewarded.RewardedAdLoadCallback() {
+            object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {
-                    rewarded = ad
-                    ad.fullScreenContentCallback = object : com.google.android.gms.ads.FullScreenContentCallback() {
+                    ad.fullScreenContentCallback = object : FullScreenContentCallback() {
                         override fun onAdDismissedFullScreenContent() {
-                            if (!cont.isActive) return
-                            cont.resume(false)
+                            finish(rewarded)
                         }
                     }
-                    ad.show(activity) { _ ->
-                        // reward earned callback -> grant handled by caller after show returns
-                    }
-                    // Consider earned via onUserEarnedReward; simplified: grant on dismiss
+                    ad.show(activity) { _ -> rewarded = true }
                 }
 
-                override fun onAdFailedToLoad(e: com.google.android.gms.ads.LoadAdError) {
-                    if (cont.isActive) cont.resume(false)
+                override fun onAdFailedToLoad(e: LoadAdError) {
+                    finish(false)
                 }
             }
         )

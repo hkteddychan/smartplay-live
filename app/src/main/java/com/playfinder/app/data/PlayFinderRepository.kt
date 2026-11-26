@@ -26,11 +26,15 @@ class PlayFinderRepository @Inject constructor(
 
     private fun LcsdRecord.toEntity(sport: String) = SlotEntity(
         sport = sport,
-        venue = venueNameTc,
-        facility = facilityNameTc,
+        venue = venueNameTc.trim(),
+        district = districtNameTc.trim(),
+        facility = facilityNameTc.trim(),
+        location = locationNameTc.trim(),
         date = date,
         startTime = startTime,
         endTime = endTime,
-        available = available.toIntOrNull() ?: 0
+        available = available.toIntOrNull() ?: 0,
+        lat = lat.toDoubleOrNull() ?: 0.0,
+        lon = lon.toDoubleOrNull() ?: 0.0
     )
 }

@@ -19,5 +19,5 @@ interface SlotDao {
     fun observeBySportAndDate(sport: String, from: String, to: String): Flow<List<SlotEntity>>
 
     @Query("DELETE FROM slots WHERE fetchedAt < :cutoff")
-    suspend fun deleteStale(cutoff: Long)
+    suspend fun deleteStale(cutoff: Long): Int
 }
