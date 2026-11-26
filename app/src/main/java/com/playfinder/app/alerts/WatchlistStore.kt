@@ -6,8 +6,12 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.util.concurrent.TimeUnit
 
 private val Context.dataStore by preferencesDataStore(name = "playfinder_prefs")
 
@@ -42,5 +46,9 @@ object WatchlistStore {
             it[PUSH_ENABLED] = true
             it[PUSH_UNTIL] = (System.currentTimeMillis() + weeks * 7L * 24 * 3600 * 1000).toInt()
         }
+        val req = PeriodicWorkRequestBuilder<NtfyPollWorker>(15, TimeUnit.MINUTES).build()
+        WorkManager.getInstance(ctx).enqueueUniquePeriodicWork(
+            "ntfy-poll", ExistingPeriodicWorkPolicy.KEEP, req
+        )
     }
 }

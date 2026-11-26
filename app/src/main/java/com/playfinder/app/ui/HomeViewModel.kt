@@ -22,14 +22,21 @@ class HomeViewModel @Inject constructor(
     private val _loading = MutableStateFlow(false)
     val loading: StateFlow<Boolean> = _loading
 
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error
+
     private var currentSport = "badminton"
 
-    init { observe(currentSport) }
+    init {
+        observe(currentSport)
+        refresh()
+    }
 
     fun selectSport(sport: String) {
         if (sport == currentSport) return
         currentSport = sport
         observe(sport)
+        refresh()
     }
 
     private fun observe(sport: String) {
@@ -41,7 +48,9 @@ class HomeViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             _loading.value = true
+            _error.value = null
             runCatching { repo.refreshSport(currentSport) }
+                .onFailure { _error.value = it.message ?: "載入失敗" }
             _loading.value = false
         }
     }
