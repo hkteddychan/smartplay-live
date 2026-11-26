@@ -21,6 +21,7 @@ from poller.cycle import CycleResult
 from poller.fetch import FetchResult
 from poller.main import (
     activity_once,
+    facility_loop,
     facility_once,
     format_sale7_summary,
     install_signal_handlers,
@@ -336,6 +337,61 @@ def test_activity_once_keeps_the_snapshot_when_fetch_is_bad():
 
     assert activity_once(conn, FakeGate(), NOW, fetch=fetcher, log=lambda _: None) is False
     assert conn.execute("SELECT COUNT(*) FROM activities").fetchone()[0] == 1
+
+
+# --- C4: a non-raising failed round still escalates -------------------------
+
+
+def _aborted_result(ds_ok=0, ds_total=5) -> CycleResult:
+    return CycleResult(
+        ok=False, degraded=False, aborted=True, ms=1, bytes=0,
+        ds_ok=ds_ok, ds_total=ds_total, waf_state="latch",
+        events=0, sent=0, parked=0,
+    )
+
+
+def _drive_facility(runs, *, stop_at):
+    stop = threading.Event()
+    clock = FakeClock()
+    wait = FakeWait(clock, stop, stop_at=stop_at)
+    fatal = threading.Event()
+    logs = []
+    calls = []
+
+    def run(deps):
+        calls.append(1)
+        return runs[len(calls) - 1]
+
+    facility_loop(
+        stop, conn=mem(), gate=FakeGate(), allocator=FakeAllocator(),
+        notifier=FakeCycleNotifier(), sports=["tennis"], run=run,
+        summary=lambda *args: 0, now=lambda: NOW, clock=clock, wait=wait,
+        fatal_event=fatal, log=logs.append,
+    )
+    return fatal, stop, calls, logs
+
+
+def test_five_aborted_rounds_exit_non_zero():
+    """C4: a WAF latch round raises nothing but is a real upstream failure."""
+    fatal, stop, calls, logs = _drive_facility(
+        [_aborted_result() for _ in range(10)], stop_at=10_000.0
+    )
+    assert len(calls) == 5
+    assert fatal.is_set() and stop.is_set()
+    assert "facility fatal consecutive_failures=5" in logs
+
+
+def test_an_ok_round_resets_the_failure_streak():
+    fatal, stop, calls, logs = _drive_facility(
+        [_aborted_result() for _ in range(4)]
+        + [CycleResult(ok=True, degraded=False, aborted=False, ms=1, bytes=1,
+                       ds_ok=5, ds_total=5, waf_state="ok",
+                       events=0, sent=0, parked=0)]
+        + [_aborted_result() for _ in range(10)],
+        stop_at=360.0,
+    )
+    assert len(calls) == 6
+    assert not fatal.is_set()
 
 
 # --- C3: the facility tick drains the outbox --------------------------------

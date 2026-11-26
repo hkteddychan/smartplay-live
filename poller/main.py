@@ -305,11 +305,12 @@ def facility_loop(
     ``main()`` exits non-zero so systemd restarts the service.
     """
     failures = 0
+    wait_for_stop = wait if wait is not None else stop_event.wait
 
     def tick() -> None:
         nonlocal failures
         try:
-            facility_once(
+            result = facility_once(
                 conn, gate, allocator, notifier, sports, now(),
                 run=run, log=log,
             )
@@ -317,7 +318,14 @@ def facility_loop(
             log(f"facility cycle_failed {type(exc).__name__}")
             failures += 1
         else:
-            failures = 0
+            # C4: a WAF latch round or an all-datasets-failed round raises
+            # nothing, yet nothing was observed. Escalate those too; only a
+            # round that actually read something clears the streak.
+            if result.ds_ok < 1:
+                log(f"facility cycle_no_datasets ds_ok={result.ds_ok}/{result.ds_total}")
+                failures += 1
+            else:
+                failures = 0
         # C3: retry parked batches once per tick. flush_outbox is deliberately
         # non-blocking (single attempt per channel), so it cannot eat the
         # round's cadence; a failure keeps the row for the next tick.
@@ -343,7 +351,7 @@ def facility_loop(
 
     periodic_loop(
         stop_event, lambda: gate.target_cycle_seconds, tick,
-        clock=clock, wait=wait,
+        clock=clock, wait=wait_for_stop,
     )
 
 

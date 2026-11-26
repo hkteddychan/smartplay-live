@@ -295,6 +295,21 @@ def test_gate_backoff_aborts_without_persisting_fetched_data():
     assert row["ds_ok"] == 1 and row["ds_total"] == 5
 
 
+def test_gate_backoff_records_dataset_status_for_the_aborted_sport():
+    """C4: the latch path must leave err_streak evidence behind."""
+    conn = mem()
+    seed(conn, Session("tennis", "B館", "1號場", TODAY, "19:00", "20:00", 1))
+    fetcher = FakeFetcher(raise_for={"tennis": GateBackoff(90)})
+
+    run_cycle(make_deps(conn=conn, fetcher=fetcher))
+
+    status = conn.execute(
+        "SELECT * FROM dataset_status WHERE name = 'tennis'"
+    ).fetchone()
+    assert status["err_streak"] == 1
+    assert status["last_err"] == "gate_backoff"
+
+
 def test_backoff_mid_cycle_does_not_persist_partial_snapshot():
     conn = mem()
     seed(conn, Session("badminton", "A館", "1號場", TODAY, "19:00", "20:00", 1))

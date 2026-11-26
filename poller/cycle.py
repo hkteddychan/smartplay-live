@@ -129,6 +129,13 @@ def run_cycle(deps: Deps) -> CycleResult:
 
     if aborted:
         ms = _elapsed_ms(started, deps.clock())
+        # C4: the latch path still owes dataset_status evidence. Only the
+        # sports that never produced a result were stopped by the gate; a
+        # sport that genuinely succeeded before the latch keeps its status.
+        for sport in deps.sports:
+            if sport not in outcomes:
+                _update_dataset_status(deps.conn, sport, False, 0, ts,
+                                       "gate_backoff")
         _log_sweep(deps, ts, ms, bytes_total, ds_ok, ds_total, "latch",
                    "gate_backoff", prune=False)
         return CycleResult(
