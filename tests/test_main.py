@@ -5,6 +5,7 @@ The loops are driven by an injected clock and wait function, so these tests
 never sleep. SQLite is real (in-memory); only the notifier/fetcher are fakes.
 """
 
+import json
 import signal
 import threading
 from datetime import date, datetime, timedelta, timezone
@@ -335,6 +336,63 @@ def test_activity_once_keeps_the_snapshot_when_fetch_is_bad():
 
     assert activity_once(conn, FakeGate(), NOW, fetch=fetcher, log=lambda _: None) is False
     assert conn.execute("SELECT COUNT(*) FROM activities").fetchone()[0] == 1
+
+
+# --- C3: the facility tick drains the outbox --------------------------------
+
+
+class _OkHttp:
+    def __init__(self):
+        self.posts = []
+
+    def post(self, url, json=None, data=None, headers=None, timeout=None, **kw):
+        self.posts.append(url)
+        return SimpleNamespace(status_code=200, json=lambda: {"ok": True})
+
+
+def test_facility_tick_drains_a_parked_outbox_batch():
+    """C3: flush_outbox was written but never called, so parks never retried."""
+    from poller.config import Settings
+    from poller.main import facility_loop
+    from poller.notify import Notifier
+
+    conn = mem()
+    add_event(conn, 5, "new")
+    payload = json.dumps(
+        {"text": "🏸 放場 ×1\n• …", "title": "🏸 放場", "tags": "badminton",
+         "silent": False, "seqs": [5]}
+    )
+    conn.execute(
+        "INSERT INTO outbox (seq_from, seq_to, channel, payload, attempts, next_try, last_error) "
+        "VALUES (5, 5, 'tg+ntfy', ?, 0, '2000-01-01T00:00:00+08:00', 'x')",
+        (payload,),
+    )
+    conn.commit()
+    settings = Settings(
+        tg_token="t", tg_chat="1", tg_thread=1, ntfy_url="http://n/x",
+        r2_endpoint="", r2_bucket="", r2_access_key="", r2_secret_key="",
+        db_path=":memory:",
+    )
+    http = _OkHttp()
+    notifier = Notifier(settings, http=http, conn=conn)
+
+    stop = threading.Event()
+    clock = FakeClock()
+    wait = FakeWait(clock, stop, stop_at=60.0)
+    result = CycleResult(
+        ok=True, degraded=False, aborted=False, ms=1, bytes=10,
+        ds_ok=1, ds_total=1, waf_state="ok", events=0, sent=0, parked=0,
+    )
+    facility_loop(
+        stop, conn=conn, gate=FakeGate(), allocator=FakeAllocator(),
+        notifier=notifier, sports=["tennis"], run=lambda deps: result,
+        summary=lambda *args: 0, now=lambda: NOW, clock=clock, wait=wait,
+        log=lambda _: None,
+    )
+
+    assert conn.execute("SELECT COUNT(*) FROM outbox").fetchone()[0] == 0
+    assert marks(conn)[5] == (1, 0)
+    assert http.posts
 
 
 # --- CLI / wiring ----------------------------------------------------------

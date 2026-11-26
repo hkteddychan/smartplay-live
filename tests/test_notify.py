@@ -452,6 +452,51 @@ def test_flush_outbox_drops_corrupt_row_and_continues(monkeypatch):
     assert len(n.http.tg_posts) == 1                 # corrupt row never posted
 
 
+@pytest.mark.parametrize("bad_seqs", ["5", [5, "6"], None, [True], [1.5]])
+def test_flush_outbox_drops_rows_with_bad_seqs(monkeypatch, bad_seqs):
+    """C3: a bad ``payload["seqs"]`` must skip+delete the row, not crash."""
+    record_sleeps(monkeypatch)
+    conn = mem()
+    payload = json.dumps(
+        {"text": "x", "title": "x", "tags": "badminton", "silent": False,
+         "seqs": bad_seqs}
+    )
+    conn.execute(
+        "INSERT INTO outbox (seq_from, seq_to, channel, payload, attempts, next_try, last_error) "
+        "VALUES (1, 2, 'tg+ntfy', ?, 0, '2000-01-01T00:00:00+08:00', 'x')",
+        (payload,),
+    )
+    conn.commit()
+    http = FakeHttp()
+    n = Notifier(make_settings(), http=http, conn=conn)
+
+    assert n.flush_outbox(conn) == 0
+    assert http.posts == []
+    assert conn.execute("SELECT COUNT(*) FROM outbox").fetchone()[0] == 0
+
+
+def test_flush_outbox_bad_seqs_row_does_not_stop_good_rows(monkeypatch):
+    conn = mem()
+    n = _seed_outbox(monkeypatch, conn)              # good row, seq 5
+    payload = json.dumps(
+        {"text": "x", "title": "x", "tags": "x", "silent": False, "seqs": "bad"}
+    )
+    conn.execute(
+        "INSERT INTO outbox (seq_from, seq_to, channel, payload, attempts, next_try, last_error) "
+        "VALUES (9, 9, 'tg+ntfy', ?, 0, '2000-01-01T00:00:00+08:00', 'x')",
+        (payload,),
+    )
+    conn.commit()
+    _make_due(conn)
+    n.http = FakeHttp()
+
+    assert n.flush_outbox(conn) == 1
+    assert conn.execute("SELECT COUNT(*) FROM outbox").fetchone()[0] == 0
+    assert conn.execute(
+        "SELECT notified_tg FROM events WHERE seq = 5"
+    ).fetchone()[0] == 1
+
+
 def test_flush_outbox_corrupt_only_row_is_dropped(monkeypatch):
     conn = mem()
     n = _seed_outbox(monkeypatch, conn)

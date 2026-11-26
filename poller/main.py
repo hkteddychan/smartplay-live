@@ -318,6 +318,16 @@ def facility_loop(
             failures += 1
         else:
             failures = 0
+        # C3: retry parked batches once per tick. flush_outbox is deliberately
+        # non-blocking (single attempt per channel), so it cannot eat the
+        # round's cadence; a failure keeps the row for the next tick.
+        try:
+            resent = notifier.flush_outbox(conn)
+        except Exception as exc:  # a broken outbox must not kill the thread
+            log(f"outbox flush_failed {type(exc).__name__}")
+        else:
+            if resent:
+                log(f"outbox resent={resent}")
         try:
             sent = summary(conn, notifier, now())
         except Exception as exc:

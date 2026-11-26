@@ -265,6 +265,15 @@ class Notifier:
                 payload = json.loads(row["payload"])
                 send_args = (payload["text"], payload["title"],
                              payload["tags"], payload["silent"])
+                # C3: the payload's seq list is bookkeeping, never input to
+                # SQL. A row without a clean list of ints is corrupt: drop it
+                # instead of interpolating whatever string is there.
+                seqs = payload.get("seqs")
+                if not isinstance(seqs, list) or not all(
+                    isinstance(seq, int) and not isinstance(seq, bool)
+                    for seq in seqs
+                ):
+                    raise ValueError("bad seqs")
             except (ValueError, TypeError, KeyError):
                 # Corrupt row: drop it and keep flushing the rest.
                 conn.execute("DELETE FROM outbox WHERE id = ?", (row["id"],))
@@ -273,7 +282,6 @@ class Notifier:
             ok, via, errors = self._try_channels(*send_args, retries=0)
             if ok:
                 conn.execute("DELETE FROM outbox WHERE id = ?", (row["id"],))
-                seqs = payload.get("seqs") or []
                 if seqs:
                     column = "notified_tg" if via == "tg" else "notified_ntfy"
                     conn.execute(
