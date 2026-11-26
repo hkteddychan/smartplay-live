@@ -108,6 +108,8 @@ tr:hover td { background: rgba(88,166,255,.08); }
   #update-banner { right: 10px; bottom: 10px; left: 10px; flex-wrap: wrap; }
 }
 footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; font-size: 12px; color: var(--muted); }
+footer a { color: var(--accent); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
 .loading { text-align: center; padding: 40px; color: var(--muted); }
 .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--line); border-top-color: var(--green); border-radius: 50%; animation: spin 1s linear infinite; vertical-align: middle; margin-right: 8px; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -451,6 +453,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
 
     <footer>
     ⚠️ 餘額以官方 App 最終確認作準，本網站僅供參考。
+    · <a href="privacy/">私隱政策</a>
   </footer>
 </div>
 
@@ -460,7 +463,7 @@ footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; f
 </div>
 
 <script>
-const esc=s=>String(s??'').replace(/["'&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',[String.fromCharCode(34)]:'&quot;',"'":'&#39;'})[c]);
+const esc=s=>String(s??'').replace(/["'&<>]/g,c=>({'&':'&','<':'<','>':'>',[String.fromCharCode(34)]:'"',"'":'&#39;'})[c]);
 
 // ============================================================
 // 📊 放場分析（v1）— 純前端計算，唔加 Worker 負擔
@@ -633,7 +636,7 @@ function anBarsHtml(rows, opts) {
     const col = opts.colorBy ? opts.colorBy(r, i) : colors[i % colors.length];
     const rawK = String(r.k) + (r.sub ? ' <span style="color:var(--muted);font-size:10px">' + r.sub + '</span>' : '');
     const label = rawK.length > 22 ? rawK.slice(0, 21) + '…' : rawK;
-    const safeK = rawK.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const safeK = rawK.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');
     return `<div style="display:flex;align-items:center;gap:8px;margin:5px 0">
       <span style="flex:0 0 40%;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safeK}">${label}</span>
       <span style="flex:1;height:14px;background:#222;border-radius:4px;overflow:hidden">
