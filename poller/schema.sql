@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS sweeps (
 
 CREATE TABLE IF NOT EXISTS dataset_status (
   name TEXT PRIMARY KEY, last_ok TEXT, last_err TEXT,
-  err_streak INTEGER DEFAULT 0, bytes INTEGER
+  err_streak INTEGER DEFAULT 0, bytes INTEGER,
+  records INTEGER                   -- I3: last successful payload row count
 );
 
 CREATE TABLE IF NOT EXISTS daily_rollup (

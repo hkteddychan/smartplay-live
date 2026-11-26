@@ -122,8 +122,37 @@ def connect(
 
 
 def init_db(conn: sqlite3.Connection) -> None:
-    """Create the schema if absent (idempotent)."""
+    """Create the schema if absent (idempotent), then apply small migrations."""
     conn.executescript(_SCHEMA.read_text(encoding="utf-8"))
+    _migrate(conn)
+    conn.commit()
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Add columns introduced after a database was first created.
+
+    ``CREATE TABLE IF NOT EXISTS`` does not touch an existing table, so a
+    unit that upgrades in place would otherwise miss ``dataset_status.records``
+    (I3) until the DB is rebuilt.
+    """
+    columns = {
+        row["name"] for row in conn.execute("PRAGMA table_info(dataset_status)")
+    }
+    if "records" not in columns:
+        conn.execute("ALTER TABLE dataset_status ADD COLUMN records INTEGER")
+
+
+def dataset_record_count(conn: sqlite3.Connection, name: str) -> int | None:
+    """Latest successful row count for ``name`` (I3 baseline), or None."""
+    row = conn.execute(
+        "SELECT records FROM dataset_status WHERE name = ?", (name,)
+    ).fetchone()
+    if row is None:
+        return None
+    value = row["records"]
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return value
+    return None
 
 
 def _date_text(value: date | str) -> str:

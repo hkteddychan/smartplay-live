@@ -18,6 +18,9 @@ from dataclasses import dataclass
 from poller.config import ACTIVITY
 
 MIN_FACILITY_RECORDS = 100
+# I3: 100 rows is ~0.3% of a real payload, so it cannot catch a truncated
+# download. Reject anything below half of the previous successful row count.
+MIN_PREVIOUS_RATIO = 0.5
 
 
 @dataclass
@@ -29,8 +32,17 @@ class FetchResult:
     error: str | None
 
 
-def fetch_dataset(gate, base_url: str, name: str) -> FetchResult:
-    """Download one dataset and validate it; never trust a partial payload."""
+def fetch_dataset(
+    gate, base_url: str, name: str, *, prev_count: int | None = None
+) -> FetchResult:
+    """Download one dataset and validate it; never trust a partial payload.
+
+    ``prev_count`` is the previous successful payload's row count for this
+    dataset (``dataset_status.records``). A payload below
+    :data:`MIN_PREVIOUS_RATIO` of it is truncated or filtered, not a real
+    shrink, and must keep the stored snapshot. No baseline (first success)
+    skips the relative check.
+    """
     url = f"{base_url}/{name}/file"
     resp = gate.get(url)  # GateBackoff propagates; the cycle layer waits
     if resp.status_code != 200:
@@ -45,6 +57,13 @@ def fetch_dataset(gate, base_url: str, name: str) -> FetchResult:
         return FetchResult(name, False, [], 0, "not_list")
     if len(records) == 0:
         return FetchResult(name, False, [], 0, "empty_payload")
-    if name != ACTIVITY and len(records) < MIN_FACILITY_RECORDS:
-        return FetchResult(name, False, [], 0, "suspiciously_small")
+    if name != ACTIVITY:
+        if len(records) < MIN_FACILITY_RECORDS:
+            return FetchResult(name, False, [], 0, "suspiciously_small")
+        if (
+            prev_count is not None
+            and prev_count > 0
+            and len(records) < prev_count * MIN_PREVIOUS_RATIO
+        ):
+            return FetchResult(name, False, [], 0, "suspiciously_small")
     return FetchResult(name, True, records, len(resp.text.encode("utf-8")), None)

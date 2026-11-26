@@ -41,9 +41,11 @@ class FakeFetcher:
         self.fail = fail or {}
         self.raise_for = raise_for or {}
         self.calls = []
+        self.prev_counts = {}
 
-    def __call__(self, gate, base_url, name):
+    def __call__(self, gate, base_url, name, *, prev_count=None):
         self.calls.append(name)
+        self.prev_counts[name] = prev_count
         if name in self.raise_for:
             raise self.raise_for[name]
         if name in self.fail:
@@ -645,6 +647,30 @@ def test_resync_not_emitted_when_allocator_healthy():
     conn = mem()
     result = run_cycle(make_deps(conn=conn))
     assert result.events == 0 and event_rows(conn) == []
+
+
+# --- I3: relative payload guard ---------------------------------------------
+
+
+def test_cycle_uses_the_stored_row_count_as_the_next_baseline():
+    conn = mem()
+    conn.execute(
+        "INSERT INTO dataset_status (name, last_ok, err_streak, bytes, records) "
+        "VALUES ('tennis', '2026-11-26T09:00:00+08:00', 0, 100, 10000)"
+    )
+    conn.commit()
+    day = TODAY + timedelta(days=1)
+    fetcher = FakeFetcher(payload={"tennis": [rec(day)]})
+    deps = make_deps(conn=conn, fetcher=fetcher)
+    deps.sports = ["tennis"]
+
+    run_cycle(deps)
+
+    assert fetcher.prev_counts == {"tennis": 10000}
+    status = conn.execute(
+        "SELECT * FROM dataset_status WHERE name = 'tennis'"
+    ).fetchone()
+    assert status["records"] == 1
 
 
 # --- telemetry --------------------------------------------------------------

@@ -23,6 +23,41 @@ def test_good_response_parses():
     r = fetch_dataset(G(), "http://x", "badminton")
     assert r.ok and len(r.records) == len(data) and r.bytes > 0
 
+def _payload(count):
+    return [{"Available_Courts": 1, "Available_Date": "2026-11-27"}] * count
+
+
+def test_relative_guard_rejects_a_payload_below_half_the_previous_count():
+    """I3: 3000 rows after 10,000 is a truncated upstream, not a real shrink."""
+    class G:
+        def get(self, url, **kw):
+            return FakeGateResponse(200, "application/json", json.dumps(_payload(3000)))
+
+    r = fetch_dataset(G(), "http://x", "badminton", prev_count=10_000)
+
+    assert r.ok is False and r.error == "suspiciously_small"
+
+
+def test_relative_guard_accepts_sixty_percent_of_the_previous_count():
+    class G:
+        def get(self, url, **kw):
+            return FakeGateResponse(200, "application/json", json.dumps(_payload(6000)))
+
+    r = fetch_dataset(G(), "http://x", "badminton", prev_count=10_000)
+
+    assert r.ok is True and len(r.records) == 6000
+
+
+def test_relative_guard_accepts_a_first_run_without_a_baseline():
+    class G:
+        def get(self, url, **kw):
+            return FakeGateResponse(200, "application/json", json.dumps(_payload(150)))
+
+    r = fetch_dataset(G(), "http://x", "badminton", prev_count=None)
+
+    assert r.ok is True
+
+
 def test_fixture_uses_real_lcsd_columns():
     rows = json.load(open("tests/fixtures/badminton_sample.json", encoding="utf-8"))
     assert len(rows) == 150

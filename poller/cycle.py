@@ -100,23 +100,30 @@ def run_cycle(deps: Deps) -> CycleResult:
 
     # Phase 1 — network + parsing only. Nothing is written until the whole
     # sweep is known, so a GateBackoff cannot leave a half-applied snapshot.
-    outcomes: dict[str, tuple[bool, list[Session], int, str | None]] = {}
+    # (ok, parsed sessions, bytes, error, raw payload row count)
+    outcomes: dict[str, tuple[bool, list[Session], int, str | None, int]] = {}
     bytes_total = 0
     aborted = False
     backoff_seconds = 0.0
     for sport in deps.sports:
         try:
-            fetched = deps.fetch(deps.gate, deps.base_url, sport)
+            fetched = deps.fetch(
+                deps.gate, deps.base_url, sport,
+                prev_count=db.dataset_record_count(deps.conn, sport),
+            )
         except GateBackoff as exc:
             aborted = True
             backoff_seconds = exc.seconds
             break
         except Exception as exc:  # R21: one broken dataset must not stop the rest
-            outcomes[sport] = (False, [], 0, f"fetch:{type(exc).__name__}")
+            outcomes[sport] = (False, [], 0, f"fetch:{type(exc).__name__}", 0)
             continue
         bytes_total += fetched.bytes
         if not fetched.ok:
-            outcomes[sport] = (False, [], fetched.bytes, fetched.error or "fetch_failed")
+            outcomes[sport] = (
+                False, [], fetched.bytes, fetched.error or "fetch_failed",
+                len(fetched.records),
+            )
             continue
         try:
             sessions = deps.parse(sport, fetched.records, today_hk)
@@ -125,9 +132,14 @@ def run_cycle(deps: Deps) -> CycleResult:
             backoff_seconds = exc.seconds
             break
         except Exception as exc:  # R21: a malformed row only fails its own sport
-            outcomes[sport] = (False, [], fetched.bytes, f"parse:{type(exc).__name__}")
+            outcomes[sport] = (
+                False, [], fetched.bytes, f"parse:{type(exc).__name__}",
+                len(fetched.records),
+            )
             continue
-        outcomes[sport] = (True, sessions, fetched.bytes, None)
+        outcomes[sport] = (
+            True, sessions, fetched.bytes, None, len(fetched.records)
+        )
 
     ds_ok = sum(1 for ok, *_ in outcomes.values() if ok)
     ds_total = len(deps.sports)
@@ -154,7 +166,7 @@ def run_cycle(deps: Deps) -> CycleResult:
     all_sessions: list[Session] = []
     cur: dict[tuple, int] = {}
     for sport in deps.sports:
-        ok, sessions, _, _ = outcomes[sport]
+        ok, sessions, *_ = outcomes[sport]
         if not ok:
             continue
         all_sessions.extend(sessions)
@@ -218,8 +230,8 @@ def run_cycle(deps: Deps) -> CycleResult:
     )
 
     for sport in deps.sports:
-        ok, _, nbytes, error = outcomes[sport]
-        _update_dataset_status(deps.conn, sport, ok, nbytes, ts, error)
+        ok, _, nbytes, error, nrows = outcomes[sport]
+        _update_dataset_status(deps.conn, sport, ok, nbytes, ts, error, nrows)
 
     ms = _elapsed_ms(started, deps.clock())
     notes = [f"{sport}:{outcomes[sport][3]}" for sport in deps.sports if not outcomes[sport][0]]
@@ -354,16 +366,23 @@ def _resync_event(ts: str) -> Event:
 
 def _update_dataset_status(
     conn: sqlite3.Connection, name: str, ok: bool, nbytes: int,
-    ts: str, error: str | None,
+    ts: str, error: str | None, nrows: int = 0,
 ) -> None:
-    """Track per-dataset success/err_streak (R21); ``bytes`` keeps the last good size."""
+    """Track per-dataset success/err_streak (R21); ``bytes`` keeps the last good size.
+
+    I3: ``records`` is the raw payload row count of the last success and
+    becomes the next round's relative-size baseline; a failed round leaves
+    the previous baseline untouched.
+    """
     if ok:
         conn.execute(
-            "INSERT INTO dataset_status (name, last_ok, last_err, err_streak, bytes) "
-            "VALUES (?, ?, NULL, 0, ?) "
+            "INSERT INTO dataset_status "
+            "(name, last_ok, last_err, err_streak, bytes, records) "
+            "VALUES (?, ?, NULL, 0, ?, ?) "
             "ON CONFLICT(name) DO UPDATE SET last_ok = excluded.last_ok, "
-            "last_err = NULL, err_streak = 0, bytes = excluded.bytes",
-            (name, ts, nbytes),
+            "last_err = NULL, err_streak = 0, bytes = excluded.bytes, "
+            "records = excluded.records",
+            (name, ts, nbytes, nrows),
         )
     else:
         conn.execute(
