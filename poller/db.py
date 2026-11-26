@@ -132,12 +132,15 @@ def _date_text(value: date | str) -> str:
 
 
 def upsert_sessions(
-    conn: sqlite3.Connection, sessions: list[Session], now_iso: str
+    conn: sqlite3.Connection, sessions: list[Session], now_iso: str,
+    *, commit: bool = True,
 ) -> None:
     """Insert or refresh sessions; never delete absentees (diff decides that).
 
     ``first_seen`` is kept from the original insert; ``last_seen`` and
-    ``courts`` track the latest sweep.
+    ``courts`` track the latest sweep. ``commit=False`` lets the cycle layer
+    group this write with ``delete_sessions``/``insert_events`` in one
+    transaction (I1).
     """
     conn.executemany(
         """
@@ -163,7 +166,8 @@ def upsert_sessions(
             for s in sessions
         ],
     )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 def load_sessions(conn: sqlite3.Connection) -> dict[tuple, int]:
@@ -189,7 +193,9 @@ def load_sessions(conn: sqlite3.Connection) -> dict[tuple, int]:
     }
 
 
-def delete_sessions(conn: sqlite3.Connection, keys: list[tuple]) -> None:
+def delete_sessions(
+    conn: sqlite3.Connection, keys: list[tuple], *, commit: bool = True
+) -> None:
     """Remove sessions by their 6-tuple identity (sport, venue, facility, date, start, end)."""
     conn.executemany(
         """
@@ -199,11 +205,13 @@ def delete_sessions(conn: sqlite3.Connection, keys: list[tuple]) -> None:
         """,
         [(k[0], k[1], k[2], _date_text(k[3]), k[4], k[5]) for k in keys],
     )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 def insert_events(
-    conn: sqlite3.Connection, events: list[EventLike], seq_start: int
+    conn: sqlite3.Connection, events: list[EventLike], seq_start: int,
+    *, commit: bool = True,
 ) -> list[int]:
     """Assign ``seq_start + i`` to ``events[i].seq``, insert, return the seqs (R4)."""
     seqs: list[int] = []
@@ -230,7 +238,8 @@ def insert_events(
                 ev.after,
             ),
         )
-    conn.commit()
+    if commit:
+        conn.commit()
     return seqs
 
 

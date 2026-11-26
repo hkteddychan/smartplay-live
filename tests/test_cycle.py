@@ -7,6 +7,7 @@ the persistence side is exercised for real. No sleeping, no clock reads in
 the tested path.
 """
 
+import sqlite3
 from datetime import date, datetime, timedelta, timezone
 
 import pytest
@@ -308,6 +309,31 @@ def test_gate_backoff_records_dataset_status_for_the_aborted_sport():
     ).fetchone()
     assert status["err_streak"] == 1
     assert status["last_err"] == "gate_backoff"
+
+
+def test_event_insert_failure_rolls_back_the_session_writes(monkeypatch):
+    """I1: sessions + their events must commit as one transaction."""
+    conn = mem()
+    seed(conn, Session("badminton", "A館", "1號場", TODAY, "19:00", "20:00", 1))
+    fetcher = FakeFetcher(payload={"badminton": [
+        rec(TODAY, facility="1號場", courts=3),
+        rec(TODAY, facility="2號場"),
+    ]})
+
+    def boom(conn_, events, seq_start, commit=True):
+        raise sqlite3.OperationalError("disk I/O error")
+
+    monkeypatch.setattr(db, "insert_events", boom)
+
+    with pytest.raises(sqlite3.OperationalError):
+        run_cycle(make_deps(conn=conn, fetcher=fetcher))
+
+    row = conn.execute(
+        "SELECT courts FROM sessions WHERE facility = '1號場'"
+    ).fetchone()
+    assert row["courts"] == 1                     # rolled back with the events
+    assert conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 1
+    assert event_rows(conn) == []
 
 
 def test_backoff_mid_cycle_does_not_persist_partial_snapshot():

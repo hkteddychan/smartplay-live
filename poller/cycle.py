@@ -193,19 +193,23 @@ def run_cycle(deps: Deps) -> CycleResult:
     if main_degraded:
         resync_seq = deps.allocator.allocate(1)
         resync = _resync_event(ts)
-    if all_sessions:
-        db.upsert_sessions(deps.conn, all_sessions, ts)
     gone_keys = [
         (event.sport, event.venue, event.facility, event.date, event.start, event.end)
         for event in events
         if event.kind == "gone"
     ]
-    if gone_keys:
-        db.delete_sessions(deps.conn, gone_keys)
-    if events:
-        db.insert_events(deps.conn, events, seq_start)
-    if resync is not None:
-        db.insert_events(deps.conn, [resync], resync_seq)
+    # I1: one transaction for "the world changed" — session upserts, deletes
+    # and the events that explain them. Committing the sessions first meant an
+    # insert_events failure silently swallowed that round's alerts.
+    with deps.conn:
+        if all_sessions:
+            db.upsert_sessions(deps.conn, all_sessions, ts, commit=False)
+        if gone_keys:
+            db.delete_sessions(deps.conn, gone_keys, commit=False)
+        if events:
+            db.insert_events(deps.conn, events, seq_start, commit=False)
+        if resync is not None:
+            db.insert_events(deps.conn, [resync], resync_seq, commit=False)
 
     # Phase 4 — notify, then record exactly what a channel accepted.
     delivery = _notify_if_any(deps, events)
