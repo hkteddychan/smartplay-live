@@ -519,6 +519,36 @@ def test_worker_thread_opens_its_own_connection_and_writes(
     assert [(row["sport"], row["venue"]) for row in rows] == [("tennis", "A館")]
 
 
+def test_one_dead_worker_stops_the_process_non_zero(
+    monkeypatch, tmp_path, capsys
+):
+    """C2: with two threads, ``any`` liveness would hide a silent death.
+
+    One worker returning without setting ``fatal_event`` must still stop the
+    unit with a non-zero exit (systemd restarts it; OnFailure alerts).
+    """
+    monkeypatch.setenv("TG_TOKEN", "test-token")
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "state.db"))
+    monkeypatch.setenv("COOKIES_PATH", str(tmp_path / "cookies.json"))
+    monkeypatch.setattr(main_module, "LIVENESS_POLL_SECONDS", 0.01)
+    monkeypatch.setattr(main_module, "install_signal_handlers", lambda event: None)
+
+    def dead_facility(**kwargs):
+        return None  # thread exits without touching fatal_event
+
+    def live_activity(**kwargs):
+        kwargs["stop_event"].wait(5)
+
+    monkeypatch.setattr(main_module, "facility_worker", dead_facility)
+    monkeypatch.setattr(main_module, "activity_worker", live_activity)
+
+    code = main_module.main([])
+    output = capsys.readouterr().out
+
+    assert code != 0
+    assert "worker exited unexpectedly" in output
+
+
 def test_five_consecutive_worker_failures_exit_non_zero(
     monkeypatch, tmp_path, capsys
 ):

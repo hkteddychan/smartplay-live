@@ -61,6 +61,7 @@ SUMMARY_MAX_CHARS = 4000
 TG_MAX_CHARS = 4096                   # Telegram hard limit (escaped text)
 HTTP_TIMEOUT = (10, 60)               # connect, read — below systemd's 90s stop
 MAX_CONSECUTIVE_FAILURES = 5          # R54: then exit non-zero for systemd
+LIVENESS_POLL_SECONDS = 5.0           # how often main() checks its workers
 
 Log = Callable[[str], None]
 
@@ -708,14 +709,21 @@ def main(argv: list[str] | None = None) -> int:
             if fatal_event.is_set():
                 exit_code = 1
                 break
-            # A worker that dies outside its per-tick guard must not leave the
-            # process alive but idle: exit non-zero so systemd restarts (and
-            # OnFailure can alert).
-            if not any(thread.is_alive() for thread in threads):
-                log("poller worker exited unexpectedly")
+            # C2: every worker must be alive. With two threads ``any`` let one
+            # silent death keep the unit looking healthy while half the
+            # pipeline was gone. A dead worker with no fatal_event still
+            # escalates: mark fatal, stop the sibling and exit non-zero.
+            dead = [thread for thread in threads if not thread.is_alive()]
+            if dead:
+                log(
+                    "poller worker exited unexpectedly name="
+                    + ",".join(thread.name for thread in dead)
+                )
+                fatal_event.set()
+                stop_event.set()
                 exit_code = 1
                 break
-            stop_event.wait(5.0)
+            stop_event.wait(LIVENESS_POLL_SECONDS)
     finally:
         stop_event.set()
         for thread in threads:
