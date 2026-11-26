@@ -381,6 +381,28 @@ def test_five_aborted_rounds_exit_non_zero():
     assert "facility fatal consecutive_failures=5" in logs
 
 
+def test_aborted_round_waits_the_gate_backoff():
+    """I5: the exception's seconds must drive the loop, not just the log."""
+    stop = threading.Event()
+    clock = FakeClock()
+    wait = FakeWait(clock, stop, stop_at=90.0)
+    result = CycleResult(
+        ok=False, degraded=False, aborted=True, ms=1, bytes=0,
+        ds_ok=0, ds_total=5, waf_state="latch", events=0, sent=0, parked=0,
+        backoff_seconds=90,
+    )
+
+    facility_loop(
+        stop, conn=mem(), gate=FakeGate(), allocator=FakeAllocator(),
+        notifier=FakeCycleNotifier(), sports=["tennis"],
+        run=lambda deps: result, summary=lambda *args: 0, now=lambda: NOW,
+        clock=clock, wait=wait, log=lambda _: None,
+    )
+
+    assert wait.calls[0] == 90
+    assert clock.now >= 90
+
+
 def test_an_ok_round_resets_the_failure_streak():
     fatal, stop, calls, logs = _drive_facility(
         [_aborted_result() for _ in range(4)]

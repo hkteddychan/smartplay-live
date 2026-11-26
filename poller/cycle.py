@@ -87,6 +87,8 @@ class CycleResult:
     events: int
     sent: int
     parked: int
+    # I5: how long GateBackoff asked the caller to stay away (0 otherwise).
+    backoff_seconds: float = 0.0
 
 
 def run_cycle(deps: Deps) -> CycleResult:
@@ -101,11 +103,13 @@ def run_cycle(deps: Deps) -> CycleResult:
     outcomes: dict[str, tuple[bool, list[Session], int, str | None]] = {}
     bytes_total = 0
     aborted = False
+    backoff_seconds = 0.0
     for sport in deps.sports:
         try:
             fetched = deps.fetch(deps.gate, deps.base_url, sport)
-        except GateBackoff:
+        except GateBackoff as exc:
             aborted = True
+            backoff_seconds = exc.seconds
             break
         except Exception as exc:  # R21: one broken dataset must not stop the rest
             outcomes[sport] = (False, [], 0, f"fetch:{type(exc).__name__}")
@@ -116,8 +120,9 @@ def run_cycle(deps: Deps) -> CycleResult:
             continue
         try:
             sessions = deps.parse(sport, fetched.records, today_hk)
-        except GateBackoff:
+        except GateBackoff as exc:
             aborted = True
+            backoff_seconds = exc.seconds
             break
         except Exception as exc:  # R21: a malformed row only fails its own sport
             outcomes[sport] = (False, [], fetched.bytes, f"parse:{type(exc).__name__}")
@@ -142,6 +147,7 @@ def run_cycle(deps: Deps) -> CycleResult:
             ok=False, degraded=ds_ok in (3, 4), aborted=True, ms=ms,
             bytes=bytes_total, ds_ok=ds_ok, ds_total=ds_total,
             waf_state="latch", events=0, sent=0, parked=0,
+            backoff_seconds=backoff_seconds,
         )
 
     # Phase 2 — combine only the datasets that succeeded.

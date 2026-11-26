@@ -326,6 +326,13 @@ def facility_loop(
                 failures += 1
             else:
                 failures = 0
+            # I5: "405 → stop now, back off by the Gate ladder". Sleeping the
+            # requested seconds here (interruptible) is what makes the ladder
+            # real; the normal cadence alone would retry during the latch.
+            if result.aborted and result.backoff_seconds > 0:
+                log(f"facility waf_backoff seconds={result.backoff_seconds:g}")
+                if wait_for_stop(result.backoff_seconds):
+                    return
         # C3: retry parked batches once per tick. flush_outbox is deliberately
         # non-blocking (single attempt per channel), so it cannot eat the
         # round's cadence; a failure keeps the row for the next tick.
