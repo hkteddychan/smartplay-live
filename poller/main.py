@@ -59,6 +59,7 @@ SUMMARY_MAX_VENUES = 60
 SUMMARY_MAX_CHARS = 4000
 TG_MAX_CHARS = 4096                   # Telegram hard limit (escaped text)
 HTTP_TIMEOUT = (10, 60)               # connect, read — below systemd's 90s stop
+MAX_CONSECUTIVE_FAILURES = 5          # R54: then exit non-zero for systemd
 
 Log = Callable[[str], None]
 
@@ -222,7 +223,7 @@ def facility_once(
     sports: Iterable[str],
     now_hk: datetime,
     *,
-    run: Callable[[Deps], CycleResult] = run_cycle,
+    run: Callable[[Deps], CycleResult] | None = None,
     log: Log = log,
 ) -> CycleResult:
     """One facility round restricted to ``sports`` (``--only`` friendly)."""
@@ -235,7 +236,7 @@ def facility_once(
         now_hk=now_hk,
         sports=sports,
     )
-    result = run(deps)
+    result = (run or run_cycle)(deps)
     log(_result_line(result, _session_count(conn, sports)))
     return result
 
@@ -286,16 +287,25 @@ def facility_loop(
     allocator,
     notifier,
     sports: Iterable[str],
-    run: Callable[[Deps], CycleResult] = run_cycle,
+    run: Callable[[Deps], CycleResult] | None = None,
     summary: Callable[[object, object, datetime], int] = run_sale7_summary,
     now: Callable[[], datetime] = lambda: datetime.now(HK),
     clock: Callable[[], float] = time.monotonic,
     wait: Callable[[float], bool] | None = None,
+    fatal_event: threading.Event | None = None,
     log: Log = log,
 ) -> None:
-    """Facility round + sale7 summary, once per target cycle."""
+    """Facility round + sale7 summary, once per target cycle.
+
+    R54: a run that keeps raising must not log forever while the unit stays
+    ``active``. After ``MAX_CONSECUTIVE_FAILURES`` failed rounds the shared
+    ``fatal_event`` is set, ``stop_event`` stops the sibling worker, and
+    ``main()`` exits non-zero so systemd restarts the service.
+    """
+    failures = 0
 
     def tick() -> None:
+        nonlocal failures
         try:
             facility_once(
                 conn, gate, allocator, notifier, sports, now(),
@@ -303,13 +313,21 @@ def facility_loop(
             )
         except Exception as exc:  # a bad round must not kill the thread
             log(f"facility cycle_failed {type(exc).__name__}")
+            failures += 1
+        else:
+            failures = 0
         try:
             sent = summary(conn, notifier, now())
         except Exception as exc:
             log(f"sale7 summary_failed {type(exc).__name__}")
-            return
-        if sent:
-            log(f"sale7 summary rows={sent}")
+        else:
+            if sent:
+                log(f"sale7 summary rows={sent}")
+        if failures >= MAX_CONSECUTIVE_FAILURES:
+            log(f"facility fatal consecutive_failures={failures}")
+            if fatal_event is not None:
+                fatal_event.set()
+            stop_event.set()
 
     periodic_loop(
         stop_event, lambda: gate.target_cycle_seconds, tick,
@@ -325,18 +343,109 @@ def activity_loop(
     now: Callable[[], datetime] = lambda: datetime.now(HK),
     clock: Callable[[], float] = time.monotonic,
     wait: Callable[[float], bool] | None = None,
+    fatal_event: threading.Event | None = None,
     log: Log = log,
 ) -> None:
-    """activity-prog once every 900s; ``activity_once`` swallows failures."""
+    """activity-prog once every 900s; ``activity_once`` swallows failures.
+
+    R54: ``activity_once`` returns ``False`` for a failure instead of raising,
+    so the loop counts consecutive ``False`` results the same way the facility
+    loop counts exceptions.
+    """
+    failures = 0
 
     def tick() -> None:
+        nonlocal failures
         # Spec's "skip if the gate lock waits > 3 min" is deliberately omitted; 900s + hash makes a missed tick harmless.
-        activity_once(conn, gate, now(), log=log)
+        try:
+            ok = activity_once(conn, gate, now(), log=log)
+        except Exception as exc:  # never kill the thread on one transport error
+            log(f"activity cycle_failed {type(exc).__name__}")
+            ok = False
+        failures = 0 if ok else failures + 1
+        if failures >= MAX_CONSECUTIVE_FAILURES:
+            log(f"activity fatal consecutive_failures={failures}")
+            if fatal_event is not None:
+                fatal_event.set()
+            stop_event.set()
 
     periodic_loop(
         stop_event, float(ACTIVITY_EVERY_SECONDS), tick,
         clock=clock, wait=wait,
     )
+
+
+# --- worker thread bodies ---------------------------------------------------
+
+
+def facility_worker(
+    stop_event: threading.Event,
+    *,
+    settings: Settings,
+    gate,
+    allocator,
+    sports: Iterable[str],
+    fatal_event: threading.Event | None = None,
+    run: Callable[[Deps], CycleResult] | None = None,
+    summary: Callable[[object, object, datetime], int] = run_sale7_summary,
+    now: Callable[[], datetime] = lambda: datetime.now(HK),
+    clock: Callable[[], float] = time.monotonic,
+    wait: Callable[[float], bool] | None = None,
+    log: Log = log,
+) -> None:
+    """Open the facility connection *inside* this thread, then run the loop.
+
+    SQLite connections are thread-affine (R53): the connection and the
+    ``Notifier`` that shares it must be created here and closed here, never
+    handed down from ``main()``.
+    """
+    conn = _open_db(settings.db_path)
+    try:
+        facility_loop(
+            stop_event,
+            conn=conn,
+            gate=gate,
+            allocator=allocator,
+            notifier=Notifier(settings, conn=conn),
+            sports=sports,
+            run=run,
+            summary=summary,
+            now=now,
+            clock=clock,
+            wait=wait,
+            fatal_event=fatal_event,
+            log=log,
+        )
+    finally:
+        conn.close()
+
+
+def activity_worker(
+    stop_event: threading.Event,
+    *,
+    settings: Settings,
+    gate,
+    fatal_event: threading.Event | None = None,
+    now: Callable[[], datetime] = lambda: datetime.now(HK),
+    clock: Callable[[], float] = time.monotonic,
+    wait: Callable[[float], bool] | None = None,
+    log: Log = log,
+) -> None:
+    """Open the activity connection *inside* this thread and close it here (R53)."""
+    conn = _open_db(settings.db_path)
+    try:
+        activity_loop(
+            stop_event,
+            conn=conn,
+            gate=gate,
+            now=now,
+            clock=clock,
+            wait=wait,
+            fatal_event=fatal_event,
+            log=log,
+        )
+    finally:
+        conn.close()
 
 
 # --- process wiring ---------------------------------------------------------
@@ -456,29 +565,34 @@ def main(argv: list[str] | None = None) -> int:
         finally:
             conn.close()
 
-    facility_conn = _open_db(settings.db_path) if sports else None
-    activity_conn = _open_db(settings.db_path) if run_activity else None
+    fatal_event = threading.Event()
     threads: list[threading.Thread] = []
-    if facility_conn is not None:
+    if sports:
         threads.append(
             threading.Thread(
                 name="facility",
-                target=facility_loop,
+                target=facility_worker,
                 kwargs={
-                    "conn": facility_conn,
+                    "stop_event": stop_event,
+                    "settings": settings,
                     "gate": gate,
                     "allocator": allocator,
-                    "notifier": Notifier(settings, conn=facility_conn),
                     "sports": sports,
+                    "fatal_event": fatal_event,
                 },
             )
         )
-    if activity_conn is not None:
+    if run_activity:
         threads.append(
             threading.Thread(
                 name="activity",
-                target=activity_loop,
-                kwargs={"conn": activity_conn, "gate": gate},
+                target=activity_worker,
+                kwargs={
+                    "stop_event": stop_event,
+                    "settings": settings,
+                    "gate": gate,
+                    "fatal_event": fatal_event,
+                },
             )
         )
 
@@ -491,6 +605,11 @@ def main(argv: list[str] | None = None) -> int:
     exit_code = 0
     try:
         while not stop_event.is_set():
+            # R54: a worker that keeps failing sets fatal_event; stop the
+            # sibling worker and exit non-zero so systemd restarts the unit.
+            if fatal_event.is_set():
+                exit_code = 1
+                break
             # A worker that dies outside its per-tick guard must not leave the
             # process alive but idle: exit non-zero so systemd restarts (and
             # OnFailure can alert).
@@ -503,10 +622,9 @@ def main(argv: list[str] | None = None) -> int:
         stop_event.set()
         for thread in threads:
             thread.join()
-        if facility_conn is not None:
-            facility_conn.close()
-        if activity_conn is not None:
-            activity_conn.close()
+    if fatal_event.is_set():
+        log("poller fatal worker failure")
+        exit_code = 1
     log("poller stopped")
     return exit_code
 

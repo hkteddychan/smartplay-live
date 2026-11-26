@@ -110,6 +110,33 @@ def test_mark_sale7_notified_accepts_both_channels_and_is_a_noop_for_empty():
     assert marks(c) == {1: (1, 1)}
 
 
+def test_mark_sale7_notified_chunks_large_bursts_under_the_parameter_limit():
+    c = mem()
+    seqs = list(range(1, 1201))
+    c.executemany(
+        'INSERT INTO events (seq, ts, sport, venue, facility, date, start, "end", '
+        "kind, before, \"after\") VALUES "
+        "(?, '2026-11-26T07:00:00+08:00', 'badminton', 'A館', '1號場', "
+        "'2026-11-27', '19:00', '20:00', 'sale7', 0, 1)",
+        [(seq,) for seq in seqs],
+    )
+    c.commit()
+
+    statements = []
+    c.set_trace_callback(statements.append)
+    try:
+        marked = mark_sale7_notified(c, seqs, "tg")
+    finally:
+        c.set_trace_callback(None)
+
+    updates = [sql for sql in statements if sql.lstrip().upper().startswith("UPDATE")]
+    assert marked == 1200
+    assert len(updates) == 3  # 500 + 500 + 200
+    assert c.execute(
+        "SELECT COUNT(*) FROM events WHERE notified_tg = 1"
+    ).fetchone()[0] == 1200
+
+
 # --- activity snapshot (Task 11 thread B) -----------------------------------
 
 
@@ -137,6 +164,13 @@ def _activity_writes(statements):
             ("delete from activities", "insert into activities")
         )
     ]
+
+
+def test_empty_activity_payload_is_a_noop_without_committing():
+    c = mem()
+    with _trace(c) as statements:
+        assert upsert_activities(c, [], "2026-11-26T10:00:00+08:00") == 0
+    assert statements == []
 
 
 def test_upsert_activities_is_a_snapshot_and_keeps_first_seen():

@@ -7,12 +7,13 @@ never sleep. SQLite is real (in-memory); only the notifier/fetcher are fakes.
 
 import signal
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+import poller.main as main_module
 from poller import db
 from poller.config import ACTIVITY, SPORTS
 from poller.cycle import CycleResult
@@ -30,6 +31,7 @@ from poller.main import (
     should_send_sale7_summary,
 )
 from poller.notify import DeliveryResult
+from poller.parse import Session
 
 HK = timezone(timedelta(hours=8))
 NOW = datetime(2026, 11, 26, 10, 0, tzinfo=HK)
@@ -439,3 +441,112 @@ def test_main_rejects_unknown_only_value(capsys):
     with pytest.raises(SystemExit) as exc:
         main(["--dry-run", "--only=not-a-sport"])
     assert exc.value.code == 2
+
+
+# --- thread ownership (R53) -------------------------------------------------
+
+
+def test_worker_thread_opens_its_own_connection_and_writes(
+    monkeypatch, tmp_path, capsys
+):
+    """R53: SQLite connections are thread-affine, so each worker must open its
+    own connection *inside* the thread. A connection created by ``main()`` and
+    lent to the worker raises ProgrammingError on every query.
+    """
+    monkeypatch.setenv("TG_TOKEN", "test-token")
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "state.db"))
+
+    written = threading.Event()
+    errors: list[BaseException] = []
+
+    def fake_run(deps):
+        try:
+            db.upsert_sessions(
+                deps.conn,
+                [
+                    Session(
+                        "tennis", "A館", "1號場", date(2026, 11, 27),
+                        "19:00", "20:00", 1,
+                    )
+                ],
+                NOW.isoformat(timespec="seconds"),
+            )
+        except BaseException as exc:  # record the RED reason for the assertion
+            errors.append(exc)
+            raise
+        written.set()
+        return CycleResult(
+            ok=True, degraded=False, aborted=False, ms=1, bytes=10,
+            ds_ok=1, ds_total=1, waf_state="ok", events=0, sent=0, parked=0,
+        )
+
+    stop_holder: dict[str, threading.Event] = {}
+
+    def fake_install_signal_handlers(stop_event):
+        # main() runs in a non-main test thread here; capturing the event also
+        # gives the test a safe way to request shutdown.
+        stop_holder["stop"] = stop_event
+
+    monkeypatch.setattr(main_module, "run_cycle", fake_run)
+    monkeypatch.setattr(
+        main_module, "install_signal_handlers", fake_install_signal_handlers
+    )
+
+    runner = threading.Thread(
+        target=lambda: main_module.main(["--only=tennis"]), name="test-main"
+    )
+    runner.start()
+    try:
+        wrote = written.wait(10)
+    finally:
+        stop_holder["stop"].set()
+    runner.join(timeout=10)
+    output = capsys.readouterr().out
+
+    assert wrote, (
+        "facility worker never wrote a session; worker errors="
+        f"{[type(exc).__name__ for exc in errors]!r}\n{output}"
+    )
+    assert not runner.is_alive(), "main() did not stop within 10s"
+    assert errors == [], [repr(exc) for exc in errors]
+    assert "ProgrammingError" not in output
+
+    conn = db.connect(str(tmp_path / "state.db"))
+    try:
+        rows = conn.execute("SELECT sport, venue FROM sessions").fetchall()
+    finally:
+        conn.close()
+    assert [(row["sport"], row["venue"]) for row in rows] == [("tennis", "A館")]
+
+
+def test_five_consecutive_worker_failures_exit_non_zero(
+    monkeypatch, tmp_path, capsys
+):
+    """R54: a permanently failing worker must escalate, not log forever."""
+    monkeypatch.setenv("TG_TOKEN", "test-token")
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "state.db"))
+
+    def always_fail(deps):
+        raise RuntimeError("boom")
+
+    iterations: list[int] = []
+
+    def fake_periodic(stop_event, interval, run, *, clock=None, wait=None):
+        # Drive five real ticks without sleeping; the sixth check proves the
+        # loop was stopped by the failure counter, not by the 10-iteration cap.
+        for number in range(10):
+            if stop_event.is_set():
+                break
+            iterations.append(number)
+            run()
+
+    monkeypatch.setattr(main_module, "run_cycle", always_fail)
+    monkeypatch.setattr(main_module, "periodic_loop", fake_periodic)
+
+    code = main_module.main(["--only=tennis"])
+    output = capsys.readouterr().out
+
+    assert code != 0
+    assert iterations == [0, 1, 2, 3, 4]
+    assert "facility fatal consecutive_failures=5" in output
+    assert "poller fatal worker failure" in output

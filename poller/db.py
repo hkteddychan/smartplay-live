@@ -26,6 +26,7 @@ _SCHEMA = Path(__file__).with_name("schema.sql")
 
 EVENT_RETENTION_DAYS = 180
 SWEEP_RETENTION_DAYS = 7
+NOTIFY_CHUNK = 500  # rows per IN (...) so a large burst stays under SQLite's limit
 
 
 class EventLike(Protocol):
@@ -208,15 +209,19 @@ def mark_sale7_notified(
     ]
     if not columns:
         return 0
-    placeholders = ",".join("?" * len(seqs))
     marked = 0
     for column in columns:
-        cursor = conn.execute(
-            f"UPDATE events SET {column} = 1, notify_err = NULL "
-            f"WHERE seq IN ({placeholders}) AND kind = 'sale7'",
-            list(seqs),
-        )
-        marked = max(marked, cursor.rowcount)
+        total = 0
+        for start in range(0, len(seqs), NOTIFY_CHUNK):
+            chunk = list(seqs[start:start + NOTIFY_CHUNK])
+            placeholders = ",".join("?" * len(chunk))
+            cursor = conn.execute(
+                f"UPDATE events SET {column} = 1, notify_err = NULL "
+                f"WHERE seq IN ({placeholders}) AND kind = 'sale7'",
+                chunk,
+            )
+            total += cursor.rowcount
+        marked = max(marked, total)
     conn.commit()
     return marked
 
@@ -276,7 +281,6 @@ def upsert_activities(
     """
     rows = _activity_rows(records)
     if not rows:
-        conn.commit()
         return 0
 
     snapshot_hash = _snapshot_hash(rows)

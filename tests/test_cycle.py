@@ -510,6 +510,32 @@ def test_mark_notified_never_marks_sale7():
     assert (row["notified_tg"], row["notified_ntfy"]) == (0, 0)
 
 
+def test_mark_notified_chunks_large_bursts_under_the_parameter_limit():
+    conn = mem()
+    seqs = list(range(1, 1201))
+    conn.executemany(
+        "INSERT INTO events (seq, sport, venue, facility, date, start, \"end\", "
+        "kind, before, \"after\", ts) VALUES "
+        "(?, 'badminton', 'A館', '1號場', '2026-11-27', '19:00', '20:00', "
+        "'new', 0, 1, '2026-11-26T10:00:00+08:00')",
+        [(seq,) for seq in seqs],
+    )
+    conn.commit()
+
+    statements = []
+    conn.set_trace_callback(statements.append)
+    try:
+        _mark_notified(conn, seqs, "tg")
+    finally:
+        conn.set_trace_callback(None)
+
+    updates = [sql for sql in statements if sql.lstrip().upper().startswith("UPDATE")]
+    assert len(updates) == 3  # 500 + 500 + 200
+    assert conn.execute(
+        "SELECT COUNT(*) FROM events WHERE notified_tg = 1"
+    ).fetchone()[0] == 1200
+
+
 # --- R24: degraded allocator emits exactly one resync -----------------------
 
 

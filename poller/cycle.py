@@ -274,13 +274,15 @@ def _mark_notified(conn: sqlite3.Connection, seqs: list[int], via: str | None) -
     columns = [column for channel, column in
                (("tg", "notified_tg"), ("ntfy", "notified_ntfy"))
                if channel in channels]
-    placeholders = ",".join("?" * len(seqs))
     for column in columns:
-        conn.execute(
-            f"UPDATE events SET {column} = 1, notify_err = NULL "
-            f"WHERE seq IN ({placeholders}) AND kind IN ('new','inc')",
-            list(seqs),
-        )
+        for start in range(0, len(seqs), db.NOTIFY_CHUNK):
+            chunk = list(seqs[start:start + db.NOTIFY_CHUNK])
+            placeholders = ",".join("?" * len(chunk))
+            conn.execute(
+                f"UPDATE events SET {column} = 1, notify_err = NULL "
+                f"WHERE seq IN ({placeholders}) AND kind IN ('new','inc')",
+                chunk,
+            )
     conn.commit()
 
 
