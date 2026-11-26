@@ -1,5 +1,9 @@
+import sqlite3
 from contextlib import contextmanager
 
+import pytest
+
+import poller.db as db
 from poller.db import (
     connect,
     fetch_unsent_sale7,
@@ -278,3 +282,112 @@ def test_activity_hash_ignores_upstream_row_order():
 
     assert stored == 0
     assert _activity_writes(statements) == []
+
+
+# --- R56: first-start connection race ---------------------------------------
+
+
+class _FakeConn:
+    """Records pragmas so their order can be asserted without a real file."""
+
+    def __init__(self):
+        self.statements = []
+        self.row_factory = None
+        self.closed = False
+
+    def execute(self, sql, *args):
+        self.statements.append(sql)
+        return self
+
+    def close(self):
+        self.closed = True
+
+
+def test_connect_sets_busy_timeout_before_switching_to_wal(monkeypatch):
+    """R56: the timeout must exist before the WAL switch can contend."""
+    fake = _FakeConn()
+    monkeypatch.setattr(db.sqlite3, "connect", lambda path: fake)
+
+    db.connect("state.db")
+
+    pragmas = [sql for sql in fake.statements if sql.upper().startswith("PRAGMA")]
+    assert pragmas[0] == f"PRAGMA busy_timeout={db.BUSY_TIMEOUT_MS}"
+    assert any("journal_mode=WAL" in sql for sql in pragmas)
+
+
+def test_connect_retries_a_locked_database_then_succeeds(monkeypatch):
+    """Both workers may race the WAL switch on a brand-new state.db."""
+    real_connect = sqlite3.connect
+    calls = []
+    sleeps = []
+
+    def flaky(path):
+        calls.append(path)
+        if len(calls) < 3:
+            raise sqlite3.OperationalError("database is locked")
+        return real_connect(":memory:")
+
+    monkeypatch.setattr(db.sqlite3, "connect", flaky)
+
+    conn = db.connect("state.db", sleep=sleeps.append)
+
+    assert len(calls) == 3
+    assert sleeps == [0.2, 0.5]
+    assert conn.execute("PRAGMA busy_timeout").fetchone()[0] == db.BUSY_TIMEOUT_MS
+
+
+def test_connect_gives_up_after_three_retries(monkeypatch):
+    calls = []
+    sleeps = []
+
+    def always_locked(path):
+        calls.append(path)
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(db.sqlite3, "connect", always_locked)
+
+    with pytest.raises(sqlite3.OperationalError, match="database is locked"):
+        db.connect("state.db", sleep=sleeps.append)
+
+    assert len(calls) == 4  # initial attempt + 3 retries
+    assert sleeps == [0.2, 0.5, 1.0]
+
+
+def test_connect_does_not_retry_unrelated_operational_errors(monkeypatch):
+    calls = []
+
+    def broken(path):
+        calls.append(path)
+        raise sqlite3.OperationalError("unable to open database file")
+
+    monkeypatch.setattr(db.sqlite3, "connect", broken)
+
+    with pytest.raises(sqlite3.OperationalError, match="unable to open"):
+        db.connect("state.db", sleep=lambda _: pytest.fail("must not back off"))
+
+    assert calls == ["state.db"]
+
+
+def test_connect_backoff_prefers_the_stop_event_wait(monkeypatch):
+    """A worker passes its stop_event; backoff must go through its wait()."""
+    real_connect = sqlite3.connect
+    calls = []
+    waits = []
+
+    class _Event:
+        def wait(self, timeout):
+            waits.append(timeout)
+            return False
+
+    def flaky(path):
+        calls.append(path)
+        if len(calls) < 2:
+            raise sqlite3.OperationalError("database is locked")
+        return real_connect(":memory:")
+
+    monkeypatch.setattr(db.sqlite3, "connect", flaky)
+
+    db.connect("state.db", stop_event=_Event())
+
+    assert len(calls) == 2
+    assert waits == [0.2]

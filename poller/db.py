@@ -14,9 +14,11 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+import threading
+import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Protocol
+from typing import Callable, Protocol
 
 from poller.parse import Session
 
@@ -27,6 +29,10 @@ _SCHEMA = Path(__file__).with_name("schema.sql")
 EVENT_RETENTION_DAYS = 180
 SWEEP_RETENTION_DAYS = 7
 NOTIFY_CHUNK = 500  # rows per IN (...) so a large burst stays under SQLite's limit
+
+BUSY_TIMEOUT_MS = 5000
+CONNECT_RETRIES = 3
+CONNECT_BACKOFF = (0.2, 0.5, 1.0)
 
 
 class EventLike(Protocol):
@@ -49,17 +55,70 @@ class EventLike(Protocol):
     seq: int
 
 
-def connect(path: str) -> sqlite3.Connection:
+def _connect_once(path: str) -> sqlite3.Connection:
+    """Open one connection, with ``busy_timeout`` set before the WAL switch.
+
+    R56: ``PRAGMA journal_mode=WAL`` itself takes a lock. Two workers opening
+    a brand-new ``state.db`` at the same moment can collide there, so the busy
+    timeout must already be in force when that pragma runs.
+    """
+    conn = sqlite3.connect(path)
+    try:
+        conn.row_factory = sqlite3.Row
+        conn.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+    except sqlite3.OperationalError:
+        conn.close()
+        raise
+    return conn
+
+
+def _retry_connect(
+    connector: Callable[[], sqlite3.Connection],
+    *,
+    retries: int = CONNECT_RETRIES,
+    backoff: tuple[float, ...] = CONNECT_BACKOFF,
+    wait: Callable[[float], object] | None = None,
+) -> sqlite3.Connection:
+    """Call ``connector``, retrying a locked/busy database with a short backoff.
+
+    R56: a first-start lock race must not kill a worker thread; ``main()``
+    only notices a dead pair, so one dead worker would leave the unit
+    half-alive. Non-lock operational errors (bad path, bad permissions) are
+    real faults and are re-raised immediately.
+    """
+    pause = wait if wait is not None else time.sleep
+    for attempt in range(retries + 1):
+        try:
+            return connector()
+        except sqlite3.OperationalError as exc:
+            message = str(exc).lower()
+            if "locked" not in message and "busy" not in message:
+                raise
+            if attempt == retries:
+                raise
+            pause(backoff[min(attempt, len(backoff) - 1)])
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
+def connect(
+    path: str,
+    *,
+    stop_event: threading.Event | None = None,
+    sleep: Callable[[float], object] | None = None,
+) -> sqlite3.Connection:
     """Open the database with WAL journalling and dict-like rows.
 
     On ``:memory:`` the WAL pragma reports ``memory`` instead of ``wal``;
-    that is expected and harmless.
+    that is expected and harmless. A locked database is retried up to
+    ``CONNECT_RETRIES`` times (R56); pass ``stop_event`` to make the backoff
+    interruptible or ``sleep`` to inject a deterministic waiter in tests.
     """
-    conn = sqlite3.connect(path)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA synchronous=NORMAL")
-    return conn
+    wait = sleep if sleep is not None else (
+        stop_event.wait if stop_event is not None else None
+    )
+    return _retry_connect(lambda: _connect_once(path), wait=wait)
 
 
 def init_db(conn: sqlite3.Connection) -> None:
