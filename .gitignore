@@ -1,5 +1,12 @@
-__pycache__/
-*.pyc
-state.db*
-.env
-cookies.json
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+app/build/
+captures
+.externalNativeBuild
+.cxx
+*.jks
+keystore.properties
