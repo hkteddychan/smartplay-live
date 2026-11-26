@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">PlayFinder</string>
+    <string name="disclaimer">資料來源：康文署 SmartPLAY 開放數據（每 2 分鐘鏡像）。餘額以官方 App 最終確認為準，本應用僅供參考。</string>
+</resources>
