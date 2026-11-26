@@ -51,7 +51,11 @@ class Settings:
         return cls(
             tg_token=tg_token,
             tg_chat=os.environ.get("TG_CHAT", "5200360037"),
-            tg_thread=int(os.environ.get("TG_THREAD", "68130")),
+            # R63: a positive chat_id here is a private chat — it has no forum
+        # topics, so a non-zero default made every sendMessage 400. The
+        # working v4 path sent WITHOUT a thread; topics are opt-in via
+        # TG_THREAD=<topic id> once the destination chat is a forum.
+        tg_thread=int(os.environ.get("TG_THREAD", "0")),
             ntfy_url=os.environ.get("NTFY_URL", ""),
             r2_endpoint=os.environ.get("R2_ENDPOINT", ""),
             r2_bucket=os.environ.get("R2_BUCKET", ""),
