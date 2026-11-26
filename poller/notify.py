@@ -87,6 +87,18 @@ def _format_date(value: date | str) -> str:
     return f"{d.month:02d}-{d.day:02d} ({_WEEKDAYS[d.weekday()]})"
 
 
+def _is_prime_time(ev: Event) -> bool:
+    """Mon-Fri 19:00-22:00 session (Teddy 2026-11-26): weekday + evening slot."""
+    if ev.date.weekday() > 4:          # 5=Sat, 6=Sun
+        return False
+    try:
+        h, m = ev.start.split(":", 1)
+        minutes = int(h) * 60 + int(m)
+    except (ValueError, AttributeError):
+        return False
+    return 19 * 60 <= minutes < 22 * 60
+
+
 def _format_line(ev: Event, mixed: bool = False) -> str:
     if ev.kind == "new":
         note = " (新)"
@@ -100,9 +112,10 @@ def _format_line(ev: Event, mixed: bool = False) -> str:
         note = ""
     # A mixed-sport batch cannot rely on the header alone: label every line.
     label = f"[{sport_name(ev.sport)}] " if mixed else ""
+    tick = "✅" if _is_prime_time(ev) else ""
     return (
         f"• {label}{_format_date(ev.date)} {ev.start}-{ev.end} "
-        f"{ev.venue} {ev.facility} {ev.before}→{ev.after}{note}"
+        f"{ev.venue} {ev.facility} {ev.before}→{ev.after}{note}{tick}"
     )
 
 

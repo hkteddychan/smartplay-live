@@ -228,6 +228,36 @@ def test_empty_after_filter_sends_nothing(monkeypatch):
     assert result.delivered is True and result.via is None
 
 
+# --- prime-time tick (Mon-Fri 19:00-22:00) ---------------------------------
+
+def test_prime_time_weekday_evening_session_gets_tick():
+    # 2026-11-26 is a Thursday (四); 20:00-21:00 falls inside 19:00-22:00
+    n = Notifier(make_settings(), http=FakeHttp())
+    text = n.format_batch([ev(day=date(2026, 11, 26), start="20:00", end="21:00")])
+    assert "✅" in text
+    assert "(新)✅" in text
+
+
+def test_prime_time_tick_not_added_on_weekend():
+    # 2026-11-28 is a Saturday (六)
+    n = Notifier(make_settings(), http=FakeHttp())
+    text = n.format_batch([ev(day=date(2026, 11, 28), start="20:00", end="21:00")])
+    assert "✅" not in text
+
+
+def test_prime_time_tick_not_added_outside_hours():
+    n = Notifier(make_settings(), http=FakeHttp())
+    text = n.format_batch([ev(day=date(2026, 11, 26), start="10:00", end="11:00")])
+    assert "✅" not in text
+
+
+def test_prime_time_tick_not_added_at_2200_boundary():
+    # 22:00 start is outside the 19:00-22:00 window
+    n = Notifier(make_settings(), http=FakeHttp())
+    text = n.format_batch([ev(day=date(2026, 11, 26), start="22:00", end="23:00")])
+    assert "✅" not in text
+
+
 # --- sport naming (Teddy 2026-11-26: every message says which sport) --------
 
 @pytest.mark.parametrize("slug,name,emoji", [
