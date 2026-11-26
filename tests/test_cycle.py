@@ -146,7 +146,9 @@ def seed(conn, *sessions):
 
 
 def make_deps(conn=None, fetcher=None, allocator=None, notifier=None, now=NOW,
-              gate=None, clock=None, parse=None):
+              gate=None, clock=None, parse=None, baseline=False):
+    # baseline=False keeps the historical event-focused tests focused; the
+    # auto-detected production behaviour (None) is covered by the R59 tests.
     return Deps(
         conn=conn if conn is not None else mem(),
         gate=gate or FakeGate(),
@@ -155,6 +157,7 @@ def make_deps(conn=None, fetcher=None, allocator=None, notifier=None, now=NOW,
         now_hk=now,
         fetch=fetcher or FakeFetcher(),
         clock=clock or FakeClock(0.0, 0.0),
+        baseline=baseline,
         **({"parse": parse} if parse is not None else {}),
     )
 
@@ -666,6 +669,70 @@ def test_resync_not_emitted_when_allocator_healthy():
     conn = mem()
     result = run_cycle(make_deps(conn=conn))
     assert result.events == 0 and event_rows(conn) == []
+
+
+# --- R59: first-run baseline -------------------------------------------------
+
+
+def test_empty_db_round_is_a_silent_baseline():
+    """R59: an empty DB means 100% of sessions are "new" — never emit them."""
+    conn = mem()
+    records = [rec(TODAY, facility=f"{i}號場") for i in range(1, 101)]
+    notifier = FakeNotifier()
+    allocator = FakeAllocator()
+
+    result = run_cycle(make_deps(
+        conn=conn, fetcher=FakeFetcher(payload={"badminton": records}),
+        notifier=notifier, allocator=allocator, baseline=None,
+    ))
+
+    assert result.baseline is True
+    assert result.events == 0 and result.sent == 0 and result.parked == 0
+    assert notifier.calls == 0
+    assert allocator.calls == []
+    assert event_rows(conn) == []
+    assert conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 100
+    assert sweep(conn)["note"] == "baseline"
+
+
+def test_seed_forces_a_baseline_even_when_sessions_exist():
+    conn = mem()
+    seed(conn, Session("badminton", "A館", "1號場", TODAY, "19:00", "20:00", 1))
+    notifier = FakeNotifier()
+    allocator = FakeAllocator()
+
+    result = run_cycle(make_deps(
+        conn=conn, notifier=notifier, allocator=allocator, baseline=True,
+        fetcher=FakeFetcher(payload={"badminton": [
+            rec(TODAY, facility="1號場"), rec(TODAY, facility="2號場"),
+        ]}),
+    ))
+
+    assert result.baseline is True
+    assert event_rows(conn) == []
+    assert notifier.calls == 0 and allocator.calls == []
+    assert conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 2
+
+
+def test_second_round_emits_events_normally_after_a_baseline():
+    conn = mem()
+    day = TODAY + timedelta(days=1)
+    records = [rec(day, facility=f"{i}號場") for i in range(1, 101)]
+    run_cycle(make_deps(
+        conn=conn, fetcher=FakeFetcher(payload={"badminton": records}),
+        baseline=None,
+    ))
+    records.append(rec(day, facility="999號場"))
+    notifier = FakeNotifier()
+
+    result = run_cycle(make_deps(
+        conn=conn, fetcher=FakeFetcher(payload={"badminton": records}),
+        notifier=notifier, baseline=None,
+    ))
+
+    assert result.baseline is False
+    assert result.events == 1
+    assert [row["kind"] for row in event_rows(conn)] == ["new"]
 
 
 # --- I3: relative payload guard ---------------------------------------------

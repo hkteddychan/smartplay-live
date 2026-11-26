@@ -70,6 +70,9 @@ class Deps:
     # Task 11's --only smoke path can narrow a round to one dataset. The
     # default keeps the production five-sport round unchanged.
     sports: list[str] = field(default_factory=lambda: list(SPORTS))
+    # R59: None = decide from the sessions table, True = force a baseline
+    # (``--seed``), False = never baseline (tests of the event path).
+    baseline: bool | None = None
 
 
 @dataclass
@@ -91,6 +94,8 @@ class CycleResult:
     backoff_seconds: float = 0.0
     # R58: "r2" (Worker counter, possibly degraded) or "local" (no R2 at all).
     seq_source: str = "r2"
+    # R59: this round only established the first snapshot (no events sent).
+    baseline: bool = False
 
 
 def run_cycle(deps: Deps) -> CycleResult:
@@ -100,6 +105,7 @@ def run_cycle(deps: Deps) -> CycleResult:
     prev = db.load_sessions(deps.conn)
     today_hk = deps.now_hk.date()
     seq_source = getattr(deps.allocator, "seq_source", "r2")
+    baseline = deps.baseline if deps.baseline is not None else not prev
 
     # Phase 1 — network + parsing only. Nothing is written until the whole
     # sweep is known, so a GateBackoff cannot leave a half-applied snapshot.
@@ -175,6 +181,36 @@ def run_cycle(deps: Deps) -> CycleResult:
         all_sessions.extend(sessions)
         for session in sessions:
             cur[session.key()] = session.courts
+
+    if baseline:
+        # R59: with an empty sessions table every fetched session would be
+        # "new" — ~40k events and thousands of messages on first start. Store
+        # the snapshot, say nothing, and let the next round diff against it.
+        if all_sessions:
+            db.upsert_sessions(deps.conn, all_sessions, ts)
+        for sport in deps.sports:
+            ok, _, nbytes, error, nrows = outcomes[sport]
+            _update_dataset_status(deps.conn, sport, ok, nbytes, ts, error, nrows)
+        ms = _elapsed_ms(started, deps.clock())
+        _log_sweep(
+            deps, ts, ms, bytes_total, ds_ok, ds_total, deps.gate.state,
+            "baseline",
+        )
+        return CycleResult(
+            ok=ds_ok == len(deps.sports),
+            degraded=ds_ok in (3, 4),
+            aborted=False,
+            ms=ms,
+            bytes=bytes_total,
+            ds_ok=ds_ok,
+            ds_total=ds_total,
+            waf_state=deps.gate.state,
+            events=0,
+            sent=0,
+            parked=0,
+            seq_source=seq_source,
+            baseline=True,
+        )
 
     events: list[Event] = []
     for sport in deps.sports:

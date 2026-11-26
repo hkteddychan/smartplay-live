@@ -226,6 +226,7 @@ def facility_once(
     now_hk: datetime,
     *,
     run: Callable[[Deps], CycleResult] | None = None,
+    seed: bool = False,
     log: Log = log,
 ) -> CycleResult:
     """One facility round restricted to ``sports`` (``--only`` friendly)."""
@@ -237,6 +238,7 @@ def facility_once(
         notifier=notifier,
         now_hk=now_hk,
         sports=sports,
+        baseline=True if seed else None,
     )
     result = (run or run_cycle)(deps)
     log(_result_line(result, _session_count(conn, sports)))
@@ -296,9 +298,14 @@ def facility_loop(
     clock: Callable[[], float] = time.monotonic,
     wait: Callable[[float], bool] | None = None,
     fatal_event: threading.Event | None = None,
+    seed: bool = False,
     log: Log = log,
 ) -> None:
     """Facility round + sale7 summary, once per target cycle.
+
+    R59: ``seed`` forces exactly the first round to be a silent baseline, so
+    ``poller --seed`` can re-baseline a populated DB without disabling diffing
+    forever.
 
     R54: a run that keeps raising must not log forever while the unit stays
     ``active``. After ``MAX_CONSECUTIVE_FAILURES`` failed rounds the shared
@@ -306,14 +313,16 @@ def facility_loop(
     ``main()`` exits non-zero so systemd restarts the service.
     """
     failures = 0
+    seed_first = seed
     wait_for_stop = wait if wait is not None else stop_event.wait
 
     def tick() -> None:
-        nonlocal failures
+        nonlocal failures, seed_first
+        use_seed, seed_first = seed_first, False
         try:
             result = facility_once(
                 conn, gate, allocator, notifier, sports, now(),
-                run=run, log=log,
+                run=run, seed=use_seed, log=log,
             )
         except Exception as exc:  # a bad round must not kill the thread
             log(f"facility cycle_failed {type(exc).__name__}")
@@ -419,6 +428,7 @@ def facility_worker(
     now: Callable[[], datetime] = lambda: datetime.now(HK),
     clock: Callable[[], float] = time.monotonic,
     wait: Callable[[float], bool] | None = None,
+    seed: bool = False,
     log: Log = log,
 ) -> None:
     """Open the facility connection *inside* this thread, then run the loop.
@@ -442,6 +452,7 @@ def facility_worker(
             clock=clock,
             wait=wait,
             fatal_event=fatal_event,
+            seed=seed,
             log=log,
         )
     finally:
@@ -655,6 +666,7 @@ def _plan_text(args: argparse.Namespace) -> str:
             "shutdown : SIGTERM/SIGINT sets an event; workers stop between "
             "iterations",
             f"once     : {'yes' if args.once else 'no'}",
+            f"seed     : {'yes (first facility round only)' if args.seed else 'no'}",
             f"db       : {os.environ.get('DB_PATH', '/opt/smartplay/state.db')}",
         ]
     )
@@ -675,6 +687,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dry-run", action="store_true",
         help="print the plan; no network, no database, no credentials",
+    )
+    parser.add_argument(
+        "--seed", action="store_true",
+        help="make the first facility round a silent baseline (R59): persist "
+             "sessions without emitting events or sending anything",
     )
     return parser
 
@@ -702,7 +719,7 @@ def main(argv: list[str] | None = None) -> int:
             if sports:
                 result = facility_once(
                     conn, gate, allocator, Notifier(settings, conn=conn),
-                    sports, datetime.now(HK),
+                    sports, datetime.now(HK), seed=args.seed,
                 )
                 return 0 if result.ok else 1
             return 0 if activity_once(conn, gate, datetime.now(HK)) else 1
@@ -723,6 +740,7 @@ def main(argv: list[str] | None = None) -> int:
                     "allocator": allocator,
                     "sports": sports,
                     "fatal_event": fatal_event,
+                    "seed": args.seed,
                 },
             )
         )

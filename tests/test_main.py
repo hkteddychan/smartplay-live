@@ -516,6 +516,65 @@ def test_facility_once_passes_the_selected_subset_to_the_cycle():
     assert captured["sports"] == ["tennis"]
 
 
+def test_seed_flag_forces_a_baseline_round_in_main(monkeypatch, tmp_path):
+    """R59: --seed re-baselines even when the sessions table is populated."""
+    monkeypatch.setenv("TG_TOKEN", "t")
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "state.db"))
+    monkeypatch.setenv("COOKIES_PATH", str(tmp_path / "cookies.json"))
+    monkeypatch.setenv("SEQ_URL", "")
+    monkeypatch.setenv("SEQ_LOCAL_PATH", str(tmp_path / "seq.json"))
+
+    conn = db.connect(str(tmp_path / "state.db"))
+    db.init_db(conn)
+    db.upsert_sessions(
+        conn,
+        [Session("tennis", "A館", "1號場", date(2026, 11, 27), "19:00", "20:00", 1)],
+        NOW.isoformat(timespec="seconds"),
+    )
+    conn.close()
+
+    captured = {}
+
+    def fake_run(deps):
+        captured["baseline"] = deps.baseline
+        return CycleResult(
+            ok=True, degraded=False, aborted=False, ms=1, bytes=10,
+            ds_ok=1, ds_total=1, waf_state="ok", events=0, sent=0, parked=0,
+        )
+
+    monkeypatch.setattr(main_module, "run_cycle", fake_run)
+
+    assert main_module.main(["--once", "--seed", "--only=tennis"]) == 0
+    assert captured["baseline"] is True
+
+    main_module.main(["--once", "--only=tennis"])
+    assert captured["baseline"] is None       # auto-detect when not seeding
+
+
+def test_seed_only_affects_the_first_long_running_round():
+    baselines = []
+    result = CycleResult(
+        ok=True, degraded=False, aborted=False, ms=1, bytes=1,
+        ds_ok=1, ds_total=1, waf_state="ok", events=0, sent=0, parked=0,
+    )
+
+    def run(deps):
+        baselines.append(deps.baseline)
+        return result
+
+    stop = threading.Event()
+    clock = FakeClock()
+    wait = FakeWait(clock, stop, stop_at=120.0)
+    facility_loop(
+        stop, conn=mem(), gate=FakeGate(), allocator=FakeAllocator(),
+        notifier=FakeCycleNotifier(), sports=["tennis"], run=run,
+        summary=lambda *args: 0, now=lambda: NOW, clock=clock, wait=wait,
+        seed=True, log=lambda _: None,
+    )
+
+    assert baselines == [True, None]
+
+
 def test_seq_allocator_seeds_local_counter_from_the_events_table(
     monkeypatch, tmp_path
 ):
