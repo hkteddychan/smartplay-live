@@ -55,7 +55,7 @@ class PlayFinderRepository @Inject constructor(
         fetchAndCache(sport)
     }
 
-    /** Pending release events, oldest first. */
+    /** Pending release events, newest first. */
     suspend fun pendingReleaseEvents(limit: Int): List<ReleaseEventEntity> =
         releaseEventDao.pending(limit)
 
@@ -63,9 +63,25 @@ class PlayFinderRepository @Inject constructor(
         if (ids.isNotEmpty()) releaseEventDao.deleteByIds(ids)
     }
 
-    private fun SlotEntity.toReleaseEvent(sport: String) = ReleaseEventEntity(        id = "$sport|$venue|$facility|$location|$date|$startTime",
+    /** Housekeeping: drops events nobody will ever be notified about. */
+    suspend fun pruneReleaseEvents(olderThanMillis: Long) {
+        releaseEventDao.deleteOlderThan(System.currentTimeMillis() - olderThanMillis)
+    }
+
+    /**
+     * The availability of a session right now, or `null` when the session is no
+     * longer in the cache. Used to skip a release that was booked again
+     * before the notification went out.
+     */
+    suspend fun currentAvailability(e: ReleaseEventEntity): Int? =
+        slotDao.getByKey(e.sport, e.venue, e.facility, e.location, e.date, e.startTime)?.available
+
+    private fun SlotEntity.toReleaseEvent(sport: String) = ReleaseEventEntity(
+        id = "$sport|$venue|$facility|$location|$date|$startTime",
         sport = sport,
         venue = venue,
+        facility = facility,
+        location = location,
         district = district,
         date = date,
         startTime = startTime,

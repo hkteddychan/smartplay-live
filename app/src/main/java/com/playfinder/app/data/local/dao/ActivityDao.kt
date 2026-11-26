@@ -13,7 +13,12 @@ interface ActivityDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(activities: List<ActivityEntity>)
 
-    @Query("SELECT * FROM activities WHERE (:district = '' OR district = :district) AND (:type = '' OR type = :type) AND startDate BETWEEN :from AND :to ORDER BY startDate, startTime")
+    /**
+     * Activities that are running or start inside the window. A course with
+     * `PGM_START_DATE` in the past and `PGM_END_DATE` in the future is still
+     * running, so it must not be filtered out by the start date.
+     */
+    @Query("SELECT * FROM activities WHERE (:district = '' OR district = :district) AND (:type = '' OR type = :type) AND startDate <= :to AND (endDate = '' OR endDate >= :from) ORDER BY startDate, startTime")
     fun observe(district: String, type: String, from: String, to: String): Flow<List<ActivityEntity>>
 
     @Query("SELECT * FROM activities ORDER BY startDate, startTime")

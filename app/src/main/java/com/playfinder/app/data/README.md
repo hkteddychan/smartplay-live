@@ -21,6 +21,8 @@ feed-api Worker would be added later.
     cache, and record release events
   - `suspend pendingReleaseEvents(limit: Int): List<ReleaseEventEntity>`
   - `suspend clearReleaseEvents(ids: List<String>)`
+  - `suspend pruneReleaseEvents(olderThanMillis: Long)`
+  - `suspend currentAvailability(e: ReleaseEventEntity): Int?`
 - `ActivityRepository` — `@Singleton`, injected with `LcsdApi` + `ActivityDao`
   - `observe(district: String, type: String, from: String, to: String): Flow<List<ActivityEntity>>`
   - `observeAll(): Flow<List<ActivityEntity>>`
@@ -42,6 +44,9 @@ feed-api Worker would be added later.
   to `0` when the upstream value is missing or unparsable.
 - A release event is recorded only when the previous snapshot for that sport
   was non-empty, so the first snapshot never produces a flood of events.
+- Release events are keyed by the session identity and inserted with
+  `OnConflictStrategy.REPLACE`, so a session that gains courts twice keeps the
+  latest count instead of a stale one.
 - The data package performs no DataStore, notification, or WorkManager work.
 
 ## Side Effects

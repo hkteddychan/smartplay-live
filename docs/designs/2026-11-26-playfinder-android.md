@@ -236,9 +236,10 @@ user.
 
 ### 4. Programme activities
 District and activity-type filters, a free-text search, a date range
-(全部 / 未來 7 日 / 未來 30 日) and cards showing venue, date, time, day,
+(由今日起 / 未來 7 日 / 未來 30 日) and cards showing venue, date, time, day,
 registration period, fee, quota, places left, target group and enrolment
-method. Each card opens the LCSD registration URL from the feed.
+method. A course that started earlier and is still running stays in the list.
+Each card opens the LCSD registration URL from the feed.
 
 ### 5. Watchlist and push
 - Long-press a session to watch its sport, district and venue. A watchlist
@@ -249,8 +250,10 @@ method. Each card opens the LCSD registration URL from the feed.
 - A push grant lasts one week and is bought with one rewarded video plus a
   three-minute in-app stay.
 - The background poller refreshes the snapshot every 15 minutes and posts a
-  notification for every session whose availability increased since the
-  previous snapshot — each session is announced once.
+  notification for each **matching** session whose availability increased
+  since the previous snapshot — each session is announced once, at most 20
+  notifications go out per poll, and a session that was booked again in the
+  meantime is dropped instead of announced.
 - Quiet hours are **off** by default; switching them on sets 23:00–07:00, and
   notifications are held back until the window closes.
 
@@ -323,9 +326,13 @@ countdown lives on the Notifications tab, so leaving that tab cancels it.
 
 The per-package contracts under `app/src/main/java/com/playfinder/app/` are
 the component-level source of truth for interfaces, invariants and side
-effects: [app](../app/README.md), [core](../app/core/README.md),
-[data](../app/data/README.md), [alerts](../app/alerts/README.md),
-[ads](../app/ads/README.md), [di](../app/di/README.md), [ui](../app/ui/README.md).
+effects: [app](../../app/src/main/java/com/playfinder/app/README.md),
+[core](../../app/src/main/java/com/playfinder/app/core/README.md),
+[data](../../app/src/main/java/com/playfinder/app/data/README.md),
+[alerts](../../app/src/main/java/com/playfinder/app/alerts/README.md),
+[ads](../../app/src/main/java/com/playfinder/app/ads/README.md),
+[di](../../app/src/main/java/com/playfinder/app/di/README.md),
+[ui](../../app/src/main/java/com/playfinder/app/ui/README.md).
 
 ---
 

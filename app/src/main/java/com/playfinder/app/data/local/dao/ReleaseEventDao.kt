@@ -9,10 +9,16 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ReleaseEventDao {
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    /**
+     * REPLACE, not IGNORE: a session can gain courts twice. The newer row
+     * replaces the older one so the notification always carries the latest
+     * count instead of a stale one.
+     */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(events: List<ReleaseEventEntity>)
 
-    @Query("SELECT * FROM release_events ORDER BY detectedAt LIMIT :limit")
+    /** Newest first, so a fresh release is never starved by older rows. */
+    @Query("SELECT * FROM release_events ORDER BY detectedAt DESC LIMIT :limit")
     suspend fun pending(limit: Int): List<ReleaseEventEntity>
 
     @Query("DELETE FROM release_events WHERE id IN (:ids)")

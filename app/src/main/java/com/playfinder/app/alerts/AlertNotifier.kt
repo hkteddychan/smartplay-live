@@ -23,12 +23,17 @@ object AlertNotifier {
         }
     }
 
-    fun notifyRelease(ctx: Context, id: Int, title: String, text: String) {
+    /**
+     * Posts the notification. Returns false when it could not be posted (no
+     * notification permission on API 33+, or the platform refused it), so the
+     * caller can keep the release event instead of losing it.
+     */
+    fun notifyRelease(ctx: Context, id: Int, title: String, text: String): Boolean {
         ensureChannel(ctx)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS)
             != PackageManager.PERMISSION_GRANTED
-        ) return
+        ) return false
 
         val n = NotificationCompat.Builder(ctx, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_notify)
@@ -37,6 +42,9 @@ object AlertNotifier {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .build()
-        NotificationManagerCompat.from(ctx).notify(id, n)
+        return runCatching {
+            NotificationManagerCompat.from(ctx).notify(id, n)
+            true
+        }.getOrDefault(false)
     }
 }

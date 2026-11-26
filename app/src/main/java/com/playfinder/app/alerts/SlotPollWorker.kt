@@ -56,30 +56,54 @@ class SlotPollWorker @AssistedInject constructor(
             }
         }
 
-        val events = repo.pendingReleaseEvents(MAX_EVENTS)
+        // Housekeeping: an event nobody matched is dropped after a day so the
+        // table cannot grow without bound.
+        repo.pruneReleaseEvents(EVENT_TTL_MS)
+
+        val events = repo.pendingReleaseEvents(MAX_CANDIDATES)
             .filter { matches(wl, it) }
+            .take(MAX_NOTIFICATIONS)
 
         // During quiet hours the events stay pending, so the alert is still
-        // delivered once the quiet window ends.
-        if (!events.isEmpty() && !(wl.quietHoursEnabled && inQuietWindow(wl))) {
-            events.forEach { e ->
-                AlertNotifier.notifyRelease(
-                    applicationContext,
-                    // Stable per-session id: two different sessions must not
-                    // overwrite each other's notification.
-                    e.id.hashCode(),
-                    "放場通知 · ${sportLabel(e.sport)}",
-                    "${e.venue} ${e.date} ${e.startTime}-${e.endTime} · 餘 ${e.available} 位"
-                )
+        // delivered once the quiet window closes.
+        if (events.isNotEmpty() && !(wl.quietHoursEnabled && inQuietWindow(wl))) {
+            val delivered = mutableListOf<String>()
+            val dropped = mutableListOf<String>()
+            for (e in events) {
+                val current = repo.currentAvailability(e)
+                when {
+                    current == null || current <= 0 ->
+                        // The session was booked again before the notification
+                        // went out: drop it instead of announcing a full court.
+                        dropped += e.id
+                    AlertNotifier.notifyRelease(
+                        applicationContext,
+                        // Stable per-session id: two different sessions must not
+                        // overwrite each other's notification.
+                        e.id.hashCode(),
+                        "放場通知 · ${sportLabel(e.sport)}",
+                        "${e.venue} ${e.date} ${e.startTime}-${e.endTime} · 餘 $current 位"
+                    ) -> delivered += e.id
+                    else -> {
+                        // The notification could not be posted (no permission):
+                        // keep the event so it can be delivered later.
+                    }
+                }
             }
-            repo.clearReleaseEvents(events.map { it.id })
+            repo.clearReleaseEvents(delivered + dropped)
         }
 
-        return if (networkFailure) Result.retry() else Result.success()
+        // A permanently offline device must not turn into an endless retry
+        // loop; WorkManager's backoff would replace the 15-minute cadence.
+        return if (networkFailure && runAttemptCount < MAX_ATTEMPTS) {
+            Result.retry()
+        } else {
+            Result.success()
+        }
     }
 
     private fun matches(wl: Watchlist, e: ReleaseEventEntity): Boolean {
-        if (e.sport !in wl.sports && wl.sports.isNotEmpty()) return false
+        if (wl.sports.isNotEmpty() && e.sport !in wl.sports) return false
         if (wl.districts.isNotEmpty() && e.district !in wl.districts) return false
         if (wl.venues.isNotEmpty() && e.venue !in wl.venues) return false
 
@@ -116,6 +140,16 @@ class SlotPollWorker @AssistedInject constructor(
     }
 
     private companion object {
-        const val MAX_EVENTS = 20
+        /** How many pending events are inspected per poll before filtering. */
+        const val MAX_CANDIDATES = 200
+
+        /** How many notifications one poll may post. */
+        const val MAX_NOTIFICATIONS = 20
+
+        /** How many times a failing poll is retried before it is given up on. */
+        const val MAX_ATTEMPTS = 3
+
+        /** Unmatched events are dropped after this long. */
+        const val EVENT_TTL_MS = 24L * 3600 * 1000
     }
 }

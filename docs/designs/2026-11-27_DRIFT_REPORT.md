@@ -1,4 +1,13 @@
-# DRIFT REPORT
+# DRIFT REPORT — pre-fix baseline
+
+> **Status: baseline, superseded.** This report was produced on 2026-11-27
+> *before* the review cycle. Every item below was closed the same day, in the
+> code or in the documents; the current design is recorded in
+> [2026-11-26-playfinder-android.md](./2026-11-26-playfinder-android.md) and
+> the dispositions are in
+> [reviews/consolidated_review_report.md](./reviews/consolidated_review_report.md).
+> The quotes of the design below are from the 2026-11-26 draft and no longer
+> match the rewritten specification.
 
 Generated 2026-11-27 by an EGM drift-report pass (fresh-context analyst,
 read-only) comparing the checked-in design documents with the current source.

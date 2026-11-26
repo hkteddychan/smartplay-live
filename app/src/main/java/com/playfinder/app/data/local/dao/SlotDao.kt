@@ -19,6 +19,16 @@ interface SlotDao {
     @Query("SELECT * FROM slots WHERE sport = :sport")
     suspend fun getBySport(sport: String): List<SlotEntity>
 
+    @Query("SELECT * FROM slots WHERE sport = :sport AND venue = :venue AND facility = :facility AND location = :location AND date = :date AND startTime = :startTime LIMIT 1")
+    suspend fun getByKey(
+        sport: String,
+        venue: String,
+        facility: String,
+        location: String,
+        date: String,
+        startTime: String
+    ): SlotEntity?
+
     @Query("DELETE FROM slots WHERE sport = :sport")
     suspend fun deleteBySport(sport: String)
 

@@ -60,9 +60,9 @@ the authoritative mapping, with the action that was actually taken.
 ## Global Constraints
 
 - Min SDK 26 (Android 8.0), target SDK 35
-- Kotlin 2.0+, Compose BOM 2024.12+
+- Kotlin 2.0+, Compose BOM 2024.12.01+
 - Package: `com.playfinder.app`
-- AdMob: the app id and rewarded unit id must replace Google's test ids before release (publisher `pub-2824936620876447`)
+- AdMob: the application id (`com.google.android.gms.ads.APPLICATION_ID`) and the rewarded unit id must replace Google's test ids before release. `pub-2824936620876447` is the AdSense publisher id; it appears only in `app/src/main/assets/ads.txt`.
 - LCSD API base: `https://data.smartplay.lcsd.gov.hk/rest/cms/api/v1/publ/contents/open-data/`
 - No user accounts, no personal data collection
 - Offline-first: Room caches last fetch
@@ -442,6 +442,9 @@ the authoritative mapping, with the action that was actually taken.
 - [ ] **Step 2: Build release APK** — `./gradlew assembleRelease` — Expected: BUILD SUCCESSFUL
 
 - [ ] **Step 3: Verify APK size** — should be < 15MB
+  → *As built: the debug APK is 19.3 MB; the R8-shrunk release bundle is
+  7.5 MB. The 15 MB target applies to a release APK, not to the debug build
+  with all Compose tooling included.*
 
 - [ ] **Step 4: Manual smoke test on emulator** — browse, search, watchlist, push subscription, deep link
 

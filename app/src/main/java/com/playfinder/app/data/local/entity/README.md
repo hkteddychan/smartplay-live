@@ -27,8 +27,9 @@ Indices: `district`, `type`, `startDate`.
 
 ### `ReleaseEventEntity` ([ReleaseEventEntity.kt](./ReleaseEventEntity.kt))
 Table `release_events`. Fields: `id` (String primary key, the session
-identity), `sport`, `venue`, `district`, `date`, `startTime`, `endTime`,
-`available: Int`, `detectedAt: Long`. Index: `detectedAt`.
+identity), `sport`, `venue`, `facility`, `location`, `district`, `date`,
+`startTime`, `endTime`, `available: Int`, `detectedAt: Long`. Index:
+`detectedAt`.
 
 ## Invariants
 

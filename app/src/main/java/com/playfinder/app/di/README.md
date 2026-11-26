@@ -11,6 +11,7 @@ and the Retrofit stack) and expose the DAOs.
 - `@Provides @Singleton fun provideDatabase(ctx: Context): PlayFinderDatabase`
 - `@Provides fun provideSlotDao(db: PlayFinderDatabase): SlotDao`
 - `@Provides fun provideActivityDao(db: PlayFinderDatabase): ActivityDao`
+- `@Provides fun provideReleaseEventDao(db: PlayFinderDatabase): ReleaseEventDao`
 
 ### `NetworkModule` ([NetworkModule.kt](./NetworkModule.kt))
 - `@Provides @Singleton fun provideMoshi(): Moshi`

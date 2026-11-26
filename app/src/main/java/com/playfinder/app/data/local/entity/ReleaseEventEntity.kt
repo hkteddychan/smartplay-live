@@ -15,6 +15,8 @@ data class ReleaseEventEntity(
     @PrimaryKey val id: String,
     val sport: String,
     val venue: String,
+    val facility: String,
+    val location: String,
     val district: String,
     val date: String,
     val startTime: String,

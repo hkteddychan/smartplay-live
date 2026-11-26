@@ -86,8 +86,10 @@ Subdirectories:
   exist; otherwise a relative "更新於" line is shown.
 - Activity filters re-issue the Room query for district/type/date range; the
   search term is applied in memory against the activity name or venue.
-- `ActivityRange` selects 全部日期 / 未來 7 日 / 未來 30 日; the range is pushed
-  into the SQL query as `startDate BETWEEN from AND to`.
+- `ActivityRange` selects 由今日起 / 未來 7 日 / 未來 30 日; the range is pushed
+  into the SQL query as `startDate <= :to AND (endDate = '' OR endDate >= :from)`,
+  so a course that started earlier and is still running stays in the list.
+  The default range starts today, so finished activities are never listed.
 - The ad gate is 180 seconds: the reward must be earned first, and the grant
   is only written after the countdown finishes. Leaving the screen cancels the
   countdown and forfeits the grant.

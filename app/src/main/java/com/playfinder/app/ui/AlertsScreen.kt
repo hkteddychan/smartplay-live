@@ -84,7 +84,8 @@ fun AlertsScreen() {
         WatchlistStore.grantPush(ctx, weeks = 1)
         adState = AdState.Idle
         message = "已開通 1 星期推播 🎉"
-        snackbar.showSnackbar("推播已開通，有效期 7 日")
+        // The scope survives the state change that cancelled this effect.
+        scope.launch { snackbar.showSnackbar("推播已開通，有效期 7 日") }
     }
 
     Scaffold(

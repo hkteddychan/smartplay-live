@@ -58,6 +58,13 @@ that was never called.
 | 31 | Per-slot booking deep links | several | Major | **Accepted.** SmartPLAY publishes no per-session URL; the limitation is documented instead of faked |
 | 32 | A server-side push broker with per-user topics | inventive catalyst | Major | **Deferred to v2.** Recorded in Alternatives B with its trade-offs, including the fact that a client-local grant cannot protect a server-side topic |
 | 33 | Repository, DAO and ViewModel test coverage | readiness | Major | **Partly fixed.** `ReleaseDetector` and `FilterEngine` are covered; the rest remain open and are listed in the audit |
+| 34 | WorkManager was initialised before Hilt injected the worker factory, so the worker could not be constructed | code-correctness pass | Blocker | **Fixed in the code.** The default initializer is removed in the manifest; `PlayFinderApp.onCreate` initialises WorkManager with the Hilt factory |
+| 35 | Unmatched release events starved every later release | code-correctness pass | Blocker | **Fixed in the code.** Newest-first ordering, filtering before the limit, 24-hour pruning |
+| 36 | A release was deleted even when the notification was not posted | code-correctness pass | Major | **Fixed in the code.** `notifyRelease` returns `Boolean` |
+| 37 | Running multi-week programmes were filtered out | code-correctness pass | Major | **Fixed in the code.** The activity query now spans the running period |
+| 38 | `Result.retry()` had no attempt cap | code-correctness pass | Major | **Fixed in the code.** Three attempts, then the poll gives up |
+| 39 | The event primary key swallowed a second release of the same session | code-correctness pass | Major | **Fixed in the code.** `REPLACE` keeps the newest count |
+| 40 | The release build was never exercised in CI | code-correctness pass | Nit | **Fixed.** CI now runs a release smoke test with a throwaway keystore |
 
 ## Traceability
 
@@ -75,7 +82,8 @@ that was never called.
 
 ## Status
 
-**Resolved.** Every blocker and major finding in the stage reports is either
-fixed in the code or corrected in the documents; the remainder is recorded as
-an explicit v2 item with a reason. The verification pass re-read the code and
-the documents and confirmed the remaining statements.
+**Resolved in the code, the specification and the plan.** Two artefacts still
+describe the pre-fix state and are labelled as such: the drift report
+(`2026-11-27_DRIFT_REPORT.md`, marked as a baseline) and the Lean lemmas in
+`docs/formal/PlayFinder.lean`, whose summary in `docs/AUDIT.md` has been
+narrowed to what the file actually states.

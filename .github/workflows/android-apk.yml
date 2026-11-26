@@ -71,3 +71,24 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      # R8 / resource shrinking is only exercised by a release build. The
+      # keystore below is a throwaway generated in the runner: it exists only
+      # so the release variant can be compiled and checked.
+      - name: Release smoke test (R8 + shrinking)
+        run: |
+          keytool -genkeypair -v -keystore ci-smoke.jks -alias ci \
+            -keyalg RSA -keysize 2048 -validity 1 \
+            -storepass ci -keypass ci \
+            -dname "CN=CI, O=PlayFinder, C=HK"
+          printf 'storeFile=ci-smoke.jks\nstorePassword=ci\nkeyAlias=ci\nkeyPassword=ci\n' > keystore.properties
+          ./gradlew --no-daemon bundleRelease
+          rm -f keystore.properties ci-smoke.jks
+
+      - name: Upload release bundle (unsigned artifact of the smoke test)
+        uses: actions/upload-artifact@v4
+        with:
+          name: playfinder-release-aab-smoke
+          path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 7

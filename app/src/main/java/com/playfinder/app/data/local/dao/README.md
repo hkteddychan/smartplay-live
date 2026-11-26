@@ -12,6 +12,7 @@ replaces that keep the cache from accumulating duplicates.
 - `suspend insertAll(slots: List<SlotEntity>)` — `@Insert(onConflict = REPLACE)`
 - `fun observeBySport(sport: String): Flow<List<SlotEntity>>` — ordered by date, startTime
 - `suspend getBySport(sport: String): List<SlotEntity>` — the previous snapshot, used for release detection
+- `suspend getByKey(sport, venue, facility, location, date, startTime): SlotEntity?` — the current state of one session
 - `suspend deleteBySport(sport: String)`
 - `suspend clearAll(): Int`
 - `suspend deleteStale(cutoff: Long): Int`
@@ -28,8 +29,8 @@ replaces that keep the cache from accumulating duplicates.
 - `@Transaction suspend replaceAll(activities: List<ActivityEntity>)`
 
 ### `ReleaseEventDao` ([ReleaseEventDao.kt](./ReleaseEventDao.kt))
-- `suspend insertAll(events: List<ReleaseEventEntity>)` — `OnConflictStrategy.IGNORE`
-- `suspend pending(limit: Int): List<ReleaseEventEntity>` — oldest first
+- `suspend insertAll(events: List<ReleaseEventEntity>)` — `OnConflictStrategy.REPLACE`
+- `suspend pending(limit: Int): List<ReleaseEventEntity>` — newest first
 - `suspend deleteByIds(ids: List<String>)`
 - `suspend deleteOlderThan(cutoff: Long): Int`
 - `fun observeCount(): Flow<Int>`

@@ -35,7 +35,9 @@ device and every notification is produced locally.
 
 ### `AlertNotifier` ([AlertNotifier.kt](./AlertNotifier.kt))
 - `fun ensureChannel(ctx)`
-- `fun notifyRelease(ctx, id: Int, title: String, text: String)`
+- `fun notifyRelease(ctx, id: Int, title: String, text: String): Boolean` — `false`
+  when the notification could not be posted (no permission, or the platform
+  refused it), so the caller can keep the release event
 
 ## Invariants
 
@@ -53,19 +55,34 @@ device and every notification is produced locally.
 - A session is announced **once**, because the release event is detected by
   comparing the snapshot before and after the fetch, not by a seen-key list.
   The first snapshot of a sport establishes the baseline and reports nothing.
+- Pending events are read **newest first** and the watchlist predicate is
+  applied before the notification limit, so a fresh release is never starved
+  by older rows that do not match the watchlist.
+- Events that do not match the watchlist are dropped after 24 hours, so the
+  table cannot grow without bound.
+- Before a notification goes out, the current availability is re-read from the
+  cache. A session that was booked again in the meantime is dropped instead
+  of being announced as available.
+- An event whose notification could not be posted (no notification permission)
+  is **kept**, so the alert is not lost.
 - The matching predicate: sport (when the watchlist has sports), district
   (empty = all), venue (empty = all), weekday (empty = all days), and a
   half-open time window.
 - Notification ids are derived from the session key, so two different sessions
   cannot overwrite each other's notification.
-- At most 20 pending events are read per poll, so a busy release wave cannot
-  flood the notification shade.
+- At most 20 notifications are posted per poll, and at most 3 attempts are
+  retried after a network failure: an offline device must not turn the poll
+  into an endless retry loop whose backoff replaces the 15-minute cadence.
 - During quiet hours the events stay pending and are delivered when the window
   closes.
-- On API 33+ `notifyRelease` returns without posting when
-  `POST_NOTIFICATIONS` is not granted.
+- On API 33+ `notifyRelease` returns `false` when `POST_NOTIFICATIONS` is not
+  granted.
 - The notification channel `playfinder_alerts` uses `IMPORTANCE_HIGH`;
   notifications are `PRIORITY_HIGH` and auto-cancel.
+- WorkManager is initialised by `PlayFinderApp.onCreate()` with the Hilt
+  worker factory; the default AndroidX Startup initializer is removed in the
+  manifest. Without that, the default reflection factory would be used and
+  `SlotPollWorker` could not be constructed.
 
 ## Side Effects
 

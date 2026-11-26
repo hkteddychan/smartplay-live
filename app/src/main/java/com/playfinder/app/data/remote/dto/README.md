@@ -21,7 +21,7 @@ One programme activity. All fields are nullable:
 `EN_ACT_TYPE_NAME`, `TC_DISTRICT`, `EN_DISTRICT`, `PGM_START_DATE`,
 `PGM_END_DATE`, `TC_DAY`, `PGM_START_TIME`, `PGM_END_TIME`, `TC_VENUE`,
 `TC_TARGET_GRP`, `FEE: Double?`, `QUOTA: Int?`, `PLACES_LEFT: Int?`,
-`ENROL_METHOD`, `TC_URL`.
+`ENROL_START_DATE`, `ENROL_END_DATE`, `ENROL_METHOD`, `TC_URL`.
 
 ## Invariants
 

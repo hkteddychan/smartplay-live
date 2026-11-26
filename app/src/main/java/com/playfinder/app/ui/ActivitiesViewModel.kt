@@ -23,7 +23,7 @@ import javax.inject.Inject
 
 /** Date ranges offered for programme activities. */
 enum class ActivityRange(val label: String, val days: Int?) {
-    ALL("全部日期", null),
+    ALL("由今日起", null),
     WEEK("未來 7 日", 7),
     MONTH("未來 30 日", 30)
 }
