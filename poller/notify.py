@@ -35,6 +35,7 @@ MAX_LINES = 12                # per message; the rest become "…+N 場"
 MAX_BATCH_CHARS = 4000        # format_batch plain-text target
 TG_MAX_CHARS = 4096           # Telegram hard limit, measured on ESCAPED text (R35)
 BACKOFF_SECONDS = (1, 5, 20)  # spec §5.4 retry ladder
+TG_MAX_INLINE_SLEEP = 5        # I6: a 60s cycle cannot honour a longer 429
 OUTBOX_RETRY_SECONDS = 60
 MAX_OUTBOX_ATTEMPTS = 3 * 24 * 60  # ~3 days at one retry/minute (spec §5.4)
 
@@ -348,9 +349,18 @@ class Notifier:
                 elif resp.status_code == 429:
                     error = "tg_429"
                     delay = _retry_after(resp)
-                    if delay is not None and attempt < retries:
-                        time.sleep(delay)  # R35: exactly retry_after
-                        continue
+                    if delay is not None:
+                        if delay > TG_MAX_INLINE_SLEEP:
+                            # I6: never block longer than 5s. Record the real
+                            # retry_after, sleep the capped amount, then let
+                            # ntfy (and, if that fails, the outbox) carry the
+                            # batch — they already retry once a minute.
+                            time.sleep(TG_MAX_INLINE_SLEEP)
+                            error = f"tg_429_retry_after_{int(delay)}"
+                            break
+                        if attempt < retries:
+                            time.sleep(delay)  # R35: exactly retry_after
+                            continue
                 else:
                     error = f"tg_http_{resp.status_code}"
             if attempt < retries:

@@ -232,13 +232,33 @@ def test_empty_after_filter_sends_nothing(monkeypatch):
 
 def test_tg_429_waits_retry_after(monkeypatch):
     sleeps = record_sleeps(monkeypatch)
-    http = FakeHttp(tg=[FakeResponse(429, {"parameters": {"retry_after": 7}}),
+    http = FakeHttp(tg=[FakeResponse(429, {"parameters": {"retry_after": 4}}),
                         FakeResponse(200)])
     n = Notifier(make_settings(), http=http)
     result = n.send_events([ev()], lambda e: True)
-    assert sleeps == [7]                     # R35: sleep exactly retry_after
+    assert sleeps == [4]                     # R35: sleep exactly retry_after
     assert len(http.tg_posts) == 2
     assert result.delivered is True
+
+
+def test_large_retry_after_caps_the_sleep_and_uses_ntfy(monkeypatch):
+    """I6: a one-hour retry_after must not stall the 60s cycle.
+
+    The outbox owns long waits; this round sends via ntfy immediately and
+    records why TG was abandoned.
+    """
+    sleeps = record_sleeps(monkeypatch)
+    http = FakeHttp(tg=[FakeResponse(429, {"parameters": {"retry_after": 3600}})],
+                    ntfy=[FakeResponse(200)])
+    n = Notifier(make_settings(), http=http)
+
+    result = n.send_events([ev()], lambda e: True)
+
+    assert all(sleep <= 5 for sleep in sleeps)
+    assert len(http.tg_posts) == 1           # no pointless retry inside the cap
+    assert len(http.ntfy_posts) == 1
+    assert result.delivered is True and result.via == "ntfy"
+    assert any("3600" in error for error in result.errors)
 
 
 def test_tg_429_exhausted_writes_outbox(monkeypatch):
