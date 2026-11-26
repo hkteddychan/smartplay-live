@@ -266,7 +266,8 @@ def activity_once(
         return False
     try:
         stored = store(
-            conn, fetched.records, now_hk.isoformat(timespec="seconds")
+            conn, fetched.records, now_hk.isoformat(timespec="seconds"),
+            log=log,
         )
     except Exception as exc:
         log(f"activity store_failed {type(exc).__name__}")

@@ -28,6 +28,7 @@ _SCHEMA = Path(__file__).with_name("schema.sql")
 
 EVENT_RETENTION_DAYS = 180
 SWEEP_RETENTION_DAYS = 7
+ACTIVITY_MIN_RATIO = 0.5  # I4: never replace the snapshot below half its rows
 NOTIFY_CHUNK = 500  # rows per IN (...) so a large burst stays under SQLite's limit
 
 BUSY_TIMEOUT_MS = 5000
@@ -359,7 +360,8 @@ def _snapshot_hash(rows: list[tuple[str, str]]) -> str:
 
 
 def upsert_activities(
-    conn: sqlite3.Connection, records: list[dict], now_iso: str
+    conn: sqlite3.Connection, records: list[dict], now_iso: str,
+    *, log: Callable[[str], None] | None = None,
 ) -> int:
     """Store ``records`` as the activity snapshot, but only when it changed.
 
@@ -378,6 +380,17 @@ def upsert_activities(
     """
     rows = _activity_rows(records)
     if not rows:
+        return 0
+    # I4: a truncated download must not wipe a good 15MB snapshot. The first
+    # success has no baseline; afterwards half the stored row count is the
+    # floor (a real programme list does not halve between runs).
+    stored_rows = conn.execute("SELECT COUNT(*) FROM activities").fetchone()[0]
+    if stored_rows and len(rows) < stored_rows * ACTIVITY_MIN_RATIO:
+        if log is not None:
+            log(
+                f"activity rejected suspiciously_small "
+                f"records={len(rows)} stored={stored_rows}"
+            )
         return 0
 
     snapshot_hash = _snapshot_hash(rows)

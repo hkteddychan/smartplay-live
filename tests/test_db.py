@@ -195,13 +195,22 @@ def test_upsert_activities_is_a_snapshot_and_keeps_first_seen():
     assert stored == 2
     assert c.execute("SELECT COUNT(*) FROM activities").fetchone()[0] == 2
 
-    stored = upsert_activities(c, [{"ACTIVITY_NO": "A1", "TC_PGM_NAME": "新名"}], t2)
+    # I4: 50% of the stored snapshot is the floor; keep both rows here.
+    stored = upsert_activities(
+        c,
+        [
+            {"ACTIVITY_NO": "A1", "TC_PGM_NAME": "新名"},
+            {"ACTIVITY_NO": "A2", "TC_PGM_NAME": "另一個"},
+        ],
+        t2,
+    )
 
-    assert stored == 1
+    assert stored == 2
     rows = c.execute(
-        "SELECT activity_no, payload, first_seen, last_seen FROM activities"
+        "SELECT activity_no, payload, first_seen, last_seen FROM activities "
+        "ORDER BY activity_no"
     ).fetchall()
-    assert [row["activity_no"] for row in rows] == ["A1"]
+    assert [row["activity_no"] for row in rows] == ["A1", "A2"]
     assert rows[0]["first_seen"] == t1
     assert rows[0]["last_seen"] == t2
     assert "新名" in rows[0]["payload"] and "舊名" not in rows[0]["payload"]
@@ -282,6 +291,37 @@ def test_activity_hash_ignores_upstream_row_order():
 
     assert stored == 0
     assert _activity_writes(statements) == []
+
+
+# --- I4: activity minimum guard ---------------------------------------------
+
+
+def _activity_ids(count):
+    return [{"ACTIVITY_NO": f"A{index}"} for index in range(count)]
+
+
+def test_activity_snapshot_below_half_is_rejected_and_keeps_the_old_one():
+    c = mem()
+    t1 = "2026-11-26T10:00:00+08:00"
+    t2 = "2026-11-26T10:15:00+08:00"
+    assert upsert_activities(c, _activity_ids(10), t1) == 10
+    logs = []
+
+    stored = upsert_activities(c, _activity_ids(3), t2, log=logs.append)
+
+    assert stored == 0
+    assert c.execute("SELECT COUNT(*) FROM activities").fetchone()[0] == 10
+    assert any("suspiciously_small" in line for line in logs)
+
+
+def test_activity_snapshot_at_half_is_accepted():
+    c = mem()
+    t1 = "2026-11-26T10:00:00+08:00"
+    t2 = "2026-11-26T10:15:00+08:00"
+    assert upsert_activities(c, _activity_ids(10), t1) == 10
+
+    assert upsert_activities(c, _activity_ids(5), t2) == 5
+    assert c.execute("SELECT COUNT(*) FROM activities").fetchone()[0] == 5
 
 
 # --- R56: first-start connection race ---------------------------------------
