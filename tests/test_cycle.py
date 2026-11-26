@@ -643,6 +643,25 @@ def test_no_resync_on_quiet_cycle_while_degraded():
     assert result.events == 0
 
 
+def test_local_only_mode_writes_no_resync_row():
+    """R58: without the Worker /seq route there is no R2 gap to report."""
+    conn = mem()
+    day = TODAY + timedelta(days=1)
+    allocator = FakeAllocator(start=1)
+    allocator.degraded = True
+    allocator.seq_source = "local"
+    notifier = FakeNotifier()
+
+    result = run_cycle(make_deps(
+        conn=conn, allocator=allocator, notifier=notifier,
+        fetcher=FakeFetcher(payload={"badminton": [rec(day)]}),
+    ))
+
+    assert allocator.calls == [1]                      # no second reserve
+    assert [row["kind"] for row in event_rows(conn)] == ["new"]
+    assert result.seq_source == "local"
+
+
 def test_resync_not_emitted_when_allocator_healthy():
     conn = mem()
     result = run_cycle(make_deps(conn=conn))

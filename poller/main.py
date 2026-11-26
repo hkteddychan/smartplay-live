@@ -608,12 +608,31 @@ def _open_db(path: str):
 
 
 def _seq_allocator(settings: Settings) -> SeqAllocator:
+    """Build the allocator and seed it from ``MAX(events.seq)`` (I7).
+
+    Rationale: losing ``seq.json`` (fresh volume, cleanup) must not restart
+    numbering below rows already in ``events`` — every insert would then hit
+    the primary key and crash-loop the round. An empty ``SEQ_URL`` selects the
+    R58 local-only mode (Plan 1 has no Worker ``/seq`` route yet).
+    """
     url = os.environ.get("SEQ_URL", "").strip()
     token = os.environ.get("SEQ_TOKEN", "").strip()
     local = os.environ.get("SEQ_LOCAL_PATH", "").strip() or str(
         Path(settings.db_path).with_name("seq.json")
     )
-    return SeqAllocator(url, token, local)
+    allocator = SeqAllocator(url, token, local)
+    try:
+        conn = _open_db(settings.db_path)
+    except Exception as exc:  # a seed failure must not stop start-up
+        log(f"seq seed_skipped {type(exc).__name__}")
+        return allocator
+    try:
+        allocator.seed_at_least(db.max_event_seq(conn))
+    except (OSError, ValueError) as exc:
+        log(f"seq seed_failed {type(exc).__name__}")
+    finally:
+        conn.close()
+    return allocator
 
 
 def _plan_text(args: argparse.Namespace) -> str:

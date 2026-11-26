@@ -516,6 +516,30 @@ def test_facility_once_passes_the_selected_subset_to_the_cycle():
     assert captured["sports"] == ["tennis"]
 
 
+def test_seq_allocator_seeds_local_counter_from_the_events_table(
+    monkeypatch, tmp_path
+):
+    """I7: losing seq.json must not restart numbering below existing rows."""
+    from poller.config import Settings
+
+    db_path = tmp_path / "state.db"
+    conn = db.connect(str(db_path))
+    db.init_db(conn)
+    add_event(conn, 500, "new")
+    conn.close()
+    monkeypatch.setenv("SEQ_URL", "")
+    monkeypatch.setenv("SEQ_LOCAL_PATH", str(tmp_path / "seq.json"))
+    settings = Settings(
+        tg_token="t", tg_chat="1", tg_thread=1, ntfy_url="",
+        r2_endpoint="", r2_bucket="", r2_access_key="", r2_secret_key="",
+        db_path=str(db_path),
+    )
+
+    allocator = main_module._seq_allocator(settings)
+
+    assert allocator.allocate(1) == 501
+
+
 def test_signal_handler_sets_the_stop_event():
     stop = threading.Event()
     make_signal_handler(stop)(signal.SIGTERM, None)

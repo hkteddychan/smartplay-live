@@ -284,6 +284,44 @@ def test_transport_error_sets_degraded(tmp_path):
     assert a.degraded is True
 
 
+# --- R58: local-only mode until the Worker /seq route exists ----------------
+
+
+def test_local_only_mode_allocates_sequentially_without_a_jump(tmp_path):
+    path = tmp_path / "seq.json"
+    a = SeqAllocator("", "", str(path))
+
+    assert a.allocate(1) == 1
+    assert a.allocate(1) == 2
+    assert a.allocate(1) == 3
+    assert a.degraded is True
+    assert a.seq_source == "local"
+    assert json.loads(path.read_text(encoding="utf-8")) == {"seq": 3}
+
+
+def test_local_only_mode_can_seed_from_the_database(tmp_path):
+    a = SeqAllocator("", "", str(tmp_path / "seq.json"))
+    a.seed_at_least(500)
+    assert a.allocate(1) == 501
+
+
+def test_r2_mode_reports_its_seq_source(tmp_path):
+    a = SeqAllocator("https://worker/seq", "t", str(tmp_path / "seq.json"),
+                     http=FakeR2())
+    assert a.seq_source == "r2"
+    assert a.allocate(1) == 101
+
+
+def test_save_local_fsyncs_before_replacing(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr("poller.seq.os.fsync", lambda fd: calls.append(fd))
+    a = SeqAllocator("", "", str(tmp_path / "seq.json"))
+
+    a.allocate(1)
+
+    assert calls  # I7: durable counter before the rename
+
+
 def test_n_below_one_raises_value_error(tmp_path):
     r2 = FakeR2()
     a = SeqAllocator("u", "t", str(tmp_path / "seq.json"), http=r2)

@@ -10,6 +10,11 @@ and we never write the counter backwards even if the local cache ran ahead
 while R2 was down. A GET 404 means the counter does not exist yet: it is
 bootstrapped at 0 and created with `If-None-Match: *`, not treated as an
 outage.
+
+R58: when `SEQ_URL` is empty (Plan 1, before the Worker `/seq` route exists)
+the allocator runs **local-only**: sequential numbers from the local file with
+no FALLBACK_BUFFER jump, `degraded=True` and `seq_source="local"`. There is no
+R2 counter, so there is no gap to report with a resync.
 """
 
 from __future__ import annotations
@@ -40,6 +45,9 @@ class SeqAllocator:
         self._local_path = local_path
         self._http = http if http is not None else requests
         self.degraded = False
+        # R58: "local" means configured for local-only operation (no Worker
+        # route yet), not merely a transient R2 failure.
+        self.seq_source = "local" if not (url or "").strip() else "r2"
 
     def allocate(self, n: int) -> int:
         """Reserve n seqs and return the FIRST seq of the block.
@@ -47,6 +55,10 @@ class SeqAllocator:
         allocate(3) with counter 100 returns 101 and leaves the counter 103.
         Raises ValueError for n < 1 and SeqConflict on a second 412.
         """
+        if not isinstance(n, int) or isinstance(n, bool) or n < 1:
+            raise ValueError(f"n must be a positive int, got {n!r}")
+        if self.seq_source == "local":
+            return self._allocate_local_only(n)
         try:
             new = self.reserve(n)
         except _R2Unavailable:
@@ -86,6 +98,25 @@ class SeqAllocator:
         self._save_local(new)  # must succeed: local is now the only record
         self.degraded = True
         return base + 1
+
+    def _allocate_local_only(self, n: int) -> int:
+        """R58: no R2 at all — plain sequential allocation, no block jump."""
+        base = self._read_local()
+        new = base + n
+        self._save_local(new)  # must succeed: local is the only record
+        self.degraded = True
+        return base + 1
+
+    def seed_at_least(self, seq: int) -> None:
+        """Never restart below ``seq`` (I7: seed from ``MAX(events.seq)``).
+
+        Losing ``seq.json`` must not hand out a number that already exists in
+        ``events`` — that would crash-loop on the primary key.
+        """
+        if not isinstance(seq, int) or isinstance(seq, bool) or seq < 0:
+            raise ValueError(f"seq must be a non-negative int, got {seq!r}")
+        if seq > self._read_local():
+            self._save_local(seq)
 
     def _read_r2(self) -> tuple[int, str | None]:
         try:
@@ -154,6 +185,8 @@ class SeqAllocator:
                 os.makedirs(parent, exist_ok=True)
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump({"seq": seq}, f)
+                f.flush()
+                os.fsync(f.fileno())  # I7: durable before the rename
             os.replace(tmp, self._local_path)
         except OSError:
             try:

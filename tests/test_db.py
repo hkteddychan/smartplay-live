@@ -67,6 +67,17 @@ def test_prune_keeps_recent():
     assert c.execute("select count(*) from sweeps").fetchone()[0] == 0
 
 
+# --- I7: seed the local seq counter from the events table -------------------
+
+
+def test_max_event_seq_is_zero_when_empty_and_max_otherwise():
+    c = mem()
+    assert db.max_event_seq(c) == 0
+    add_event(c, 4, "new")
+    add_event(c, 9, "inc")
+    assert db.max_event_seq(c) == 9
+
+
 # --- R46: sale7 summary data helpers ----------------------------------------
 
 

@@ -273,6 +273,15 @@ def insert_events(
     return seqs
 
 
+def max_event_seq(conn: sqlite3.Connection) -> int:
+    """Highest seq already stored (I7: seed the local counter from it)."""
+    row = conn.execute("SELECT MAX(seq) FROM events").fetchone()
+    value = row[0] if row is not None else None
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return value
+    return 0
+
+
 def fetch_unsent_sale7(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     """Sale7 rows no channel has delivered yet (R46).
 

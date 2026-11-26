@@ -89,6 +89,8 @@ class CycleResult:
     parked: int
     # I5: how long GateBackoff asked the caller to stay away (0 otherwise).
     backoff_seconds: float = 0.0
+    # R58: "r2" (Worker counter, possibly degraded) or "local" (no R2 at all).
+    seq_source: str = "r2"
 
 
 def run_cycle(deps: Deps) -> CycleResult:
@@ -97,6 +99,7 @@ def run_cycle(deps: Deps) -> CycleResult:
     ts = deps.now_hk.isoformat(timespec="seconds")
     prev = db.load_sessions(deps.conn)
     today_hk = deps.now_hk.date()
+    seq_source = getattr(deps.allocator, "seq_source", "r2")
 
     # Phase 1 — network + parsing only. Nothing is written until the whole
     # sweep is known, so a GateBackoff cannot leave a half-applied snapshot.
@@ -159,7 +162,7 @@ def run_cycle(deps: Deps) -> CycleResult:
             ok=False, degraded=ds_ok in (3, 4), aborted=True, ms=ms,
             bytes=bytes_total, ds_ok=ds_ok, ds_total=ds_total,
             waf_state="latch", events=0, sent=0, parked=0,
-            backoff_seconds=backoff_seconds,
+            backoff_seconds=backoff_seconds, seq_source=seq_source,
         )
 
     # Phase 2 — combine only the datasets that succeeded.
@@ -192,10 +195,11 @@ def run_cycle(deps: Deps) -> CycleResult:
     # raise a resync. The flag is carried over across rounds, so reading it
     # unconditionally would mint a resync — and burn another 1000-seq local
     # block — on every quiet cycle for as long as R2 stays down.
+    # R58: local-only mode has no R2 counter, so there is no gap to report.
     main_degraded = False
     if events:
         seq_start = deps.allocator.allocate(len(events))
-        main_degraded = deps.allocator.degraded
+        main_degraded = deps.allocator.degraded and seq_source == "r2"
     # R42: a main allocation that fell back to local mode opened a seq gap in
     # *this* round, so reserve the resync seq right away and persist the marker
     # below in the same round. Deferring it to the next round would report the
@@ -254,6 +258,7 @@ def run_cycle(deps: Deps) -> CycleResult:
         events=len(events) + (1 if resync is not None else 0),
         sent=len(delivery.sent_seqs),
         parked=len(delivery.parked_seqs),
+        seq_source=seq_source,
     )
 
 
