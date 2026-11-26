@@ -47,6 +47,18 @@ _SPORT_EMOJI = {
     "volleyball": "🏐",
     "badminton": "🏸",
 }
+_SPORT_NAME = {
+    "turf-soccer-pitch": "足球",
+    "tennis": "網球",
+    "basketball": "籃球",
+    "volleyball": "排球",
+    "badminton": "羽毛球",
+}
+
+
+def sport_name(sport: str) -> str:
+    """Chinese display name for a dataset slug; unknown slugs pass through."""
+    return _SPORT_NAME.get(sport, sport)
 
 
 @dataclass
@@ -75,7 +87,7 @@ def _format_date(value: date | str) -> str:
     return f"{d.month:02d}-{d.day:02d} ({_WEEKDAYS[d.weekday()]})"
 
 
-def _format_line(ev: Event) -> str:
+def _format_line(ev: Event, mixed: bool = False) -> str:
     if ev.kind == "new":
         note = " (新)"
     elif ev.kind == "inc":
@@ -86,8 +98,10 @@ def _format_line(ev: Event) -> str:
         note = " (冇)"
     else:
         note = ""
+    # A mixed-sport batch cannot rely on the header alone: label every line.
+    label = f"[{sport_name(ev.sport)}] " if mixed else ""
     return (
-        f"• {_format_date(ev.date)} {ev.start}-{ev.end} "
+        f"• {label}{_format_date(ev.date)} {ev.start}-{ev.end} "
         f"{ev.venue} {ev.facility} {ev.before}→{ev.after}{note}"
     )
 
@@ -105,9 +119,15 @@ def _render(events: list[Event], label: str = "放場") -> tuple[str, int]:
     if not events:
         return "", 0
     sports = list(dict.fromkeys(e.sport for e in events))
-    emoji = _SPORT_EMOJI.get(sports[0], "🔔") if len(sports) == 1 else "🔔"
-    header = f"{emoji} {label} ×{len(events)}"
-    lines = [_format_line(e) for e in events[:MAX_LINES]]
+    if len(sports) == 1:
+        emoji = _SPORT_EMOJI.get(sports[0], "🔔")
+        header = f"{emoji} {sport_name(sports[0])} {label} ×{len(events)}"
+        mixed = False
+    else:
+        emoji = "".join(_SPORT_EMOJI.get(s, "🔔") for s in sports)
+        header = f"{emoji} {label} ×{len(events)}"
+        mixed = True
+    lines = [_format_line(e, mixed) for e in events[:MAX_LINES]]
     shown = len(lines)
     hidden = len(events) - shown
     while True:

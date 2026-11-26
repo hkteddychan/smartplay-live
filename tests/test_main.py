@@ -301,13 +301,27 @@ def test_summary_marks_the_ntfy_channel_when_tg_failed():
     assert marks(conn) == {1: (0, 1)}
 
 
-def test_format_groups_by_venue_and_sorts_by_count():
+def test_format_groups_by_sport_and_venue_and_sorts_by_count():
     rows = [
-        {"venue": "B館"}, {"venue": "A館"}, {"venue": "A館"},
+        {"sport": "badminton", "venue": "B館"},
+        {"sport": "badminton", "venue": "A館"},
+        {"sport": "badminton", "venue": "A館"},
     ]
     text = format_sale7_summary(rows)
     assert text.splitlines()[0] == "🛒 開賣 summary ×3"
-    assert "• A館：2 場" in text
+    assert "• [羽毛球] A館：2 場" in text
+    assert "• [羽毛球] B館：1 場" in text
+
+
+def test_format_summary_labels_each_venue_with_its_sport():
+    rows = [
+        {"sport": "turf-soccer-pitch", "venue": "B館"},
+        {"sport": "badminton", "venue": "A館"},
+        {"sport": "badminton", "venue": "A館"},
+    ]
+    text = format_sale7_summary(rows)
+    assert "• [羽毛球] A館：2 場" in text
+    assert "• [足球] B館：1 場" in text
 
 
 # --- activity thread --------------------------------------------------------

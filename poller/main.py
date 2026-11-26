@@ -50,7 +50,7 @@ from poller.config import (
 from poller.cycle import BASE_URL, CycleResult, Deps, run_cycle
 from poller.fetch import FetchResult, fetch_dataset
 from poller.gate import Gate, GateBackoff
-from poller.notify import Notifier
+from poller.notify import Notifier, sport_name
 from poller.seq import SeqAllocator
 
 HK = db.HK
@@ -148,9 +148,9 @@ def should_send_sale7_summary(
 
 
 def format_sale7_summary(rows: Iterable[Mapping]) -> str:
-    """One message: header plus ``• venue：N 場``, sorted by slot count."""
+    """One message: header plus ``• [sport] venue：N 場``, sorted by count."""
     rows = list(rows)
-    counts = Counter(str(row["venue"]) for row in rows)
+    counts = Counter((str(row["sport"]), str(row["venue"])) for row in rows)
     items = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
     header = f"🛒 開賣 summary ×{len(rows)}"
     selected = items[:SUMMARY_MAX_VENUES]
@@ -160,7 +160,11 @@ def format_sale7_summary(rows: Iterable[Mapping]) -> str:
             f"…另有 {len(hidden)} 場館 / {sum(count for _, count in hidden)} 場"
             if hidden else ""
         )
-        lines = [header, *(f"• {venue}：{count} 場" for venue, count in selected)]
+        lines = [
+            header,
+            *(f"• [{sport_name(sport)}] {venue}：{count} 場"
+              for (sport, venue), count in selected),
+        ]
         if note:
             lines.append(note)
         text = "\n".join(lines)

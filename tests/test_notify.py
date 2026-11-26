@@ -228,6 +228,45 @@ def test_empty_after_filter_sends_nothing(monkeypatch):
     assert result.delivered is True and result.via is None
 
 
+# --- sport naming (Teddy 2026-11-26: every message says which sport) --------
+
+@pytest.mark.parametrize("slug,name,emoji", [
+    ("badminton", "羽毛球", "🏸"),
+    ("basketball", "籃球", "🏀"),
+    ("volleyball", "排球", "🏐"),
+    ("tennis", "網球", "🎾"),
+    ("turf-soccer-pitch", "足球", "⚽"),
+])
+def test_single_sport_header_names_the_sport(slug, name, emoji):
+    n = Notifier(make_settings(), http=FakeHttp())
+    text = n.format_batch([ev(sport=slug)])
+    assert text.splitlines()[0] == f"{emoji} {name} 放場 ×1"
+    assert f"[{name}]" not in text       # single sport: the header carries it
+
+
+def test_mixed_batch_labels_every_line_and_header_shows_all_emojis():
+    n = Notifier(make_settings(), http=FakeHttp())
+    events = [
+        ev(seq=1),
+        ev(seq=2, sport="turf-soccer-pitch"),
+        ev(seq=3, sport="tennis"),
+    ]
+    text = n.format_batch(events)
+    assert text.splitlines()[0] == "🏸⚽🎾 放場 ×3"
+    assert "• [羽毛球] 11-28 (六) 19:00-20:00 香港單車館 主場 0→2 (新)" in text
+    assert "• [足球] 11-28 (六) 19:00-20:00 香港單車館 主場 0→2 (新)" in text
+    assert "• [網球] 11-28 (六) 19:00-20:00 香港單車館 主場 0→2 (新)" in text
+
+
+def test_posted_alert_text_names_the_sport(monkeypatch):
+    record_sleeps(monkeypatch)
+    http = FakeHttp()
+    n = Notifier(make_settings(), http=http)
+    n.send_events([ev(sport="turf-soccer-pitch")], lambda e: True)
+    wire = http.tg_posts[0]["json"]["text"]
+    assert wire.splitlines()[0] == "⚽ 足球 放場 ×1"
+
+
 # --- Telegram 429 (R35) ------------------------------------------------------
 
 def test_tg_429_waits_retry_after(monkeypatch):
