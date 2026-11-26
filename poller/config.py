@@ -39,6 +39,8 @@ class Settings:
     r2_access_key: str
     r2_secret_key: str
     db_path: str
+    # C1: the WAF challenge cookie (acw_tc) must survive a restart.
+    cookies_path: str = "/opt/smartplay/cookies.json"
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -56,4 +58,7 @@ class Settings:
             r2_access_key=os.environ.get("R2_ACCESS_KEY", ""),
             r2_secret_key=os.environ.get("R2_SECRET_KEY", ""),
             db_path=os.environ.get("DB_PATH", "/opt/smartplay/state.db"),
+            cookies_path=os.environ.get(
+                "COOKIES_PATH", "/opt/smartplay/cookies.json"
+            ),
         )

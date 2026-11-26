@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import os
 import signal
 import threading
@@ -464,6 +465,103 @@ class _TimeoutSession(requests.Session):
         return super().request(method, url, *args, **kwargs)
 
 
+# C1 / spec §5.1.1: a bare python-requests UA is an instant WAF latch; the
+# anti-bot wants an ordinary browser fetching the JSON from the site itself.
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/131.0 Safari/537.36 SmartPlayLive/5.0"
+)
+REQUEST_HEADERS = {
+    "User-Agent": USER_AGENT,
+    "Accept": "application/json",
+    "Accept-Encoding": "gzip, deflate",
+    "Referer": "https://www.smartplay.lcsd.gov.hk/",
+    "Accept-Language": "zh-HK,zh;q=0.9,en;q=0.8",
+}
+
+
+class PersistentCookieSession(_TimeoutSession):
+    """Session with browser headers and a cookie jar persisted as JSON.
+
+    The WAF hands out ``acw_tc``/``aliyungf_tc`` cookies; keeping them across
+    restarts makes the poller look like one returning client instead of a new
+    one every boot. Loading or saving must never abort a cycle: every failure
+    is logged and the request goes ahead with whatever jar is in memory.
+    """
+
+    def __init__(self, cookies_path: str, log: Log = log) -> None:
+        super().__init__()
+        self.cookies_path = cookies_path
+        self._log = log
+        self.headers.update(REQUEST_HEADERS)
+        self.load_cookies()
+
+    def request(self, method, url, *args, **kwargs):
+        response = super().request(method, url, *args, **kwargs)
+        if response.status_code == 200:
+            self.save_cookies()
+        return response
+
+    def load_cookies(self) -> None:
+        try:
+            with open(self.cookies_path, encoding="utf-8") as f:
+                payload = json.load(f)
+        except FileNotFoundError:
+            return
+        except (OSError, ValueError) as exc:
+            self._log(f"cookies load_failed {type(exc).__name__}")
+            return
+        if not isinstance(payload, list):
+            self._log("cookies load_failed not_list")
+            return
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            name, value = item.get("name"), item.get("value")
+            if not isinstance(name, str) or not isinstance(value, str):
+                continue
+            self.cookies.set_cookie(
+                requests.cookies.create_cookie(
+                    name=name,
+                    value=value,
+                    domain=item.get("domain") or None,
+                    path=item.get("path") or "/",
+                )
+            )
+
+    def save_cookies(self) -> None:
+        payload = [
+            {
+                "name": cookie.name,
+                "value": cookie.value,
+                "domain": cookie.domain,
+                "path": cookie.path,
+            }
+            for cookie in self.cookies
+        ]
+        tmp = self.cookies_path + ".tmp"
+        try:
+            parent = os.path.dirname(self.cookies_path)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(payload, f)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, self.cookies_path)
+        except OSError as exc:
+            self._log(f"cookies save_failed {type(exc).__name__}")
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+
+
+def build_http_session(settings: Settings, log: Log = log) -> requests.Session:
+    """The one session every fetch uses (C1: headers + persistent cookies)."""
+    return PersistentCookieSession(settings.cookies_path, log=log)
+
+
 def select_sports(only: str | None) -> list[str]:
     """Translate ``--only`` into the facility sports this process handles."""
     if only is None:
@@ -549,7 +647,7 @@ def main(argv: list[str] | None = None) -> int:
     run_activity = args.only is None or args.only == ACTIVITY
     stop_event = threading.Event()
     install_signal_handlers(stop_event)
-    gate = Gate(_TimeoutSession())
+    gate = Gate(build_http_session(settings))
     allocator = _seq_allocator(settings)
 
     if args.once:
