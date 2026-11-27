@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PlayFinder 私隱政策 — SmartPLAY Live</title>
+<meta name="description" content="PlayFinder Android 應用程式的私隱政策。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --green: #1db954; --dark: #0e1117; --card: #161b22; --line: #30363d;
+  --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff; --yellow: #f0b429;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --green: #0e8a3e; --dark: #f5f7fa; --card: #ffffff; --line: #d8dee4;
+    --text: #1f2328; --muted: #656d76; --accent: #0969da; --yellow: #9a6700;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang HK", "Microsoft JhengHei", sans-serif; background: var(--dark); color: var(--text); line-height: 1.7; }
+.container { max-width: 800px; margin: 0 auto; padding: 16px; }
+header { display: flex; align-items: center; gap: 10px; padding: 14px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.logo { font-size: 24px; text-decoration: none; }
+h1 { font-size: 20px; font-weight: 700; }
+h1 a { color: var(--text); text-decoration: none; }
+h1 a span { color: var(--green); }
+.meta { margin-left: auto; font-size: 12px; color: var(--muted); }
+.meta a { color: var(--accent); text-decoration: none; }
+.meta a:hover { text-decoration: underline; }
+main { padding: 28px 0 16px; }
+h2 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+.updated { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+h3 { font-size: 16px; font-weight: 600; margin: 28px 0 10px; }
+p { margin: 0 0 14px; }
+ul { margin: 0 0 16px 1.2em; }
+li { margin: 0 0 10px; }
+a { color: var(--accent); }
+footer { margin-top: 20px; border-top: 1px solid var(--line); padding: 14px 0; font-size: 12px; color: var(--muted); }
+footer a { color: var(--accent); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+.en { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--line); }
+.en h3 { margin-top: 0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <a class="logo" href="../" aria-label="返回 SmartPLAY Live">🎯</a>
+    <h1><a href="../">SmartPLAY <span>Live</span></a></h1>
+    <div class="meta"><a href="../">返回主頁</a></div>
+  </header>
+
+  <main>
+    <h2>PlayFinder 私隱政策</h2>
+    <p class="updated">最後更新：2026 年 11 月 27 日。本頁說明 Android 應用程式 PlayFinder 如何處理資料。</p>
+
+    <p>PlayFinder 不會收集、儲存或傳輸任何個人資料。</p>
+    <ul>
+      <li>沒有用戶帳戶、沒有登入，也沒有分析追蹤。</li>
+      <li>監視清單、推送篩選及推送有效期只儲存在你的裝置（DataStore），不會離開裝置。清除應用程式資料或重新安裝會刪除這些資料，包括仍有效的推送週期。</li>
+      <li>推送通知在你的裝置上產生：應用程式於背景輪詢康文署公開開放數據，並顯示本機通知。系統不會向康文署、通知中介，或我們控制的任何伺服器傳送資料，也不會在任何地方登記識別碼、主題或訂閱。</li>
+      <li>場地餘額及活動資料來自康文署 SmartPLAY 開放數據 API。</li>
+      <li>位置只用於按距離排序結果，只在裝置上讀取，不會寫入儲存空間，也不會上載。</li>
+      <li>應用程式會顯示 AdMob 廣告。Google 可能按其政策處理裝置廣告識別碼及 IP 地址；我們不會收到這些資料。</li>
+      <li>如尚未授予通知權限，「通知」分頁會顯示提示卡，系統權限對話框只在你點選後才出現。拒絕權限則無法使用推送，瀏覽功能不受影響。</li>
+    </ul>
+    <p>如有查詢，可透過 <a href="https://github.com/hkteddychan/smartplay-live">GitHub 專案頁</a> 提出。</p>
+
+    <section class="en" lang="en">
+      <h3>PlayFinder Privacy Policy</h3>
+      <p class="updated">Last updated: 27 November 2026. This page describes how the PlayFinder Android app handles data.</p>
+      <p>PlayFinder does not collect, store, or transmit any personal data.</p>
+      <ul>
+        <li>No user accounts, no login, no analytics.</li>
+        <li>The watchlist, the push filters and the push expiry are stored locally on your device (DataStore) and never leave it. Clearing the app data or reinstalling removes them, including any active push week.</li>
+        <li>Push alerts are produced on your device: the app polls the public LCSD open-data feed in the background and posts a local notification. Nothing is sent to LCSD, to an alert broker, or to any server we control. No identifier, topic or subscription is registered anywhere.</li>
+        <li>Court availability and programme activity data are fetched from the LCSD SmartPLAY open data API.</li>
+        <li>Your location is used only to sort results by distance. It is read on the device, is never written to storage, and is never uploaded.</li>
+        <li>The app displays AdMob ads. Google may process the device advertising ID and the device's IP address according to its own policies, as any app that serves ads does. We do not receive that information.</li>
+        <li>A permission card appears on the Notifications tab whenever notification permission is missing; the system dialog is shown only if you tap it. Denying it leaves push unavailable; browsing is unaffected.</li>
+      </ul>
+      <p>Contact: via the <a href="https://github.com/hkteddychan/smartplay-live">GitHub project page</a>.</p>
+    </section>
+  </main>
+
+  <footer>
+    ⚠️ 餘額以官方 App 最終確認作準，本網站僅供參考。
+    · <a href="./">私隱政策</a>
+  </footer>
+</div>
+</body>
+</html>
