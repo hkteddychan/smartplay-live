@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#0e8a3e">
+  <title>SmartPLAY Live — 設計稿 · 設施餘額</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../tokens.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    .skip {
+      position: absolute;
+      left: 12px;
+      top: -48px;
+      z-index: 20;
+      background: var(--green);
+      color: var(--green-on);
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .skip:focus { top: 12px; }
+    .proto {
+      background: #1f2328;
+      color: #e6edf3;
+      font-size: 13px;
+      padding: 10px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      align-items: center;
+    }
+    .proto strong { font-weight: 600; }
+    .proto .hint { color: #8b949e; }
+    .proto-btn {
+      min-height: 32px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #30363d;
+      background: #161b22;
+      color: #e6edf3;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .proto-btn[aria-pressed="true"] {
+      background: #3fb950;
+      color: #002010;
+      border-color: #3fb950;
+      font-weight: 600;
+    }
+    .wrap {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 16px 20px 48px;
+    }
+    header.site {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 8px 16px;
+      margin: 8px 0 16px;
+    }
+    .wordmark {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0;
+      line-height: 1.2;
+    }
+    .wordmark span { color: var(--green); }
+    .meta { color: var(--muted); font-size: 13px; }
+    .freshness { font-variant-numeric: tabular-nums; }
+    .banner {
+      display: none;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      margin-bottom: 14px;
+      border: 1px solid var(--line);
+    }
+    .banner p { margin: 0; font-size: 14px; }
+    .banner .actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .banner.stale {
+      background: var(--amber-container);
+      color: var(--amber-on);
+      border-color: transparent;
+    }
+    .banner.offline, .banner.error {
+      background: var(--danger-container);
+      color: var(--danger-on);
+      border-color: transparent;
+    }
+    body[data-state="stale"] .banner.stale,
+    body[data-state="offline"] .banner.offline,
+    body[data-state="error"] .banner.error { display: flex; }
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+      align-items: center;
+    }
+    .tab, .more-btn, button.chip, .btn, .dist-btn, .mini {
+      font: inherit;
+      cursor: pointer;
+      min-height: var(--target);
+    }
+    .tab, .more-btn {
+      background: transparent;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      padding: 8px 12px;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 14px;
+      border-radius: 0;
+    }
+    .tab[aria-selected="true"] {
+      color: var(--text);
+      border-bottom-color: var(--green);
+    }
+    .more { position: relative; }
+    .more-menu {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      min-width: 160px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow);
+      padding: 6px;
+      z-index: 5;
+    }
+    .more.open .more-menu { display: block; }
+    .more-menu button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: 0;
+      padding: 10px 12px;
+      min-height: var(--target);
+      font: inherit;
+      color: var(--text);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .more-menu button:hover, .more-menu button:focus { background: var(--bg); }
+    .filters {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px 16px 10px;
+      margin-bottom: 14px;
+    }
+    .f-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 18px;
+      align-items: end;
+    }
+    .f-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .f-group.wide { flex: 1 0 100%; }
+    .f-group label, .field-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    button.chip {
+      background: var(--card);
+      border: 1px solid var(--line);
+      padding: 8px 12px;
+      border-radius: var(--radius-pill);
+      font-size: 13px;
+      color: var(--text);
+    }
+    button.chip[aria-pressed="true"] {
+      background: var(--green);
+      border-color: var(--green);
+      color: var(--green-on);
+      font-weight: 600;
+    }
+    button.chip[aria-pressed="true"] .muted {
+      color: var(--green-on);
+      opacity: 0.85;
+    }
+    .text-input, .time-input, .dist-btn {
+      min-height: var(--target);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--card);
+      color: var(--text);
+      padding: 8px 12px;
+      font: inherit;
+      font-size: 14px;
+    }
+    .text-input { min-width: 180px; }
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: var(--target);
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .check input { width: 18px; height: 18px; accent-color: var(--green); }
+    .btn {
+      background: var(--green);
+      color: var(--green-on);
+      border: 0;
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .btn.secondary {
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+    .dist { position: relative; }
+    .dist-panel {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      width: min(280px, 80vw);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 10px;
+      z-index: 6;
+    }
+    .dist.open .dist-panel { display: block; }
+    .dist-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .dist-actions .count { font-size: 12px; color: var(--muted); flex: 1; }
+    .mini {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: var(--text);
+    }
+    .dist-list label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: var(--target);
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin: 0 0 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .stats b { color: var(--text); font-weight: 650; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--card); }
+    tr:last-child td { border-bottom: 0; }
+    th.venue, td.venue, th.remain, td.remain {
+      position: sticky;
+      background: var(--card);
+    }
+    th.venue, td.venue { left: 0; z-index: 1; }
+    th.remain, td.remain { right: 0; z-index: 1; }
+    td.venue { font-weight: 600; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: var(--radius-pill);
+      font-size: 13px;
+      font-weight: 650;
+      background: var(--green-container);
+      color: var(--green);
+    }
+    .pill.full { background: var(--danger-container); color: var(--danger); }
+    .badge {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--amber-container);
+      color: var(--amber);
+      vertical-align: 1px;
+    }
+    .muted { color: var(--muted); }
+    .sk { height: 14px; background: var(--line); border-radius: 4px; width: 60%; }
+    .empty, .fatal {
+      display: none;
+      text-align: center;
+      padding: 48px 16px;
+      color: var(--muted);
+    }
+    .empty h2, .fatal h2 { margin: 0 0 8px; font-size: 16px; color: var(--text); }
+    footer.site {
+      margin-top: 28px;
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    footer.site a { color: var(--accent); text-decoration: none; }
+    footer.site a:hover, footer.site a:focus { text-decoration: underline; }
+
+    body[data-state="loading"] .results-live,
+    body[data-state="empty"] .results-live,
+    body[data-state="error"] .results-live { display: none; }
+    body[data-state="loading"] .results-skel { display: block; }
+    .results-skel { display: none; }
+    body[data-state="empty"] .empty { display: block; }
+    body[data-state="error"] .fatal { display: block; }
+
+    @media (max-width: 700px) {
+      .wrap { padding: 12px 12px 40px; }
+      .table-wrap { border: 0; background: transparent; overflow: visible; }
+      table, thead, tbody, th, td, tr { display: block; white-space: normal; }
+      thead { display: none; }
+      tr {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 12px 14px;
+        margin-bottom: 8px;
+      }
+      td { border: 0; padding: 0; }
+      td.venue, td.remain {
+        position: static;
+        display: inline;
+      }
+      tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 2px 12px;
+        align-items: start;
+      }
+      td.venue { grid-column: 1; grid-row: 1; font-size: 15px; }
+      td.remain { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+      td.district { grid-column: 1; grid-row: 2; font-size: 13px; }
+      td.when { grid-column: 1 / -1; grid-row: 3; font-size: 14px; font-weight: 600; padding-top: 4px; }
+      td.court { grid-column: 1 / -1; grid-row: 4; font-size: 13px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body data-state="fresh">
+  <div class="proto" role="note">
+    <strong>Preview · 設計稿</strong>
+    <span class="hint">不是正式網站。用下面切換狀態；視窗拉到 1440、768、390 查看。</span>
+    <span>
+      <button type="button" class="proto-btn" data-state="fresh" aria-pressed="true">正常</button>
+      <button type="button" class="proto-btn" data-state="stale" aria-pressed="false">過時</button>
+      <button type="button" class="proto-btn" data-state="offline" aria-pressed="false">離線有快取</button>
+      <button type="button" class="proto-btn" data-state="loading" aria-pressed="false">載入中</button>
+      <button type="button" class="proto-btn" data-state="empty" aria-pressed="false">無結果</button>
+      <button type="button" class="proto-btn" data-state="error" aria-pressed="false">無法載入</button>
+    </span>
+  </div>
+
+  <a class="skip" href="#main">跳到主要內容</a>
+
+  <div class="wrap">
+    <header class="site">
+      <h1 class="wordmark">SmartPLAY <span>Live</span></h1>
+      <div class="meta">康文署場地即時餘額 · <span class="freshness" id="freshness">更新於 今天 01:40</span></div>
+    </header>
+
+    <div class="banner stale" role="status">
+      <p>資料可能已過時 · 更新於 26/11/2026 01:23（香港時間）</p>
+      <div class="actions"><button type="button" class="btn">重新整理</button></div>
+    </div>
+    <div class="banner offline" role="status">
+      <p>無法更新，以下係上次成功嘅資料 · 更新於 28/11/2026 00:12（香港時間）</p>
+      <div class="actions"><button type="button" class="btn">重試</button></div>
+    </div>
+    <div class="banner error" role="alert">
+      <p>而家載入唔到資料。請檢查網絡後再試。</p>
+      <div class="actions"><button type="button" class="btn">重試</button></div>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="資料檢視">
+      <button type="button" class="tab" role="tab" aria-selected="true">設施餘額</button>
+      <button type="button" class="tab" role="tab" aria-selected="false">最新改變</button>
+      <button type="button" class="tab" role="tab" aria-selected="false">活動搜尋</button>
+      <div class="more" id="more">
+        <button type="button" class="more-btn" id="more-btn" aria-expanded="false" aria-haspopup="true">更多</button>
+        <div class="more-menu" role="menu" hidden id="more-menu">
+          <button type="button" role="menuitem">放場記錄</button>
+          <button type="button" role="menuitem">放場分析</button>
+          <button type="button" role="menuitem">裝置監察</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="filters">
+      <div class="f-grid">
+        <div class="f-group">
+          <span class="field-label" id="lbl-sport">運動類型</span>
+          <div class="chips" role="group" aria-labelledby="lbl-sport">
+            <button type="button" class="chip" aria-pressed="true">羽毛球</button>
+            <button type="button" class="chip" aria-pressed="false">籃球</button>
+            <button type="button" class="chip" aria-pressed="false">排球</button>
+            <button type="button" class="chip" aria-pressed="false">網球</button>
+            <button type="button" class="chip" aria-pressed="false">足球場</button>
+          </div>
+        </div>
+        <div class="f-group">
+          <label for="district-btn">地區（可多選）</label>
+          <div class="dist" id="dist">
+            <button type="button" class="dist-btn" id="district-btn" aria-expanded="false" aria-haspopup="true">全部地區</button>
+            <div class="dist-panel" id="dist-panel" hidden>
+              <div class="dist-actions">
+                <span class="count">已揀 5 個地區</span>
+                <button type="button" class="mini">全部</button>
+                <button type="button" class="mini">清除</button>
+              </div>
+              <div class="dist-list">
+                <label><input type="checkbox" checked> 深水埗</label>
+                <label><input type="checkbox" checked> 油尖旺</label>
+                <label><input type="checkbox" checked> 灣仔</label>
+                <label><input type="checkbox" checked> 中西區</label>
+                <label><input type="checkbox" checked> 荃灣</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="f-group">
+          <label for="f-search">關鍵字</label>
+          <input class="text-input" id="f-search" type="search" placeholder="場地名 / 地址…">
+        </div>
+        <div class="f-group wide">
+          <span class="field-label" id="lbl-date">日期</span>
+          <div class="chips" role="group" aria-labelledby="lbl-date">
+            <button type="button" class="chip" aria-pressed="true">今日 <span class="muted">28/11 六</span></button>
+            <button type="button" class="chip" aria-pressed="true">聽日 <span class="muted">29/11 日</span></button>
+            <button type="button" class="chip" aria-pressed="true">一 11/30</button>
+            <button type="button" class="chip" aria-pressed="false">二 12/01</button>
+            <button type="button" class="chip" aria-pressed="false">三 12/02</button>
+            <button type="button" class="chip" aria-pressed="false">四 12/03</button>
+            <button type="button" class="chip" aria-pressed="false">五 12/04</button>
+          </div>
+        </div>
+        <div class="f-group">
+          <span class="field-label" id="lbl-period">時段</span>
+          <div class="chips" role="group" aria-labelledby="lbl-period">
+            <button type="button" class="chip" aria-pressed="false">早上 <span class="muted">07:00–11:59</span></button>
+            <button type="button" class="chip" aria-pressed="false">下午 <span class="muted">12:00–17:59</span></button>
+            <button type="button" class="chip" aria-pressed="true">晚上 <span class="muted">18:00+</span></button>
+          </div>
+        </div>
+        <div class="f-group">
+          <label for="f-time">開始時間 ≥</label>
+          <input class="time-input" id="f-time" type="text" inputmode="numeric" value="18:00" placeholder="18:00">
+        </div>
+        <label class="check"><input type="checkbox" checked> 淨係顯示有餘額</label>
+        <button type="button" class="btn secondary">更新</button>
+      </div>
+    </div>
+
+    <main id="main">
+      <p class="stats" id="stats"><b>8 個場地</b> · 揀咗 3 日 · 羽毛球 · 晚上</p>
+
+      <div class="results-live table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="venue" scope="col">場地</th>
+              <th class="district" scope="col">地區</th>
+              <th class="when" scope="col">日期 / 時間</th>
+              <th class="court" scope="col">設施</th>
+              <th class="remain" scope="col">剩餘名額</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="venue">荔枝角公園體育館 <span class="badge">黃金時段</span></td>
+              <td class="district muted">深水埗</td>
+              <td class="when">28/11 星期六 · 19:00–20:00</td>
+              <td class="court muted">羽毛球場</td>
+              <td class="remain"><span class="pill">8 位</span></td>
+            </tr>
+            <tr>
+              <td class="venue">九龍公園體育館 <span class="badge">黃金時段</span></td>
+              <td class="district muted">油尖旺</td>
+              <td class="when">28/11 星期六 · 20:00–21:00</td>
+              <td class="court muted">羽毛球場</td>
+              <td class="remain"><span class="pill">2 位</span></td>
+            </tr>
+            <tr>
+              <td class="venue">香港公園體育館</td>
+              <td class="district muted">中西區</td>
+              <td class="when">29/11 星期日 · 18:00–19:00</td>
+              <td class="court muted">羽毛球場</td>
+              <td class="remain"><span class="pill">12 位</span></td>
+            </tr>
+            <tr>
+              <td class="venue">修頓室內場館 <span class="badge">黃金時段</span></td>
+              <td class="district muted">灣仔</td>
+              <td class="when">29/11 星期日 · 19:00–20:00</td>
+              <td class="court muted">羽毛球場</td>
+              <td class="remain"><span class="pill">4 位</span></td>
+            </tr>
+            <tr>
+              <td class="venue">港灣道體育館</td>
+              <td class="district muted">灣仔</td>
+              <td class="when">30/11 星期一 · 18:00–19:00</td>
+              <td class="court muted">羽毛球場</td>
+              <td class="remain"><span class="pill">6 位</span></td>
+            </tr>
+            <tr>
+              <td class="venue">荃灣西約體育館 <span class="badge">黃金時段</span></td>
+              <td class="district muted">荃灣</td>
+              <td class="when">30/11 星期一 · 20:00–21:00</td>
+              <td class="court muted">羽毛球場</td>
+              <td class="remain"><span class="pill">1 位</span></td>
+            </tr>
+            <tr>
+              <td class="venue">石硤尾公園體育館</td>
+              <td class="district muted">深水埗</td>
+              <td class="when">28/11 星期六 · 18:00–19:00</td>
+              <td class="court muted">羽毛球場</td>
+              <td class="remain"><span class="pill">10 位</span></td>
+            </tr>
+            <tr>
+              <td class="venue">界限街體育館</td>
+              <td class="district muted">油尖旺</td>
+              <td class="when">29/11 星期日 · 21:00–22:00</td>
+              <td class="court muted">羽毛球場</td>
+              <td class="remain"><span class="pill">3 位</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="results-skel table-wrap">
+        <div style="padding:16px;display:grid;gap:14px">
+          <div class="sk"></div><div class="sk" style="width:40%"></div>
+          <div class="sk"></div><div class="sk" style="width:55%"></div>
+          <div class="sk"></div><div class="sk" style="width:35%"></div>
+        </div>
+      </div>
+
+      <div class="empty">
+        <h2>呢個篩選組合冇場地</h2>
+        <p>試下加多一日，或者取消「淨係顯示有餘額」。</p>
+      </div>
+      <div class="fatal">
+        <h2>而家載入唔到資料</h2>
+        <p>請檢查網絡後再試。</p>
+        <p><button type="button" class="btn">重試</button></p>
+      </div>
+    </main>
+
+    <footer class="site">
+      餘額以官方 App 最終確認作準，本網站僅供參考。
+      · <a href="https://hkteddychan.github.io/smartplay-live/privacy/">私隱政策</a>
+    </footer>
+  </div>
+
+  <script>
+    const body = document.body;
+    const freshness = {
+      fresh: "更新於 今天 01:40",
+      stale: "更新於 26/11/2026 01:23",
+      offline: "更新於 28/11/2026 00:12",
+      loading: "更新中…",
+      empty: "更新於 今天 01:40",
+      error: "—"
+    };
+    document.querySelectorAll(".proto-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const state = btn.dataset.state;
+        body.dataset.state = state;
+        document.getElementById("freshness").textContent = freshness[state];
+        document.querySelectorAll(".proto-btn").forEach(b => b.setAttribute("aria-pressed", String(b === btn)));
+      });
+    });
+    document.querySelectorAll("button.chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        const on = chip.getAttribute("aria-pressed") === "true";
+        chip.setAttribute("aria-pressed", String(!on));
+      });
+    });
+    const more = document.getElementById("more");
+    const moreBtn = document.getElementById("more-btn");
+    const moreMenu = document.getElementById("more-menu");
+    function closeMore() {
+      more.classList.remove("open");
+      moreBtn.setAttribute("aria-expanded", "false");
+      moreMenu.hidden = true;
+    }
+    moreBtn.addEventListener("click", e => {
+      e.stopPropagation();
+      const open = !more.classList.contains("open");
+      more.classList.toggle("open", open);
+      moreBtn.setAttribute("aria-expanded", String(open));
+      moreMenu.hidden = !open;
+    });
+    const dist = document.getElementById("dist");
+    const distBtn = document.getElementById("district-btn");
+    const distPanel = document.getElementById("dist-panel");
+    function closeDist() {
+      dist.classList.remove("open");
+      distBtn.setAttribute("aria-expanded", "false");
+      distPanel.hidden = true;
+    }
+    distBtn.addEventListener("click", e => {
+      e.stopPropagation();
+      const open = !dist.classList.contains("open");
+      dist.classList.toggle("open", open);
+      distBtn.setAttribute("aria-expanded", String(open));
+      distPanel.hidden = !open;
+    });
+    document.addEventListener("click", e => {
+      if (!more.contains(e.target)) closeMore();
+      if (!dist.contains(e.target)) closeDist();
+    });
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape") { closeMore(); closeDist(); }
+    });
+  </script>
+</body>
+</html>

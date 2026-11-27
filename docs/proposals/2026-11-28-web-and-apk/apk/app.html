@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>PlayFinder — 設計稿 · Android</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../tokens.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.45;
+    }
+    .proto {
+      background: #1f2328;
+      color: #e6edf3;
+      font-size: 13px;
+      padding: 10px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      align-items: center;
+    }
+    .proto .hint { color: #8b949e; }
+    .proto-btn {
+      min-height: 32px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #30363d;
+      background: #161b22;
+      color: #e6edf3;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .proto-btn[aria-pressed="true"] {
+      background: #3fb950;
+      color: #002010;
+      border-color: #3fb950;
+      font-weight: 600;
+    }
+    h1.page {
+      font-size: 18px;
+      margin: 20px 20px 8px;
+    }
+    .lead {
+      margin: 0 20px 20px;
+      color: var(--muted);
+      font-size: 14px;
+      max-width: 720px;
+    }
+    .gallery {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 28px;
+      padding: 0 20px 48px;
+      align-items: flex-start;
+    }
+    .phone {
+      width: 360px;
+      height: 760px;
+      background: #111;
+      border-radius: 32px;
+      padding: 10px;
+      box-shadow: var(--shadow);
+      flex: 0 0 auto;
+    }
+    .screen {
+      height: 100%;
+      background: var(--bg);
+      border-radius: 24px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      color: var(--text);
+    }
+    .status {
+      height: 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 16px 0;
+      font-size: 11px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .appbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px 6px 16px;
+      min-height: 48px;
+    }
+    .appbar h2 { flex: 1; margin: 0; font-size: 20px; font-weight: 700; }
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      border-radius: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .icon-btn svg, .nav .ic svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .sync {
+      padding: 2px 16px 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .banner {
+      display: none;
+      margin: 0 12px 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      align-items: center;
+      gap: 8px;
+    }
+    .banner button {
+      margin-left: auto;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      font-weight: 600;
+      min-height: 36px;
+      cursor: pointer;
+    }
+    .banner.stale { background: var(--amber-container); color: var(--amber-on); }
+    .banner.offline { background: var(--danger-container); color: var(--danger-on); }
+    body[data-state="stale"] .phone[data-screen="home"] .banner.stale,
+    body[data-state="offline"] .phone[data-screen="home"] .banner.offline { display: flex; }
+    body[data-state="stale"] .phone[data-screen="home"] .sync,
+    body[data-state="offline"] .phone[data-screen="home"] .sync { display: none; }
+    .heat {
+      margin: 0 12px 8px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 10px 10px;
+      font-size: 11px;
+    }
+    .heat .lab { color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+    .heat-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; }
+    .heat-grid i {
+      display: block;
+      height: 16px;
+      border-radius: 3px;
+      background: var(--line);
+    }
+    .heat-grid i.h1 { background: #c6efd3; }
+    .heat-grid i.h2 { background: #6dca8a; }
+    .heat-grid i.h3 { background: #0e8a3e; }
+    @media (prefers-color-scheme: dark) {
+      .heat-grid i.h1 { background: #1a4d2a; }
+      .heat-grid i.h2 { background: #2a8a4a; }
+      .heat-grid i.h3 { background: #3fb950; }
+    }
+    .list { flex: 1; overflow: auto; }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 2px 8px;
+      padding: 10px 12px 10px 16px;
+      border-bottom: 1px solid var(--line);
+      align-items: center;
+      min-height: 64px;
+    }
+    .row .venue { font-weight: 650; font-size: 14px; grid-column: 1; }
+    .row .venue .badge {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      background: var(--amber-container);
+      color: var(--amber);
+      vertical-align: 1px;
+    }
+    .row .sub { grid-column: 1; font-size: 13px; }
+    .row .sub b { font-weight: 650; }
+    .row .loc { grid-column: 1; font-size: 12px; color: var(--muted); }
+    .row .trail {
+      grid-column: 2;
+      grid-row: 1 / span 3;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 650;
+      background: var(--green-container);
+      color: var(--green);
+      white-space: nowrap;
+    }
+    .pill.full { background: var(--danger-container); color: var(--danger); }
+    .more-i { width: 40px; height: 40px; border: 0; background: none; color: var(--muted); font-size: 18px; cursor: pointer; }
+    .empty, .skel-wrap, .fatal {
+      display: none;
+      padding: 36px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .empty h3, .fatal h3 { margin: 0 0 8px; color: var(--text); font-size: 16px; }
+    body[data-state="empty"] .phone[data-screen="home"] .list,
+    body[data-state="loading"] .phone[data-screen="home"] .list,
+    body[data-state="error"] .phone[data-screen="home"] .list,
+    body[data-state="empty"] .phone[data-screen="home"] .heat,
+    body[data-state="error"] .phone[data-screen="home"] .heat { display: none; }
+    body[data-state="empty"] .phone[data-screen="home"] .empty { display: block; }
+    body[data-state="loading"] .phone[data-screen="home"] .skel-wrap { display: block; }
+    body[data-state="error"] .phone[data-screen="home"] .fatal { display: block; }
+    .skel { height: 12px; background: var(--line); border-radius: 4px; margin: 14px 16px; }
+    .nav {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-top: 1px solid var(--line);
+      background: var(--card);
+      min-height: 64px;
+      padding-bottom: 8px;
+    }
+    .nav button {
+      border: 0;
+      background: none;
+      color: var(--muted);
+      font: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      cursor: pointer;
+    }
+    .nav button .ic { display: flex; line-height: 1; }
+    .nav button .ic svg { width: 22px; height: 22px; }
+    .nav button[aria-current="page"] { color: var(--green); }
+    .panel { display: none; flex: 1; overflow: auto; flex-direction: column; }
+    .phone[data-screen="home"] .panel-home,
+    .phone[data-screen="activities"] .panel-activities,
+    .phone[data-screen="alerts"] .panel-alerts,
+    .phone[data-screen="settings"] .panel-settings { display: flex; }
+    .caption { font-size: 13px; color: var(--muted); text-align: center; margin-top: 10px; width: 360px; }
+    .frame { display: flex; flex-direction: column; align-items: center; }
+    .setting-card {
+      margin: 8px 12px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .setting-card h3 { margin: 0 0 6px; font-size: 15px; }
+    .setting-card p { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+    .link-btn, .out-btn {
+      font: inherit;
+      cursor: pointer;
+      min-height: 44px;
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+    .link-btn {
+      border: 0;
+      background: none;
+      color: var(--accent);
+      font-weight: 600;
+      padding-left: 0;
+    }
+    .out-btn {
+      background: var(--card);
+      border: 1px solid var(--line);
+      color: var(--text);
+    }
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 44px;
+      font-size: 14px;
+    }
+    .switch {
+      width: 44px;
+      height: 24px;
+      background: var(--line);
+      border-radius: 12px;
+      position: relative;
+      flex: 0 0 auto;
+    }
+    .switch.on { background: var(--green); }
+    .switch i {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border-radius: 50%;
+    }
+    .switch.on i { left: 22px; }
+    .alert-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .alert-item b { display: block; font-size: 14px; }
+    .alert-item span { font-size: 12px; color: var(--muted); }
+    .act-row { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+    .act-row b { display: block; }
+    .act-row span { font-size: 13px; color: var(--muted); }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body data-state="fresh">
+  <div class="proto" role="note">
+    <strong>Preview · 設計稿</strong>
+    <span class="hint">不是安裝檔。左邊係互動框；右邊係通知同設定定稿。狀態會套用到「場地」頁。</span>
+    <span>
+      <button type="button" class="proto-btn" data-state="fresh" aria-pressed="true">正常</button>
+      <button type="button" class="proto-btn" data-state="stale" aria-pressed="false">過時</button>
+      <button type="button" class="proto-btn" data-state="offline" aria-pressed="false">離線有快取</button>
+      <button type="button" class="proto-btn" data-state="loading" aria-pressed="false">載入中</button>
+      <button type="button" class="proto-btn" data-state="empty" aria-pressed="false">無結果</button>
+      <button type="button" class="proto-btn" data-state="error" aria-pressed="false">無法載入</button>
+    </span>
+  </div>
+
+  <h1 class="page">PlayFinder</h1>
+  <p class="lead">四個分頁維持不變。場地列表要一眼見到場地、時間同剩餘名額；過時資料用同網站一樣嘅講法；設定改為打開已上線嘅私隱政策。</p>
+
+  <div class="gallery">
+    <div class="frame">
+      <div class="phone" id="main-phone" data-screen="home">
+        <div class="screen">
+          <div class="status"><span>01:54</span><span>5G  84%</span></div>
+
+          <section class="panel panel-home">
+            <div class="appbar">
+              <h2>場地</h2>
+              <button type="button" class="icon-btn" aria-label="篩選"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg></button>
+              <button type="button" class="icon-btn" aria-label="排序"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7v10M8 7l-3 3M8 7l3 3M16 17V7M16 17l-3-3M16 17l3-3"/></svg></button>
+              <button type="button" class="icon-btn" aria-label="重新載入"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.2-5.5M20 4v6h-6"/></svg></button>
+            </div>
+            <div class="sync" id="sync-copy">更新於 今天 01:40</div>
+            <div class="banner stale">資料可能已過時 · 更新於 26/11/2026 01:23<button type="button">重新整理</button></div>
+            <div class="banner offline">無法更新，以下係上次成功嘅資料<button type="button">重試</button></div>
+            <div class="heat">
+              <div class="lab">今晚有位時段</div>
+              <div class="heat-grid" aria-hidden="true">
+                <i class="h1"></i><i></i><i class="h2"></i><i class="h3"></i><i class="h2"></i><i class="h1"></i><i></i><i class="h1"></i>
+                <i></i><i class="h2"></i><i class="h3"></i><i class="h3"></i><i class="h2"></i><i class="h1"></i><i></i><i></i>
+              </div>
+            </div>
+            <div class="list">
+              <div class="row">
+                <div class="venue">荔枝角公園體育館 <span class="badge">黃金時段</span></div>
+                <div class="sub"><b>28/11 · 19:00–20:00</b></div>
+                <div class="loc">深水埗 · 羽毛球場</div>
+                <div class="trail"><span class="pill">8 位</span><button type="button" class="more-i" aria-label="更多選項">⋮</button></div>
+              </div>
+              <div class="row">
+                <div class="venue">九龍公園體育館 <span class="badge">黃金時段</span></div>
+                <div class="sub"><b>28/11 · 20:00–21:00</b></div>
+                <div class="loc">油尖旺 · 羽毛球場</div>
+                <div class="trail"><span class="pill">2 位</span><button type="button" class="more-i" aria-label="更多選項">⋮</button></div>
+              </div>
+              <div class="row">
+                <div class="venue">香港公園體育館</div>
+                <div class="sub"><b>29/11 · 18:00–19:00</b></div>
+                <div class="loc">中西區 · 羽毛球場</div>
+                <div class="trail"><span class="pill">12 位</span><button type="button" class="more-i" aria-label="更多選項">⋮</button></div>
+              </div>
+              <div class="row">
+                <div class="venue">修頓室內場館 <span class="badge">黃金時段</span></div>
+                <div class="sub"><b>29/11 · 19:00–20:00</b></div>
+                <div class="loc">灣仔 · 羽毛球場</div>
+                <div class="trail"><span class="pill">4 位</span><button type="button" class="more-i" aria-label="更多選項">⋮</button></div>
+              </div>
+              <div class="row">
+                <div class="venue">荃灣西約體育館 <span class="badge">黃金時段</span></div>
+                <div class="sub"><b>30/11 · 20:00–21:00</b></div>
+                <div class="loc">荃灣 · 羽毛球場</div>
+                <div class="trail"><span class="pill">1 位</span><button type="button" class="more-i" aria-label="更多選項">⋮</button></div>
+              </div>
+            </div>
+            <div class="skel-wrap"><div class="skel"></div><div class="skel" style="width:50%"></div><div class="skel"></div><div class="skel" style="width:70%"></div></div>
+            <div class="empty"><h3>呢個篩選組合冇場地</h3><p>試下加多一日，或者取消「淨係顯示有餘額」。</p></div>
+            <div class="fatal"><h3>而家載入唔到資料</h3><p>請檢查網絡後再試。</p></div>
+          </section>
+
+          <section class="panel panel-activities">
+            <div class="appbar"><h2>活動</h2></div>
+            <div class="act-row"><b>康體同樂日 · 羽毛球體驗</b><span>荔枝角公園體育館 · 29/11 10:00–12:00</span></div>
+            <div class="act-row"><b>長者晨早健身班</b><span>港灣道體育館 · 1/12 08:00–09:00</span></div>
+            <div class="act-row"><b>親子籃球樂</b><span>九龍公園體育館 · 6/12 14:00–16:00</span></div>
+          </section>
+
+          <section class="panel panel-alerts">
+            <div class="appbar"><h2>通知</h2></div>
+            <div class="alert-item"><b>羽毛球 · 深水埗</b><span>有位時推播 · 已開啟</span></div>
+            <div class="alert-item"><b>網球 · 灣仔</b><span>黃金時段優先 · 已開啟</span></div>
+            <p style="margin:16px;font-size:12px;color:var(--muted)">推播只儲存在呢部裝置。解鎖一星期通知需要觀看短片或停留 180 秒，規則不變。</p>
+          </section>
+
+          <section class="panel panel-settings">
+            <div class="appbar"><h2>設定</h2></div>
+            <div class="setting-card">
+              <h3>外觀</h3>
+              <div class="toggle">跟隨系統顏色 <span class="switch" role="switch" aria-checked="false" aria-label="跟隨系統顏色"><i></i></span></div>
+              <p>預設用同網站一致嘅綠色。打開後會跟手機動態顏色。</p>
+            </div>
+            <div class="setting-card">
+              <h3>關於</h3>
+              <p>康文署 SmartPLAY 開放數據鏡像。餘額以官方 App / 網站最終確認為準，本應用僅供參考。</p>
+            </div>
+            <div class="setting-card">
+              <h3>私隱</h3>
+              <p>毋須註冊或登入。追蹤清單同推播設定只儲存在你的裝置。位置只用於距離排序，不會上傳。</p>
+              <button type="button" class="link-btn">閱讀私隱政策</button>
+            </div>
+            <div class="setting-card">
+              <h3>離線快取</h3>
+              <p>已快取 1,284 個場次、36 個活動。</p>
+              <button type="button" class="out-btn">清除離線數據</button>
+            </div>
+          </section>
+
+          <nav class="nav" aria-label="主要">
+            <button type="button" data-screen="home" aria-current="page"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg></span>場地</button>
+            <button type="button" data-screen="activities"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg></span>活動</button>
+            <button type="button" data-screen="alerts"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>通知</button>
+            <button type="button" data-screen="settings"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 13.5a1.6 1.6 0 0 0 .3-1.5 1.6 1.6 0 0 0-.3-1.5l1.3-1.6-1.5-2.6-2 .6a7 7 0 0 0-2.6-1.5l-.4-2.1h-3l-.4 2.1a7 7 0 0 0-2.6 1.5l-2-.6-1.5 2.6 1.3 1.6a1.6 1.6 0 0 0-.3 1.5 1.6 1.6 0 0 0 .3 1.5L3.8 16.6l1.5 2.6 2-.6a7 7 0 0 0 2.6 1.5l.4 2.1h3l.4-2.1a7 7 0 0 0 2.6-1.5l2 .6 1.5-2.6z"/></svg></span>設定</button>
+          </nav>
+        </div>
+      </div>
+      <p class="caption">互動框 · 場地 / 活動 / 通知 / 設定</p>
+    </div>
+
+    <div class="frame">
+      <div class="phone" data-screen="alerts">
+        <div class="screen">
+          <div class="status"><span>01:54</span><span>5G  84%</span></div>
+          <section class="panel panel-alerts" style="display:flex">
+            <div class="appbar"><h2>通知</h2></div>
+            <div class="alert-item"><b>羽毛球 · 深水埗</b><span>有位時推播 · 已開啟</span></div>
+            <div class="alert-item"><b>網球 · 灣仔</b><span>黃金時段優先 · 已開啟</span></div>
+            <p style="margin:16px;font-size:12px;color:var(--muted)">推播只儲存在呢部裝置。解鎖一星期通知需要觀看短片或停留 180 秒，規則不變。</p>
+          </section>
+          <nav class="nav" aria-label="主要">
+            <button type="button" tabindex="-1"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg></span>場地</button>
+            <button type="button" tabindex="-1"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg></span>活動</button>
+            <button type="button" aria-current="page" tabindex="-1"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>通知</button>
+            <button type="button" tabindex="-1"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 13.5a1.6 1.6 0 0 0 .3-1.5 1.6 1.6 0 0 0-.3-1.5l1.3-1.6-1.5-2.6-2 .6a7 7 0 0 0-2.6-1.5l-.4-2.1h-3l-.4 2.1a7 7 0 0 0-2.6 1.5l-2-.6-1.5 2.6 1.3 1.6a1.6 1.6 0 0 0-.3 1.5 1.6 1.6 0 0 0 .3 1.5L3.8 16.6l1.5 2.6 2-.6a7 7 0 0 0 2.6 1.5l.4 2.1h3l.4-2.1a7 7 0 0 0 2.6-1.5l2 .6 1.5-2.6z"/></svg></span>設定</button>
+          </nav>
+        </div>
+      </div>
+      <p class="caption">通知 · 追蹤清單維持不變</p>
+    </div>
+
+    <div class="frame">
+      <div class="phone" data-screen="settings">
+        <div class="screen">
+          <div class="status"><span>01:54</span><span>5G  84%</span></div>
+          <section class="panel panel-settings" style="display:flex">
+            <div class="appbar"><h2>設定</h2></div>
+            <div class="setting-card">
+              <h3>外觀</h3>
+              <div class="toggle">跟隨系統顏色 <span class="switch" role="switch" aria-checked="false"><i></i></span></div>
+              <p>預設用同網站一致嘅綠色。</p>
+            </div>
+            <div class="setting-card">
+              <h3>私隱</h3>
+              <p>毋須註冊或登入。追蹤清單同推播設定只儲存在你的裝置。</p>
+              <button type="button" class="link-btn">閱讀私隱政策</button>
+            </div>
+            <div class="setting-card">
+              <h3>離線快取</h3>
+              <p>已快取 1,284 個場次、36 個活動。</p>
+              <button type="button" class="out-btn">清除離線數據</button>
+            </div>
+          </section>
+          <nav class="nav" aria-label="主要">
+            <button type="button" tabindex="-1"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg></span>場地</button>
+            <button type="button" tabindex="-1"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg></span>活動</button>
+            <button type="button" tabindex="-1"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>通知</button>
+            <button type="button" aria-current="page" tabindex="-1"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 13.5a1.6 1.6 0 0 0 .3-1.5 1.6 1.6 0 0 0-.3-1.5l1.3-1.6-1.5-2.6-2 .6a7 7 0 0 0-2.6-1.5l-.4-2.1h-3l-.4 2.1a7 7 0 0 0-2.6 1.5l-2-.6-1.5 2.6 1.3 1.6a1.6 1.6 0 0 0-.3 1.5 1.6 1.6 0 0 0 .3 1.5L3.8 16.6l1.5 2.6 2-.6a7 7 0 0 0 2.6 1.5l.4 2.1h3l.4-2.1a7 7 0 0 0 2.6-1.5l2 .6 1.5-2.6z"/></svg></span>設定</button>
+          </nav>
+        </div>
+      </div>
+      <p class="caption">設定 · 閱讀私隱政策連到已上線頁面</p>
+    </div>
+  </div>
+
+  <script>
+    const body = document.body;
+    const phone = document.getElementById("main-phone");
+    const sync = document.getElementById("sync-copy");
+    const copy = { fresh: "更新於 今天 01:40", stale: "更新於 26/11/2026 01:23", offline: "更新於 28/11/2026 00:12", loading: "更新中…", empty: "更新於 今天 01:40", error: "—" };
+    document.querySelectorAll(".proto-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        body.dataset.state = btn.dataset.state;
+        sync.textContent = copy[btn.dataset.state];
+        document.querySelectorAll(".proto-btn").forEach(b => b.setAttribute("aria-pressed", String(b === btn)));
+      });
+    });
+    phone.querySelectorAll(".nav button[data-screen]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        phone.dataset.screen = btn.dataset.screen;
+        phone.querySelectorAll(".nav button").forEach(b => {
+          if (b.dataset.screen) b.setAttribute("aria-current", b === btn ? "page" : "false");
+        });
+      });
+    });
+  </script>
+</body>
+</html>

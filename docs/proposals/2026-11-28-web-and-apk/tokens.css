@@ -1,0 +1,57 @@
+/* Shared SmartPLAY Live / PlayFinder tokens.
+   Evolve the existing website palette; do not invent a new brand.
+   App static Material scheme should map onto these, with dynamic colour off by default. */
+
+:root {
+  color-scheme: light;
+  --green: #0e8a3e;
+  --green-hover: #0b7a36;
+  --green-container: #e6f6eb;
+  --green-on: #ffffff;
+  --amber: #9a6700;
+  --amber-container: #fff8c5;
+  --amber-on: #3b2300;
+  --danger: #cf222e;
+  --danger-container: #ffebe9;
+  --danger-on: #82071a;
+  --accent: #0969da;
+  --bg: #f5f7fa;
+  --card: #ffffff;
+  --line: #d8dee4;
+  --text: #1f2328;
+  --muted: #656d76;
+  --code-bg: #f6f8fa;
+  --shadow: 0 8px 24px rgba(31, 35, 40, 0.12);
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-pill: 999px;
+  --target: 44px;
+  --font: "Noto Sans TC", "PingFang HK", "Noto Sans CJK TC", "Microsoft JhengHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --space: 16px;
+  --max: 1200px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --green: #3fb950;
+    --green-hover: #56d364;
+    --green-container: #0d2f1a;
+    --green-on: #002010;
+    --amber: #f0b429;
+    --amber-container: #3d2f00;
+    --amber-on: #fff8c5;
+    --danger: #ff7b72;
+    --danger-container: #490202;
+    --danger-on: #ffdad6;
+    --accent: #58a6ff;
+    --bg: #0e1117;
+    --card: #161b22;
+    --line: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --code-bg: #1a1f27;
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+}
